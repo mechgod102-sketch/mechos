@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 PHASE="${1:-final}"
 ROOT="/workspace/archlive/airootfs"
@@ -8,6 +8,7 @@ PROFILE="/workspace/archlive/profiledef.sh"
 
 log() { printf '[MechOS FastBoot] %s\n' "$*"; }
 fail() { printf '[MechOS FastBoot] ERROR: %s\n' "$*" >&2; exit 1; }
+trap 'rc=$?; printf "[MechOS FastBoot] ERROR: line %s failed: %s (exit %s)\n" "$LINENO" "$BASH_COMMAND" "$rc" >&2' ERR
 
 [ "$PHASE" = "final" ] || exit 0
 [ -d "$ROOT" ] || fail "ArchISO rootfs is missing: $ROOT"
@@ -16,24 +17,29 @@ patch_tree() {
   local tree="$1"
   local bin="$tree/usr/local/bin"
   local apps="$tree/usr/share/applications"
-  local unit="$tree/etc/systemd/system/mechos-firstboot.service"
+  local systemd_dir="$tree/etc/systemd/system"
+  local unit="$systemd_dir/mechos-firstboot.service"
   local gpu="$bin/mechos-gpu-setup"
   local session="$bin/mechos-gaming-session"
 
-  mkdir -p "$bin" "$apps"
+  mkdir -p "$bin" "$apps" "$systemd_dir"
 
-  # First-boot setup used to wait for network-online and explicitly run before
-  # SDDM. That made package/GPU work part of the login critical path. Start it
-  # after SDDM instead, at low CPU/IO priority. The post-install stage already
-  # creates the installed SDDM configuration, so firstboot no longer needs to
-  # hold the display manager hostage.
-  mkdir -p "$(dirname "$unit")"
-  cat > "$unit" <<'EOF'
+  # Gaming Mode does not need to block the graphical boot waiting for internet.
+  # NetworkManager still starts normally; only the wait-online barrier is
+  # disabled. Services that actually need networking can still wait/retry on
+  # their own.
+  ln -sfn /dev/null "$systemd_dir/NetworkManager-wait-online.service"
+
+  # Keep package/GPU setup completely out of both the installer/OOBE critical
+  # path and the MechScope login critical path. OOBE reboots after completion,
+  # so this deferred service becomes eligible on the following boot.
+  cat > "$unit" <<'FIRSTBOOT_EOF'
 [Unit]
 Description=MechOS deferred first-boot gaming and GPU setup
 After=sddm.service NetworkManager.service
 Wants=NetworkManager.service
 ConditionPathExists=!/run/archiso/bootmnt
+ConditionPathExists=/var/lib/mechos/oobe-complete
 ConditionPathExists=!/var/lib/mechos/firstboot.done
 
 [Service]
@@ -41,28 +47,24 @@ Type=oneshot
 ExecStart=/usr/local/bin/mechos-firstboot
 RemainAfterExit=yes
 TimeoutStartSec=5min
-Nice=10
+Nice=15
 IOSchedulingClass=idle
-CPUWeight=20
-IOWeight=20
+CPUWeight=10
+IOWeight=10
 
 [Install]
 WantedBy=graphical.target
-EOF
+FIRSTBOOT_EOF
 
-  # Do not perform a full system upgrade from the first-boot GPU probe. All
-  # normal MechOS GPU stacks are already part of the image; --needed makes this
-  # a fast no-op when the correct packages are present and still allows a
-  # missing vendor stack to be installed without upgrading the whole OS.
+  # Do not perform a full system upgrade from the first-boot GPU probe.
   if [ -f "$gpu" ]; then
     sed -i 's/pacman -Syu --needed --noconfirm/pacman -S --needed --noconfirm/g' "$gpu"
   fi
 
-  # Patch the generated Gaming Mode session. A successful compositor/Vulkan
-  # preflight is cached for 24 hours, cutting the repeated timeout budget from
-  # as much as 20 seconds on every login. If Gamescope still fails, retry once
-  # before falling back to Plasma instead of immediately trapping the user in a
-  # relogin loop.
+  # FastBoot v2: cache Vulkan/Gamescope validation until something relevant
+  # changes instead of re-running smoke tests every 24 hours. The signature
+  # includes kernel, GPU identity, Gamescope and vulkaninfo binaries. A runtime
+  # Gamescope failure invalidates the cache immediately.
   if [ -f "$session" ]; then
     python3 - "$session" <<'PY'
 from pathlib import Path
@@ -70,25 +72,45 @@ import sys
 
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-marker = "# MECHOS_FASTBOOT_V1"
-if marker not in text:
-    start_marker = "# Never allow a broken Vulkan probe to block the login session forever."
+v2_marker = "# MECHOS_FASTBOOT_V2"
+
+if v2_marker not in text:
+    if "# MECHOS_FASTBOOT_V1" in text:
+        start = text.find("# MECHOS_FASTBOOT_V1")
+    else:
+        start = text.find("# Never allow a broken Vulkan probe to block the login session forever.")
     end_marker = 'echo "[MechOS] Starting real Gamescope + MechScope mode."'
-    start = text.find(start_marker)
     end = text.find(end_marker, start)
     if start < 0 or end < 0:
-        raise SystemExit(f"FastBoot could not locate Gaming Mode preflight block in {path}")
+        raise SystemExit(f"FastBoot v2 could not locate Gaming Mode preflight block in {path}")
 
-    replacement = r'''# MECHOS_FASTBOOT_V1
+    replacement = r'''# MECHOS_FASTBOOT_V2
 PRECHECK_STAMP="$STATE_DIR/gaming-preflight.ok"
+PRECHECK_SIGNATURE="$STATE_DIR/gaming-preflight.signature"
+
+make_precheck_signature() {
+  {
+    printf 'kernel=%s\n' "$(uname -r 2>/dev/null || true)"
+    for tool in gamescope vulkaninfo; do
+      resolved="$(command -v "$tool" 2>/dev/null || true)"
+      printf '%s=%s\n' "$tool" "$resolved"
+      if [ -n "$resolved" ]; then
+        stat -Lc '%n:%Y:%s' "$resolved" 2>/dev/null || true
+      fi
+    done
+    lspci -nn 2>/dev/null | grep -Ei 'VGA|3D|Display' || true
+  } | sha256sum | awk '{print $1}'
+}
+
+CURRENT_PRECHECK_SIGNATURE="$(make_precheck_signature)"
 PRECHECK_FRESH=0
-if [ -f "$PRECHECK_STAMP" ] && \
-   find "$PRECHECK_STAMP" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
+if [ -s "$PRECHECK_STAMP" ] && [ -s "$PRECHECK_SIGNATURE" ] && \
+   [ "$(cat "$PRECHECK_SIGNATURE" 2>/dev/null)" = "$CURRENT_PRECHECK_SIGNATURE" ]; then
   PRECHECK_FRESH=1
 fi
 
 if [ "$PRECHECK_FRESH" -eq 1 ]; then
-  echo "[MechOS] FastBoot: using cached Vulkan/Gamescope preflight."
+  echo "[MechOS] FastBoot v2: hardware/software signature unchanged; skipping preflight."
 else
   VULKAN_OK=0
   if command -v vulkaninfo >/dev/null 2>&1; then
@@ -113,19 +135,29 @@ else
     start_plasma_fallback
   fi
 
+  printf '%s\n' "$CURRENT_PRECHECK_SIGNATURE" > "$PRECHECK_SIGNATURE"
   touch "$PRECHECK_STAMP"
 fi
 
 FAIL_COUNT=0
+
+MECHSCOPE_HANDOFF_UPTIME="$(awk '{print $1}' /proc/uptime 2>/dev/null || true)"
+{
+  printf 'gamescope_handoff_uptime_seconds=%s\n' "$MECHSCOPE_HANDOFF_UPTIME"
+  printf 'preflight_cached=%s\n' "$PRECHECK_FRESH"
+  printf 'preflight_signature=%s\n' "$CURRENT_PRECHECK_SIGNATURE"
+} > "$STATE_DIR/gaming-launch.metrics"
 '''.replace('\\"', '"')
+
     text = text[:start] + replacement + text[end:]
 
-    old = r'''      if [ "$GS_RC" -ne 0 ]; then
+    original_failure = r'''      if [ "$GS_RC" -ne 0 ]; then
         echo "[MechOS] Gamescope failed; entering safe fallback."
         start_plasma_fallback
       fi
       continue'''.replace('\\"', '"')
-    new = r'''      if [ "$GS_RC" -ne 0 ]; then
+
+    v1_failure = r'''      if [ "$GS_RC" -ne 0 ]; then
         FAIL_COUNT=$((FAIL_COUNT + 1))
         rm -f "$PRECHECK_STAMP"
         if [ "$FAIL_COUNT" -le 1 ]; then
@@ -138,94 +170,151 @@ FAIL_COUNT=0
       fi
       FAIL_COUNT=0
       continue'''.replace('\\"', '"')
-    if old not in text:
-        raise SystemExit(f"FastBoot could not locate Gaming Mode failure block in {path}")
-    text = text.replace(old, new, 1)
+
+    v2_failure = r'''      if [ "$GS_RC" -ne 0 ]; then
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        rm -f "$PRECHECK_STAMP" "$PRECHECK_SIGNATURE"
+        if [ "$FAIL_COUNT" -le 1 ]; then
+          echo "[MechOS] FastBoot v2: Gamescope failed; invalidating cache and retrying once."
+          sleep 1
+          continue
+        fi
+        echo "[MechOS] Gamescope failed twice; entering safe Plasma fallback."
+        start_plasma_fallback
+      fi
+      FAIL_COUNT=0
+      continue'''.replace('\\"', '"')
+
+    if v1_failure in text:
+        text = text.replace(v1_failure, v2_failure, 1)
+    elif original_failure in text:
+        text = text.replace(original_failure, v2_failure, 1)
+    elif v2_failure not in text:
+        raise SystemExit(f"FastBoot v2 could not locate Gaming Mode failure block in {path}")
+
     path.write_text(text, encoding="utf-8")
 PY
   fi
 
-  # Boot profiler: captures the five slowest units, critical chain, firstboot,
-  # SDDM and MechScope logs into one report that can be compared between builds.
-  cat > "$bin/mechos-boot-diagnostics" <<'EOF'
+  # A single comparable optimization report: boot timing, MechScope handoff,
+  # idle RAM/CPU, running/failed services and top memory consumers.
+  cat > "$bin/mechos-boot-diagnostics" <<'DIAG_EOF'
 #!/usr/bin/env bash
 set +e
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
 mkdir -p "$STATE_DIR"
-REPORT="$STATE_DIR/boot-report-$(date +%Y%m%d-%H%M%S).txt"
+REPORT="$STATE_DIR/optimization-report-$(date +%Y%m%d-%H%M%S).txt"
 
 exec > >(tee "$REPORT") 2>&1
 
-echo "=== MechOS FastBoot Diagnostics ==="
+echo "=== MechOS Optimization Report ==="
 echo "Generated: $(date -Is)"
 echo "Report: $REPORT"
 echo
 
-echo "--- Overall boot timing ---"
+echo "--- Boot timing ---"
 systemd-analyze time 2>&1 || true
 
 echo
-echo "--- Five slowest startup units ---"
-systemd-analyze blame --no-pager 2>&1 | head -n 5 || true
+echo "--- Ten slowest startup units ---"
+systemd-analyze blame --no-pager 2>&1 | head -n 10 || true
 
 echo
 echo "--- Graphical critical chain ---"
 systemd-analyze critical-chain graphical.target 2>&1 || true
 
 echo
-echo "--- MechOS firstboot ---"
+echo "--- MechScope handoff ---"
+if [ -s "$STATE_DIR/gaming-launch.metrics" ]; then
+  cat "$STATE_DIR/gaming-launch.metrics"
+else
+  echo "No Gaming Mode handoff metrics recorded yet."
+fi
+
+echo
+echo "--- Idle system snapshot ---"
+printf 'running_services='
+systemctl list-units --type=service --state=running --no-legend 2>/dev/null | wc -l
+printf 'load_average='
+cat /proc/loadavg 2>/dev/null || true
+free -h 2>/dev/null || true
+df -h / 2>/dev/null || true
+
+echo
+echo "--- Top memory consumers ---"
+ps -eo pid,comm,%cpu,%mem,rss --sort=-rss 2>/dev/null | head -n 12 || true
+
+echo
+echo "--- Failed units ---"
+systemctl --failed --no-pager 2>&1 || true
+
+echo
+echo "--- Wait-online status ---"
+systemctl is-enabled NetworkManager-wait-online.service 2>&1 || true
+systemctl status NetworkManager-wait-online.service --no-pager -n 0 2>&1 || true
+
+echo
+echo "--- OOBE / deferred firstboot ---"
+for marker in /var/lib/mechos/installed /var/lib/mechos/oobe-complete /var/lib/mechos/firstboot.done; do
+  if [ -e "$marker" ]; then
+    echo "[OK] $marker"
+  else
+    echo "[MISSING] $marker"
+  fi
+done
 systemctl --no-pager --full status mechos-firstboot.service 2>&1 || true
-journalctl -b -u mechos-firstboot.service --no-pager -n 100 2>&1 || true
 
 echo
 echo "--- SDDM startup ---"
 systemctl --no-pager --full status sddm.service 2>&1 || true
-journalctl -b -u sddm.service --no-pager -n 100 2>&1 || true
 
 echo
 echo "--- GPU ---"
 lspci 2>/dev/null | grep -Ei 'VGA|3D|Display' || true
 
 echo
-echo "--- Gaming session log ---"
-tail -n 200 "$STATE_DIR/gaming-session.log" 2>/dev/null || true
-
-echo
-echo "--- MechScope log ---"
-tail -n 200 "$STATE_DIR/mechscope.log" 2>/dev/null || true
-
-echo
 echo "--- Cached preflight ---"
 if [ -f "$STATE_DIR/gaming-preflight.ok" ]; then
   stat "$STATE_DIR/gaming-preflight.ok" 2>/dev/null || true
+  printf 'signature='
+  cat "$STATE_DIR/gaming-preflight.signature" 2>/dev/null || true
 else
   echo "No successful Gaming Mode preflight has been cached yet."
 fi
 
 echo
-echo "FastBoot report saved to: $REPORT"
-EOF
-  chmod 755 "$bin/mechos-boot-diagnostics"
+echo "--- Gaming session log ---"
+tail -n 120 "$STATE_DIR/gaming-session.log" 2>/dev/null || true
 
-  cat > "$apps/mechos-boot-diagnostics.desktop" <<'EOF'
+echo
+echo "--- MechScope log ---"
+tail -n 120 "$STATE_DIR/mechscope.log" 2>/dev/null || true
+
+echo
+echo "Optimization report saved to: $REPORT"
+DIAG_EOF
+  chmod 755 "$bin/mechos-boot-diagnostics"
+  ln -sfn mechos-boot-diagnostics "$bin/mechos-optimization-report"
+
+  cat > "$apps/mechos-boot-diagnostics.desktop" <<'DESKTOP_EOF'
 [Desktop Entry]
 Type=Application
-Name=MechOS Boot Diagnostics
-Comment=Profile boot, SDDM, firstboot and MechScope startup performance
-Exec=konsole -e bash -lc '/usr/local/bin/mechos-boot-diagnostics; echo; read -rp "Press Enter to close..."'
+Name=MechOS Optimization Report
+Comment=Measure boot time, MechScope handoff, idle memory, services and startup bottlenecks
+Exec=konsole -e bash -lc '/usr/local/bin/mechos-optimization-report; echo; read -rp "Press Enter to close..."'
 Icon=utilities-system-monitor
 Terminal=false
 Categories=System;Settings;
-Keywords=MechOS;Performance;Boot;MechScope;Diagnostics;
-EOF
+Keywords=MechOS;Optimization;Performance;Boot;MechScope;Diagnostics;
+DESKTOP_EOF
 }
 
 patch_tree "$ROOT"
 
 # The installed-system rootfs archive is created before the final cumulative
-# integration call. Patch a temporary extracted copy and repack it so installed
-# MechOS receives exactly the same FastBoot changes as the live rootfs.
+# integration call. Patch one extracted copy and repack once, so the installed
+# OS receives the same optimization policy.
 ARCHIVE="$PAYLOAD/mechos-rootfs.tar.zst"
 if [ -s "$ARCHIVE" ]; then
   tmp="$(mktemp -d)"
@@ -251,10 +340,14 @@ if [ -f "$PROFILE" ]; then
 fi
 
 bash -n "$ROOT/usr/local/bin/mechos-gaming-session" || fail "Gaming Mode syntax validation failed"
-bash -n "$ROOT/usr/local/bin/mechos-boot-diagnostics" || fail "boot diagnostics syntax validation failed"
-grep -Fq '# MECHOS_FASTBOOT_V1' "$ROOT/usr/local/bin/mechos-gaming-session" \
-  || fail "FastBoot Gaming Mode marker is missing"
-grep -Fq 'After=sddm.service NetworkManager.service' "$ROOT/etc/systemd/system/mechos-firstboot.service" \
-  || fail "firstboot is still on the pre-SDDM critical path"
+bash -n "$ROOT/usr/local/bin/mechos-boot-diagnostics" || fail "optimization report syntax validation failed"
+grep -Fq '# MECHOS_FASTBOOT_V2' "$ROOT/usr/local/bin/mechos-gaming-session" \
+  || fail "FastBoot v2 Gaming Mode marker is missing"
+grep -Fq 'ConditionPathExists=/var/lib/mechos/oobe-complete' "$ROOT/etc/systemd/system/mechos-firstboot.service" \
+  || fail "deferred firstboot is not gated behind completed OOBE"
+[ -L "$ROOT/etc/systemd/system/NetworkManager-wait-online.service" ] \
+  || fail "NetworkManager wait-online is not masked"
+grep -Fq 'gamescope_handoff_uptime_seconds' "$ROOT/usr/local/bin/mechos-gaming-session" \
+  || fail "MechScope handoff metric is missing"
 
-log "FastBoot v1 applied: deferred firstboot, cached preflight, one retry, boot profiler"
+log "Optimization pass 1 applied: OOBE-safe deferred firstboot, no wait-online barrier, signature-cached preflight, startup/idle metrics"
