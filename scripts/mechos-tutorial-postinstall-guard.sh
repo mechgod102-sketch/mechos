@@ -25,16 +25,37 @@ text = path.read_text(encoding="utf-8")
 if "# MECHOS_TUTORIAL_WRAPPER_V1" not in text:
     raise SystemExit(f"tutorial wrapper marker missing: {path}")
 
-marker = "# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V1"
+marker = "# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V2"
 if marker in text:
+    raise SystemExit(0)
+
+# Upgrade an older guard if it is already present.
+if "# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V1" in text:
+    old = '''# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V1
+# Automatic tutorials are post-install only. The main installer creates this
+# marker only after the MechOS payload and post-install stage complete.
+if [ ! -e /var/lib/mechos/installed ]; then
+  exec "$REAL" "$@"
+fi
+'''
+    new = '''# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V2
+# Automatic tutorials are post-install only and must wait until the owner has
+# finished the MechOS account/region setup wizard.
+if [ ! -e /var/lib/mechos/installed ] || [ ! -e /var/lib/mechos/oobe-complete ]; then
+  exec "$REAL" "$@"
+fi
+'''
+    if old not in text:
+        raise SystemExit(f"older tutorial guard could not be upgraded: {path}")
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
     raise SystemExit(0)
 
 needle = '''if [ ! -e "$MARKER" ] && [ -x /usr/local/bin/mechos-tutorial ]; then
 '''
-replacement = '''# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V1
-# Automatic tutorials are post-install only. The main installer creates this
-# marker only after the MechOS payload and post-install stage complete.
-if [ ! -e /var/lib/mechos/installed ]; then
+replacement = '''# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V2
+# Automatic tutorials are post-install only and must wait until the owner has
+# finished the MechOS account/region setup wizard.
+if [ ! -e /var/lib/mechos/installed ] || [ ! -e /var/lib/mechos/oobe-complete ]; then
   exec "$REAL" "$@"
 fi
 
@@ -54,8 +75,7 @@ patch_tree() {
   patch_wrapper "$tree/usr/local/bin/mechos-creator-mode"
 }
 
-# Defense in depth for the Live rootfs: even if ArchISO detection changes,
-# automatic tutorial launch still requires the post-install completion marker.
+# Defense in depth for the Live rootfs.
 patch_tree "$ROOT"
 
 # The installed payload is the authoritative runtime for first-run behavior.
@@ -72,10 +92,12 @@ for wrapper in \
   "$tmp/usr/local/bin/mechscope" \
   "$tmp/usr/local/bin/mechos-creator-mode"; do
   [ -f "$wrapper" ] || continue
-  grep -Fq '# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V1' "$wrapper" \
-    || fail "post-install tutorial guard missing from $wrapper"
+  grep -Fq '# MECHOS_POSTINSTALL_FIRST_RUN_GUARD_V2' "$wrapper" \
+    || fail "post-install/OOBE tutorial guard missing from $wrapper"
   grep -Fq '/var/lib/mechos/installed' "$wrapper" \
     || fail "installed completion marker check missing from $wrapper"
+  grep -Fq '/var/lib/mechos/oobe-complete' "$wrapper" \
+    || fail "OOBE completion marker check missing from $wrapper"
 done
 
 new_archive="$ARCHIVE.postinstall-tutorial-guard"
@@ -84,9 +106,11 @@ mv -f "$new_archive" "$ARCHIVE"
 rm -rf "$tmp"
 trap - EXIT
 
-# Verify the installer actually creates the marker used by the runtime gate.
+# Verify the installer and OOBE create both markers used by the runtime gate.
 grep -Fq 'touch /var/lib/mechos/installed' "$PAYLOAD/mechos-postinstall-target" \
   || fail "post-install completion marker is not created by installer"
+grep -Fq 'oobe-complete' "$ROOT/usr/local/libexec/mechos-oobe-apply" \
+  || fail "OOBE completion marker is not created by first-run setup"
 
 bash -n "$ROOT/usr/local/bin/mechscope" \
   || fail "MechScope tutorial wrapper syntax validation failed"
@@ -95,4 +119,4 @@ if [ -f "$ROOT/usr/local/bin/mechos-creator-mode" ]; then
     || fail "Creator Mode tutorial wrapper syntax validation failed"
 fi
 
-log "tutorial auto-launch locked to first post-install graphical run"
+log "tutorial auto-launch locked behind completed post-install OOBE"
