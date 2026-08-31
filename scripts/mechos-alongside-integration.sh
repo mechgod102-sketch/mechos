@@ -18,8 +18,10 @@ trap 'rc=$?; printf "[MechOS Alongside] ERROR: line %s failed: %s (exit %s)\n" "
 
 # ---------------------------------------------------------------------------
 # Read-only dual-boot planning assistant.
+# Keep this outer heredoc delimiter unique because the generated helper itself
+# contains heredocs named TXT, EOFPLAN and EOF.
 # ---------------------------------------------------------------------------
-cat > "$BIN/mechos-alongside-assistant" <<'EOF'
+cat > "$BIN/mechos-alongside-assistant" <<'ALONGSIDE_HELPER_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -125,7 +127,7 @@ EOF
 
 read -rp "Press Enter to open the guided installer, or Ctrl+C to cancel... " _
 exec /usr/local/bin/mechos-install --terminal --preserve-home --alongside
-EOF
+ALONGSIDE_HELPER_EOF
 chmod 755 "$BIN/mechos-alongside-assistant"
 
 # ---------------------------------------------------------------------------
