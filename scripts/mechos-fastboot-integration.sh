@@ -117,14 +117,14 @@ else
 fi
 
 FAIL_COUNT=0
-'''
+'''.replace('\\"', '"')
     text = text[:start] + replacement + text[end:]
 
     old = r'''      if [ "$GS_RC" -ne 0 ]; then
         echo "[MechOS] Gamescope failed; entering safe fallback."
         start_plasma_fallback
       fi
-      continue'''
+      continue'''.replace('\\"', '"')
     new = r'''      if [ "$GS_RC" -ne 0 ]; then
         FAIL_COUNT=$((FAIL_COUNT + 1))
         rm -f "$PRECHECK_STAMP"
@@ -137,7 +137,7 @@ FAIL_COUNT=0
         start_plasma_fallback
       fi
       FAIL_COUNT=0
-      continue'''
+      continue'''.replace('\\"', '"')
     if old not in text:
         raise SystemExit(f"FastBoot could not locate Gaming Mode failure block in {path}")
     text = text.replace(old, new, 1)
