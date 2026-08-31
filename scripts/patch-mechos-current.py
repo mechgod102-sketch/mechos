@@ -16,6 +16,9 @@ bash /workspace/scripts/mechos-current-integration.sh early
 CALL_LATE = f"""{MARKER_LATE}
 # Re-apply after all legacy builder blocks so current fixes win.
 bash /workspace/scripts/mechos-current-integration.sh final
+# Apply boot-to-MechScope performance fixes after the installed rootfs archive
+# exists so FastBoot can patch both the Live image and installed-system payload.
+bash /workspace/scripts/mechos-fastboot-integration.sh final
 
 """
 
@@ -32,7 +35,7 @@ def strip_legacy_patch_calls(text: str) -> str:
         r"\n# MECHOS_V0_2_2_REPAIR_EARLY\n.*?bash /workspace/scripts/mechos-v0\.2\.2-runtime-repair\.sh early\n\n",
         r"\n# MECHOS_V0_2_2_REPAIR_LATE\n.*?bash /workspace/scripts/mechos-v0\.2\.2-runtime-repair\.sh final\n\n",
         r"\n# MECHOS_CURRENT_INTEGRATION_EARLY\n.*?bash /workspace/scripts/mechos-current-integration\.sh early\n\n",
-        r"\n# MECHOS_CURRENT_INTEGRATION_LATE\n.*?bash /workspace/scripts/mechos-current-integration\.sh final\n\n",
+        r"\n# MECHOS_CURRENT_INTEGRATION_LATE\n.*?bash /workspace/scripts/mechos-current-integration\.sh final\n(?:# Apply boot-to-MechScope performance fixes.*\n# exists so FastBoot can patch both the Live image and installed-system payload\.\n)?(?:bash /workspace/scripts/mechos-fastboot-integration\.sh final\n)?\n",
     ]
     for pattern in patterns:
         text = re.sub(pattern, "\n", text, flags=re.S)
