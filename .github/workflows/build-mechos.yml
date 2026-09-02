@@ -35,6 +35,7 @@ jobs:
           bash scripts/validate-gamescope-universal.sh
           bash scripts/validate-native-installer.sh
           bash scripts/validate-reference-ui.sh
+          bash scripts/validate-radarai-performance-integration.sh
 
       - name: Apply cumulative MechOS integration
         run: |
@@ -58,6 +59,7 @@ jobs:
           test "$(grep -c '^# MECHOS_RGB_QUICK_ACTIONS_INTEGRATION$' scripts/build-mechos-archiso.sh)" -eq 1
           grep -Fq 'mechos-gamescope-amd-compat-integration.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-reference-ui-integration.sh final' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-radarai-performance-integration.sh final' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh
           grep -Fq 'Session=plasma' scripts/build-mechos-archiso.sh
