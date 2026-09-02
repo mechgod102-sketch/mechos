@@ -25,4 +25,5 @@ jobs:
           bash scripts/validate-gamescope-universal.sh
           bash scripts/validate-native-installer.sh
           bash scripts/validate-reference-ui.sh
+          bash scripts/validate-radarai-performance-integration.sh
           bash scripts/validate-creator-mode-launch.sh
