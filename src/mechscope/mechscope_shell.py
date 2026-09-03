@@ -1,28 +1,18 @@
 #!/usr/bin/env python3
 """Source-owned MechScope visual composition.
 
-This module deliberately owns *only* the visual shell. Runtime actions are passed
-in from the generated MechScope backend so ISO integration scripts no longer
-rebuild the screen with competing QHBoxLayout/QVBoxLayout patches.
+This module deliberately owns only visual composition. Runtime actions are
+passed in from the MechScope backend so ISO integration scripts cannot keep
+rebuilding the screen with competing QHBoxLayout/QVBoxLayout patches.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable, Iterable
 
 from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import QLabel, QPushButton, QWidget
-
-
-@dataclass(frozen=True)
-class ActionSpec:
-    key: str
-    title: str
-    subtitle: str
-    callback: Callable[[], None]
-    primary: bool = False
 
 
 class Gauge(QWidget):
@@ -42,37 +32,41 @@ class Gauge(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        side = min(self.width(), self.height()) - 16
-        rect = self.rect().adjusted((self.width()-side)//2, 8, -(self.width()-side)//2, -8)
+        side = max(24, min(self.width(), self.height()) - 16)
+        inset = max(0, (self.width() - side) // 2)
+        rect = self.rect().adjusted(inset, 8, -inset, -8)
         arc = rect.adjusted(5, 5, -5, -5)
-        base = QPen(QColor('#1c2941'), 8)
+        pen_width = max(3, int(min(self.width(), self.height()) / 20))
+        base = QPen(QColor('#1c2941'), pen_width)
         base.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(base)
         p.drawArc(arc, 90 * 16, -360 * 16)
         if self.value is not None:
-            active = QPen(self.accent, 8)
+            active = QPen(self.accent, pen_width)
             active.setCapStyle(Qt.PenCapStyle.RoundCap)
             p.setPen(active)
             p.drawArc(arc, 90 * 16, -int(360 * 16 * self.value / 100))
         p.setPen(QColor('#dce7ff'))
-        f = QFont('Sans Serif', 10, QFont.Weight.Bold)
+        f = QFont('Sans Serif', max(7, int(self.height() / 16)), QFont.Weight.Bold)
         p.setFont(f)
         p.drawText(rect.adjusted(0, 10, 0, 0), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter, self.title)
-        f.setPointSize(19)
+        f.setPointSize(max(11, int(self.height() / 8)))
         p.setFont(f)
         p.drawText(rect, Qt.AlignmentFlag.AlignCenter, '--' if self.value is None else f'{self.value}%')
 
 
 class MechScopeShell(QWidget):
-    """Stable 16:9 visual shell using explicit geometry, not nested layouts.
+    """Stable 16:9 visual shell using explicit authored geometry.
 
     The shell scales from a 1920x1080 design canvas. Major surfaces keep their
-    authored positions and proportions at any resolution instead of being
+    intended positions and proportions at any resolution instead of being
     redistributed by Qt layout stretch factors.
     """
 
     BASE_W = 1920
     BASE_H = 1080
+    RECENT_W = 1112
+    RECENT_H = 300
 
     def __init__(self, owner, actions: dict[str, Callable[[], None]], parent=None):
         super().__init__(parent)
@@ -80,6 +74,7 @@ class MechScopeShell(QWidget):
         self.actions = actions
         self.widgets: list[QWidget] = []
         self.design_rects: dict[QWidget, QRect] = {}
+        self.recent_rects: dict[QWidget, QRect] = {}
         self._build()
 
     def _register(self, widget: QWidget, rect: QRect):
@@ -119,7 +114,7 @@ QLabel[role="muted"] { color:#8da1bd; }
 QLabel[role="accent"] { color:#8b65ff; }
 QLabel[role="section"] { color:#6ddcff; letter-spacing:2px; }
 QPushButton[role="action"], QPushButton[role="primary"] {
-  color:#f4f8ff; text-align:left; padding:12px 16px; border-radius:14px;
+  color:#f4f8ff; text-align:left; padding:10px 14px; border-radius:14px;
   background:#0c1422; border:1px solid #273a59; font-weight:700;
 }
 QPushButton[role="action"]:hover, QPushButton[role="action"]:focus {
@@ -153,8 +148,7 @@ QPushButton[role="primary"]:hover, QPushButton[role="primary"]:focus { border:3p
         self._button('performance', 'Run Optimization', 'Open Performance Center', QRect(1588, 342, 250, 60))
 
         self._label('RECENT GAMES', QRect(72, 438, 350, 34), 13, True, 'section')
-        self.recent_host = self._register(QWidget(), QRect(72, 478, 1112, 300))
-        self.recent_host.setProperty('role', 'recentHost')
+        self.recent_host = self._register(QWidget(), QRect(72, 478, self.RECENT_W, self.RECENT_H))
         self.recent_host.setStyleSheet('QWidget { background:#090f1b; border:1px solid #22334f; border-radius:16px; }')
 
         self._label('QUICK ACTIONS', QRect(1218, 438, 290, 34), 13, True, 'section')
@@ -184,24 +178,40 @@ QPushButton[role="primary"]:hover, QPushButton[role="primary"]:focus { border:3p
     def set_recent_games(self, games: Iterable, launch_game: Callable):
         for child in self.recent_host.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly):
             child.deleteLater()
+        self.recent_rects.clear()
         games = list(games)[:5]
         if not games:
             label = QLabel('No installed Steam games detected yet. Open Steam Library to sign in or install games.', self.recent_host)
             label.setWordWrap(True)
             label.setStyleSheet('color:#8da1bd;padding:20px;background:transparent;border:0;')
-            label.setGeometry(20, 20, 1060, 80)
+            self.recent_rects[label] = QRect(20, 20, 1060, 80)
+            self._scale_recent()
             return
         card_w = 204
         gap = 14
         for i, game in enumerate(games):
             title = getattr(game, 'name', None) or getattr(game, 'title', None) or str(game)
             btn = QPushButton(str(title), self.recent_host)
-            btn.setGeometry(18 + i * (card_w + gap), 18, card_w, 264)
+            self.recent_rects[btn] = QRect(18 + i * (card_w + gap), 18, card_w, 264)
             btn.setStyleSheet('''QPushButton{background:#111a2a;border:1px solid #293f61;border-radius:14px;color:white;font-weight:800;padding:14px;} QPushButton:hover,QPushButton:focus{border:2px solid #66dcff;}''')
             btn.clicked.connect(lambda _=False, g=game: launch_game(g))
             if hasattr(self.owner, 'focus_button'):
-                try: self.owner.focus_button(btn)
-                except Exception: pass
+                try:
+                    self.owner.focus_button(btn)
+                except Exception:
+                    pass
+        self._scale_recent()
+
+    def _scale_recent(self):
+        if not self.recent_rects:
+            return
+        sx = self.recent_host.width() / self.RECENT_W if self.RECENT_W else 1.0
+        sy = self.recent_host.height() / self.RECENT_H if self.RECENT_H else 1.0
+        for widget, rect in self.recent_rects.items():
+            widget.setGeometry(
+                int(rect.x() * sx), int(rect.y() * sy),
+                max(1, int(rect.width() * sx)), max(1, int(rect.height() * sy)),
+            )
 
     def resizeEvent(self, event):
         # Preserve the authored 16:9 composition and letterbox instead of letting
@@ -216,6 +226,7 @@ QPushButton[role="primary"]:hover, QPushButton[role="primary"]:focus { border:3p
                 max(1, int(rect.width() * scale)),
                 max(1, int(rect.height() * scale)),
             )
+        self._scale_recent()
         super().resizeEvent(event)
 
     def paintEvent(self, event):
