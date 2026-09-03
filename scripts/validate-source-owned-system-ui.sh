@@ -10,6 +10,18 @@ fail(){ echo "[validate-source-system-ui] ERROR: $*" >&2; exit 1; }
 [ -f "$INTEGRATION" ] || fail "system UI integration missing"
 [ -f "$PATCHER" ] || fail "reference v5 patcher missing"
 bash -n "$INTEGRATION" || fail "integration shell syntax failed"
+
+# `bash -n` does not catch nounset expansion ordering. Reject declarations that
+# build a dependent local (for example public=...$name) in the same `local`
+# statement that first assigns that variable. This caused the ISO build to die
+# with `name: unbound variable` before Performance Center owner discovery.
+if grep -Eq 'local[[:space:]]+tree="\$1".*name="\$2".*public=.*\$name' "$INTEGRATION"; then
+  fail "unsafe dependent local assignment can fail under set -u"
+fi
+grep -Fq 'local tree="$1"' "$INTEGRATION" || fail "owner_file tree assignment missing"
+grep -Fq 'local name="$2"' "$INTEGRATION" || fail "owner_file name assignment missing"
+grep -Fq 'local public="$tree/usr/local/bin/$name"' "$INTEGRATION" || fail "owner_file public assignment missing"
+
 python3 -m py_compile \
   "$UI/fixed_canvas.py" \
   "$UI/creator_shell.py" \
