@@ -41,6 +41,7 @@ jobs:
           bash scripts/validate-creator-mode-launch.sh
           bash scripts/validate-reference-v5.sh
           bash scripts/validate-mechscope-exact-reference.sh
+          bash scripts/validate-native-ui-shell.sh
           bash scripts/validate-live-installer-runtime-guard.sh
           bash scripts/validate-live-update-pacman-sandbox.sh
           bash scripts/validate-aur-helper.sh
@@ -87,6 +88,7 @@ jobs:
           grep -Fq 'mechos-live-installer-runtime-guard.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-vm-ui-runtime-guard.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-vm-shortcut-launch-hotfix.sh' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-native-ui-shell-integration.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh
