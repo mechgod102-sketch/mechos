@@ -37,10 +37,8 @@ bash /workspace/scripts/mechos-reference-v5-postinstall-stage.sh prepare
 bash /workspace/scripts/mechos-reference-v5-integration.sh final
 bash /workspace/scripts/mechos-reference-v5-store-layout.sh
 bash /workspace/scripts/mechos-reference-v5-mechscope-layout.sh
-# The generated reference images are now the real MechScope composition spec.
-# This late pass replaces the simplified home with the exact three-column
-# dashboard, raster circular telemetry, launcher/system columns and bottom tool
-# strip while preserving the existing Steam/store/mode-switch backends.
+# Legacy compatibility pass. It may provide runtime helpers, but the actual
+# MechScope composition is replaced by the source-owned shell below.
 bash /workspace/scripts/mechos-reference-v5-mechscope-exact-layout.sh
 bash /workspace/scripts/mechos-reference-v5-creator-layout.sh
 bash /workspace/scripts/mechos-reference-v5-controls-layout.sh
@@ -61,14 +59,17 @@ bash /workspace/scripts/mechos-live-installer-runtime-guard.sh
 # keep the Live environment installable through a separately confirmed safe
 # fallback that uses the same native MechOS install backends.
 bash /workspace/scripts/mechos-live-installer-crash-fallback.sh
-# VM behavior is applied after the final UI layouts so it cannot be overwritten
-# by reference styling. Creator Mode is temporarily staged at this point, so
-# the VM-safe code is captured back into the post-install payload below.
+# VM behavior is applied before final visual authority so it can change
+# rendering policy without being allowed to redesign the authored shell.
 bash /workspace/scripts/mechos-vm-ui-runtime-guard.sh
 # Desktop and application-menu mode shortcuts share one entrypoint. It imports
 # the active graphical environment into systemd --user and applies VM-only
 # rendering/Gamescope flags before the persistent mode service is started.
 bash /workspace/scripts/mechos-vm-shortcut-launch-hotfix.sh
+# FINAL MECHSCOPE VISUAL AUTHORITY. This installs the repository-owned 1920x1080
+# composition after every generated/reference/VM patch. No later integration is
+# allowed to replace MechScope.build_ui() with stretch-factor layouts.
+bash /workspace/scripts/mechos-native-ui-shell-integration.sh
 bash /workspace/scripts/mechos-reference-v5-postinstall-stage.sh commit
 bash /workspace/scripts/mechos-finalize-install-payload.sh final
 '''
