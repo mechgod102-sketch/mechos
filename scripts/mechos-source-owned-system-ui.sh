@@ -18,7 +18,13 @@ install_sources(){
 }
 
 owner_file(){
-  local tree="$1" name="$2" cls="$3" public="$tree/usr/local/bin/$name"
+  # Keep dependent local assignments separate under `set -u`. In a single
+  # `local ... public="$tree/.../$name"` statement Bash may expand $name before
+  # the same statement has assigned it, producing `name: unbound variable`.
+  local tree="$1"
+  local name="$2"
+  local cls="$3"
+  local public="$tree/usr/local/bin/$name"
   if [ -f "$public" ] && grep -Fq "class $cls(" "$public"; then printf '%s\n' "$public"; return 0; fi
   if [ -f "$public.real" ] && grep -Fq "class $cls(" "$public.real"; then printf '%s\n' "$public.real"; return 0; fi
   return 1
