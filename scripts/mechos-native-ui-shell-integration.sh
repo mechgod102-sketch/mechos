@@ -42,6 +42,7 @@ if cls < 0:
 # but visual composition lives in src/mechscope instead of shell heredocs.
 loader=r'''# MECHOS_SOURCE_OWNED_SHELL_V1
 import importlib.util as _mechos_importlib_util
+import sys as _mechos_sys
 from pathlib import Path as _MechPath
 
 
@@ -51,6 +52,7 @@ def _mechos_load_source_shell():
     if _spec is None or _spec.loader is None:
         raise RuntimeError(f'Unable to load MechScope source shell: {_path}')
     _module=_mechos_importlib_util.module_from_spec(_spec)
+    _mechos_sys.modules[_spec.name]=_module
     _spec.loader.exec_module(_module)
     return _module
 
