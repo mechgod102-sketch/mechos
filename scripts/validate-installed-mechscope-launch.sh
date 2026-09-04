@@ -19,9 +19,15 @@ bash -n "$HOTFIX" || fail "installed MechScope launch hotfix syntax failed"
 python3 -m py_compile "$PATCHER" || fail "reference-v5 patcher syntax failed"
 
 grep -Fq 'Exec=/usr/local/bin/mechscope-session' "$SESSION" || fail "MechScope session does not call mechscope-session"
-grep -Fq 'Session=mechos-gaming.desktop' "$OOBE" || fail "test assumption changed: OOBE legacy handoff no longer present"
 
-grep -Fq "t=t.replace('Session=mechos-gaming.desktop', 'Session=mechscope.desktop')" "$HOTFIX" || fail "final OOBE SDDM handoff correction missing"
+# The generated OOBE has historically used more than one gaming-session name.
+# The final authority must normalize any Session=<name>.desktop assignment to
+# the only shipped MechScope session instead of depending on one legacy string.
+grep -Fq 're.subn(' "$HOTFIX" || fail "robust OOBE SDDM normalization missing"
+grep -Fq "r'Session=[A-Za-z0-9_.-]+\\.desktop'" "$HOTFIX" || fail "generic SDDM session matcher missing"
+grep -Fq "'Session=mechscope.desktop'" "$HOTFIX" || fail "MechScope SDDM target missing"
+grep -Fq 'OOBE SDDM Session assignment missing' "$HOTFIX" || fail "missing-session diagnostic guard missing"
+
 grep -Fq 'MECHOS_FORCE_INITIAL_GAMING_MODE_V1' "$HOTFIX" || fail "initial Gaming Mode ownership missing"
 grep -Fq 'systemd-detect-virt' "$HOTFIX" || fail "VM detection missing from installed session wrapper"
 grep -Fq 'bypassing Gamescope and starting MechScope through Plasma' "$HOTFIX" || fail "VM Gamescope bypass missing"
@@ -50,4 +56,4 @@ if pos != sorted(pos):
     raise SystemExit('[validate-installed-mechscope-launch] installed launch hotfix is in the wrong final build order')
 PY
 
-echo '[validate-installed-mechscope-launch] OK: installed SDDM handoff, Gaming Mode state, VM bypass and Gamescope failure fallback are enforced'
+echo '[validate-installed-mechscope-launch] OK: installed SDDM normalization, Gaming Mode state, VM bypass and Gamescope failure fallback are enforced'
