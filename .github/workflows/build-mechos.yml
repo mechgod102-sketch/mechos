@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'scripts/mechos-new-build-final-gate.sh'
+      - 'scripts/mechos-new-build-final-hardening.sh'
       - 'scripts/patch-mechos-reference-v5.py'
       - 'scripts/validate-new-build-final-gate.sh'
       - 'overlay/rootfs/etc/mechos/release'
@@ -126,6 +127,7 @@ jobs:
           grep -Fq 'mechos-reference-splash-integration.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-plymouth-boot-final.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-new-build-final-hardening.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-new-build-final-gate.sh' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh

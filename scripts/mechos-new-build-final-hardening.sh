@@ -14,18 +14,42 @@ fail(){ printf '[MechOS New Build Final Hardening] ERROR: %s\n' "$*" >&2; exit 1
 
 patch_tree(){
   local tree="$1"
+  local auth_scope="${2:-installed}"
   local helper="$tree/usr/local/bin/mechos-update-helper"
   local mode="$tree/usr/local/bin/mechos-mode-launch"
   local creator_ui="$tree/usr/local/share/mechos/ui/creator_shell.py"
 
-  # Every permanent account created by OOBE is put in wheel. Make wheel an
-  # actual administrator group on installed MechOS so users never end up with
-  # a valid password but "not in the sudoers file".
+  # LIVE and INSTALLED sudo policy must never be shared. The disposable ISO
+  # account has no password by design, so asking it to authenticate makes the
+  # installer impossible to continue. Permanent OOBE-created accounts use
+  # normal password-authenticated sudo through wheel.
   mkdir -p "$tree/etc/sudoers.d"
-  cat > "$tree/etc/sudoers.d/10-mechos-wheel" <<'EOF'
+  case "$auth_scope" in
+    live)
+      rm -f \
+        "$tree/etc/sudoers.d/10-mechos-wheel" \
+        "$tree/etc/sudoers.d/10-mechos-live" \
+        "$tree/etc/sudoers.d/99-mechos-live"
+      cat > "$tree/etc/sudoers.d/99-mechos-live" <<'EOF'
+# MechOS disposable Live ISO administrator. Never copy this into an installed system.
+mechos ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+      chmod 0440 "$tree/etc/sudoers.d/99-mechos-live"
+      ;;
+    installed)
+      rm -f \
+        "$tree/etc/sudoers.d/10-mechos-live" \
+        "$tree/etc/sudoers.d/99-mechos-live"
+      cat > "$tree/etc/sudoers.d/10-mechos-wheel" <<'EOF'
+# MechOS administrator policy. OOBE-created accounts are members of wheel.
 %wheel ALL=(ALL:ALL) ALL
 EOF
-  chmod 0440 "$tree/etc/sudoers.d/10-mechos-wheel"
+      chmod 0440 "$tree/etc/sudoers.d/10-mechos-wheel"
+      ;;
+    *)
+      fail "unknown sudo auth scope: $auth_scope"
+      ;;
+  esac
 
   # Normal Update Center checks run as the desktop user. Never use root-owned
   # /var/cache for manifest discovery; root keeps that cache only for apply.
@@ -119,12 +143,21 @@ if missing:
     raise SystemExit('[MechOS New Build Final Hardening] postinstall OOBE contract missing: '+', '.join(missing))
 PY
 
-patch_tree "$ROOT"
+# Live ISO keeps passwordless sudo for only the disposable `mechos` account.
+# Installed payload keeps normal password-authenticated wheel sudo.
+patch_tree "$ROOT" live
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 tar --zstd -xpf "$ARCHIVE" -C "$tmp"
-patch_tree "$tmp"
+patch_tree "$tmp" installed
+
+# Build 110 regression guard: a generic wheel password rule in the Live image
+# overrides the passwordless Live account and blocks the installer.
+grep -Fqx 'mechos ALL=(ALL:ALL) NOPASSWD: ALL' "$ROOT/etc/sudoers.d/99-mechos-live" \
+  || fail "Live ISO lost passwordless sudo for mechos"
+[ ! -e "$ROOT/etc/sudoers.d/10-mechos-wheel" ] \
+  || fail "installed wheel sudo policy leaked into Live ISO"
 
 for f in \
   "$tmp/usr/local/bin/mechos-oobe" \
@@ -135,6 +168,13 @@ for f in \
   "$tmp/etc/sudoers.d/10-mechos-wheel"; do
   [ -e "$f" ] || fail "required installed payload file missing: ${f#$tmp}"
 done
+
+[ ! -e "$tmp/etc/sudoers.d/10-mechos-live" ] \
+  || fail "Live sudo policy leaked into installed payload"
+[ ! -e "$tmp/etc/sudoers.d/99-mechos-live" ] \
+  || fail "Live sudo policy leaked into installed payload"
+grep -Fqx '%wheel ALL=(ALL:ALL) ALL' "$tmp/etc/sudoers.d/10-mechos-wheel" \
+  || fail "installed wheel sudo policy invalid"
 
 # OOBE must produce a wheel/admin account.
 grep -Eq 'wheel' "$tmp/usr/local/libexec/mechos-oobe-apply" \
@@ -153,4 +193,4 @@ mv -f "$new" "$ARCHIVE"
 rm -rf "$tmp"
 trap - EXIT
 
-log 'New install contract hardened: automatic OOBE, real wheel sudo, writable update checks, working Creator/MechScope shortcuts, and Creator alignment validation'
+log 'New install contract hardened: Live sudo stays passwordless, installed wheel sudo stays authenticated, automatic OOBE, writable update checks, working Creator/MechScope shortcuts, and Creator alignment validation'
