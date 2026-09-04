@@ -124,12 +124,23 @@ patch_oobe_handoff(){
 
   python3 - "$helper" <<'PY'
 from pathlib import Path
+import re
 import sys
+
 p=Path(sys.argv[1])
 t=p.read_text(encoding='utf-8')
 
-# SDDM must point to the session that actually exists in /usr/share/wayland-sessions.
-t=t.replace('Session=mechos-gaming.desktop', 'Session=mechscope.desktop')
+# SDDM must point to the session that actually exists in
+# /usr/share/wayland-sessions. Older OOBE builds used more than one historical
+# gaming session name, so normalize any generated SDDM Session= assignment
+# instead of depending on one exact legacy string.
+t, session_count = re.subn(
+    r'Session=[A-Za-z0-9_.-]+\.desktop',
+    'Session=mechscope.desktop',
+    t,
+)
+if session_count == 0 and 'Session=mechscope.desktop' not in t:
+    raise SystemExit('[MechOS Installed MechScope Launch] OOBE SDDM Session assignment missing')
 
 marker='# MECHOS_FORCE_INITIAL_GAMING_MODE_V1'
 needle='state = Path("/var/lib/mechos"); state.mkdir(parents=True, exist_ok=True)'
@@ -144,7 +155,10 @@ p.write_text(t,encoding='utf-8')
 PY
 
   PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$helper" || fail "OOBE helper syntax failed in $tree"
-  grep -Fq 'Session=mechscope.desktop' "$helper" || fail "OOBE still points at the wrong SDDM session in $tree"
+  grep -Fq 'Session=mechscope.desktop' "$helper" || {
+    grep -n 'Session=' "$helper" >&2 || true
+    fail "OOBE still points at the wrong SDDM session in $tree"
+  }
   grep -Fq 'MECHOS_FORCE_INITIAL_GAMING_MODE_V1' "$helper" || fail "OOBE does not force initial Gaming Mode in $tree"
 }
 
