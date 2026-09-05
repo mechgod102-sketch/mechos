@@ -97,10 +97,10 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
     def resizeEvent(self, event):
         # MECHOS_VM_RESPONSIVE_GEOMETRY_V3
         # Scale geometry, typography and button padding together. On small VM
-        # desktops, short controls also drop their secondary line when the
-        # scaled height cannot safely hold two lines. This keeps click targets,
-        # labels and text inside the same rectangle instead of visually stacking
-        # controls over one another.
+        # desktops, short controls drop their secondary line when the scaled
+        # height cannot safely hold two lines. Narrow, short status labels also
+        # stop word-wrapping so long VM hardware names cannot spill into the
+        # next control below them.
         s = self.scale_factor()
         for widget, rect in self._rects.items():
             scaled = self.scale_rect(rect)
@@ -110,6 +110,9 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
                 f = widget.font()
                 f.setPointSize(max(5, int(round(base * s))))
                 widget.setFont(f)
+            if isinstance(widget, QLabel):
+                compact_label = s < 0.72 and rect.width() <= 220 and rect.height() <= 70
+                widget.setWordWrap(not compact_label)
             if isinstance(widget, QPushButton) and widget.property('role') != 'hotspot':
                 vpad = max(2, int(round(6 * s)))
                 hpad = max(4, int(round(10 * s)))
