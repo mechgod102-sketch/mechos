@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.2",
-  "release_name": "MechOS v0.3.0 Hotfix 2",
+  "version": "0.3.0-hotfix.3",
+  "release_name": "MechOS v0.3.0 Hotfix 3",
   "published_at": "2026-09-05",
-  "notes": "Fixes first-boot account creation so incomplete installs automatically enter MechOS setup after the required reboot; repairs the Creator Mode and Return to MechScope desktop launchers on both virtual machines and physical hardware; and fixes Creator Mode reference UI hit-zone/alignment scaling.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.2-update.tar.zst",
-  "bundle_sha256": "3573719555509389c58982c24925b247b229215a2fa66ba19aebf501f0b5c178",
+  "notes": "Repairs post-install account creation on affected VM and hardware installs, disables the stock KDE/Plasma session splash, refreshes stable update metadata without stale-cache reuse, and adds a narrowly scoped first-run PolicyKit updater path so the temporary setup account is never asked for a nonexistent password when applying a verified MechOS update.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.3-update.tar.zst",
+  "bundle_sha256": "a4e94be70cdccf5fb96da74df05ed3da2759193297752c61592281203582e594",
   "requires_reboot": true
 }
