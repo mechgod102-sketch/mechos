@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX14_APPLY_V3
+# MECHOS_HOTFIX14_APPLY_V4
 STATE=/var/lib/mechos
 MARKER="$STATE/hotfix-0.3.0-14-applied"
 LOG=/var/log/mechos-hotfix-0.3.0-14.log
@@ -69,7 +69,12 @@ grep -Fq 'MECHOS_HOTFIX14_CREATOR_DIRECT_V1' /usr/local/bin/mechos-mode-launch
 [ -f /usr/local/bin/mechos-creator-mode ] && python3 "$PATCH" creator /usr/local/bin/mechos-creator-mode
 [ -f /usr/local/bin/mechos-recovery-center ] && python3 "$PATCH" escape /usr/local/bin/mechos-recovery-center Recovery
 [ -f /usr/local/bin/mechos-performance-center ] && python3 "$PATCH" escape /usr/local/bin/mechos-performance-center PerformanceCenter
-[ -f /usr/local/libexec/mechos-update-center-v8.py ] && python3 "$PATCH" escape /usr/local/libexec/mechos-update-center-v8.py UpdateCenter
+if [ -f /usr/local/libexec/mechos-update-center-v8.py ]; then
+  python3 "$PATCH" escape /usr/local/libexec/mechos-update-center-v8.py UpdateCenter
+  # Keep the protected rescue copy behaviorally aligned with the validated
+  # foreground backend after Escape/back is injected.
+  install -m0755 /usr/local/libexec/mechos-update-center-v8.py /usr/local/libexec/mechos-update-center-v8-rescue.py
+fi
 
 # Validate the immediately replaced visual/session surfaces.
 for f in \
@@ -89,6 +94,7 @@ for name in [
  '/usr/local/share/mechos/ui/quick_actions_shell.py',
  '/usr/local/share/mechos/ui/recovery_shell.py',
  '/usr/local/libexec/mechos-update-center-v8.py',
+ '/usr/local/libexec/mechos-update-center-v8-rescue.py',
  '/usr/local/bin/mechos-performance-center',
 ]:
  p=Path(name)
@@ -101,9 +107,11 @@ for bad in 'systemctl reboot' 'shutdown -r' 'reboot -f' '/sbin/reboot' 'loginctl
   ! grep -Fq "$bad" /usr/local/bin/mechos-update-helper || { echo "ERROR: automatic reboot command in updater: $bad"; exit 86; }
   ! grep -Fq "$bad" /usr/local/libexec/mechos-update-guard-v14 || { echo "ERROR: automatic session action in updater guard: $bad"; exit 86; }
 done
-status="$(timeout 10 /usr/local/bin/mechos-update-helper status 2>&1)"
-printf '%s\n' "$status" | grep -q '^CURRENT_MECHOS_VERSION='
-printf '%s\n' "$status" | grep -q '^REBOOT_REQUIRED='
+# Activation integrity is intentionally offline so loss of network never delays
+# boot. Live network checks happen after MechScope enters the gaming session.
+grep -Fq 'CURRENT_MECHOS_VERSION=%s' /usr/local/bin/mechos-update-helper
+grep -Fq 'REBOOT_REQUIRED=%s' /usr/local/bin/mechos-update-helper
+grep -Fq 'MECHOS_UPDATE_HELPER_V14' /usr/local/bin/mechos-update-helper
 
 mkdir -p /etc/mechos
 printf '0.3.0-hotfix.14\n' >/etc/mechos/release
