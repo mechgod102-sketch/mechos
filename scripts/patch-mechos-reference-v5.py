@@ -93,10 +93,12 @@ bash /workspace/scripts/mechos-build118-six-regression-final.sh
 # gaming-layer controller to enter MechScope; physical hardware keeps the
 # normal Gamescope controller path.
 bash /workspace/scripts/mechos-build119-vm-mechscope-final.sh
-# BUILD 120 REBOOT + VM CREATOR AUTHORITY. Run absolute last before mkarchiso so
-# the Update Center reboot handler and compact low-resolution VM geometry cannot
-# be overwritten by an older integration stage.
+# BUILD 120 REBOOT + VM CREATOR AUTHORITY. Keep the repaired reboot handler and
+# compact low-resolution VM geometry after older integrations.
 bash /workspace/scripts/mechos-build120-reboot-vm-creator-final.sh
+# BUILD 122 VM RECOVERY AUTHORITY. Absolute-last runtime repair: stable Update
+# Center owner, Creator Store QLineEdit import, and raw-Python VM MechScope launch.
+bash /workspace/scripts/mechos-build122-vm-store-mechscope-final.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
