@@ -98,6 +98,7 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
 
     def resizeEvent(self, event):
         # MECHOS_VM_RESPONSIVE_GEOMETRY_V3
+        # MECHOS_VM_RESPONSIVE_GEOMETRY_V2 - Build 118 late-stage compatibility marker.
         s = self.scale_factor()
         for widget, rect in self._rects.items():
             scaled = self.scale_rect(rect)
