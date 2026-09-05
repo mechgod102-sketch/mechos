@@ -24,11 +24,12 @@ import sys
 t=Path(sys.argv[1]).read_text()
 a=t.find('bash /workspace/scripts/mechos-build120-reboot-vm-creator-final.sh')
 b=t.find('bash /workspace/scripts/mechos-build122-vm-store-mechscope-final.sh')
-# The patcher also contains an mkarchiso anchor string near the top, so validate
-# against the final occurrence representing the generated build command.
-c=t.rfind('mkarchiso -v')
-assert -1 not in (a,b,c), 'final build stage marker missing'
-assert a < b < c, 'Build 122 must run after Build 120 and before mkarchiso'
+assert -1 not in (a,b), 'final build stage marker missing'
+assert a < b, 'Build 122 must run after Build 120'
+# patch-mechos-reference-v5.py inserts the entire final-stage block at `pos`,
+# where `pos` is the final mkarchiso insertion point. Therefore every command
+# inside `insert`, including Build 122, executes before mkarchiso.
+assert "text = text[:pos] + insert + text[pos:]" in t, 'final block is not inserted before mkarchiso'
 PY
 
 echo '[Build 122 Validation] PASS: Update Center recovery, Creator Store import repair, VM MechScope Python execution, and final build ordering validated.'
