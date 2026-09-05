@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX13_STABILITY_INTEGRATION_V1
+# MECHOS_HOTFIX13_STABILITY_INTEGRATION_V2
 ROOT=/workspace/archlive/airootfs
 ARCHIVE="$ROOT/usr/share/mechos/install-payload/mechos-rootfs.tar.zst"
 REPO=/workspace
@@ -15,6 +15,7 @@ patch_tree(){
 
   install -m0755 "$REPO/scripts/mechos-update-center-reference-v8.py" "$tree/usr/local/libexec/mechos-update-center-v8.py"
   install -m0755 "$REPO/scripts/mechos-performance-center-v13.py" "$tree/usr/local/bin/mechos-performance-center"
+  install -m0755 "$REPO/scripts/mechos-game-install-controller-v13.py" "$tree/usr/local/bin/mechos-game-install"
   install -m0755 "$REPO/scripts/mechos-update-transaction-v13.sh" "$tree/usr/local/libexec/mechos-update-transaction-v13"
   install -m0755 "$REPO/scripts/mechos-update-helper-v13-patch.py" "$tree/usr/local/libexec/mechos-update-helper-v13-patch"
   install -m0755 "$REPO/scripts/mechos-hotfix13-mechscope-patch.py" "$tree/usr/local/libexec/mechos-hotfix13-mechscope-patch"
@@ -39,7 +40,7 @@ EOF
   python3 "$REPO/scripts/mechos-hotfix13-mechscope-patch.py" "$mech"
   chmod 0755 "$mech"
 
-  python3 - "$tree/usr/local/libexec/mechos-update-center-v8.py" "$tree/usr/local/bin/mechos-performance-center" "$mech" <<'PY'
+  python3 - "$tree/usr/local/libexec/mechos-update-center-v8.py" "$tree/usr/local/bin/mechos-performance-center" "$tree/usr/local/bin/mechos-game-install" "$mech" <<'PY'
 from pathlib import Path
 import sys
 for name in sys.argv[1:]:
@@ -48,6 +49,9 @@ PY
   grep -Fq 'MECHOS_UPDATE_HELPER_TRANSACTIONAL_V13' "$tree/usr/local/bin/mechos-update-helper" || fail 'transactional updater marker missing'
   grep -Fq 'MECHOS_HOTFIX13_FULLSCREEN_STORE_V1' "$mech" || fail 'MechScope fullscreen marker missing'
   grep -Fq 'MECHOS_HOTFIX13_STORE_PROCESS_V1' "$mech" || fail 'Unified Store launch marker missing'
+  grep -Fq 'MECHOS_HOTFIX13_PROVIDER_INSTALL_V1' "$mech" || fail 'Unified Store provider install marker missing'
+  grep -Fq 'steam://install/' "$tree/usr/local/bin/mechos-game-install" || fail 'Steam install adapter missing'
+  grep -Fq 'lutris-installer-uri' "$tree/usr/local/bin/mechos-game-install" || fail 'Lutris install adapter missing'
   grep -Fq 'MECHOS_PERFORMANCE_CENTER_V13' "$tree/usr/local/bin/mechos-performance-center" || fail 'Performance Center v13 marker missing'
   for bad in 'systemctl reboot' 'shutdown -r' 'reboot -f' '/sbin/reboot'; do ! grep -Fq "$bad" "$tree/usr/local/bin/mechos-update-helper" || fail "automatic reboot command found: $bad"; done
 }
@@ -62,4 +66,4 @@ if [ -s "$ARCHIVE" ]; then
   mv -f "$replacement" "$ARCHIVE"
   rm -rf "$tmp"; trap - EXIT
 fi
-log 'future ISO payload owns transactional updater, working Performance Center, fullscreen MechScope and separate-process Unified Store'
+log 'future ISO payload owns transactional updater, working Performance Center, fullscreen MechScope, separate-process Unified Store and provider install controller'
