@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 # MECHOS_VM_MECHSCOPE_PYTHON_EXEC_V2
 # MECHOS_VM_MECHSCOPE_QPA_FALLBACK_V3
+# MECHOS_VM_MECHSCOPE_NO_PYCACHE_HEALTHCHECK_V4
 MODE="${1:-boot}"
 STATE=/var/lib/mechos
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
@@ -108,11 +109,27 @@ is_python_target(){
   grep -Eq '^[[:space:]]*(from|import)[[:space:]]+[A-Za-z0-9_\.]+' "$target" 2>/dev/null
 }
 
+# Runtime validation must never try to write __pycache__ beside a root-owned
+# /usr/local/bin target. py_compile writes a .pyc even with
+# PYTHONDONTWRITEBYTECODE set, which made ordinary users fail with EACCES before
+# MechScope was ever launched. compile() checks the same source syntax entirely
+# in memory and performs no filesystem writes.
+python_source_check(){
+  local target="$1"
+  /usr/bin/python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+source = p.read_text(encoding='utf-8')
+compile(source, str(p), 'exec')
+PY
+}
+
 python_health_check(){
   local target="$1"
   if is_python_target "$target"; then
     : >"$APP_LOG"
-    PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m py_compile "$target" >>"$APP_LOG" 2>&1 || {
+    python_source_check "$target" >>"$APP_LOG" 2>&1 || {
       log "MechScope Python health check failed target=$target"
       log_app_tail
       return 1

@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 # MECHOS_HOTFIX10_PHYSICAL_MECHSCOPE_FALLBACK_V1
 # MECHOS_HOTFIX11_VM_FAILURE_LOGS_V1
+# MECHOS_HOTFIX12_NO_PYCACHE_HEALTHCHECK_V1
 MODE="${1:-}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
 LOG="$STATE_DIR/mode-shortcut.log"
@@ -72,6 +73,17 @@ is_python_target(){
   grep -Eq '^[[:space:]]*(from|import)[[:space:]]+[A-Za-z0-9_\.]+' "$target" 2>/dev/null
 }
 
+python_source_check(){
+  local target="$1"
+  /usr/bin/python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+source = p.read_text(encoding='utf-8')
+compile(source, str(p), 'exec')
+PY
+}
+
 mechscope_running(){
   pgrep -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1
 }
@@ -91,7 +103,7 @@ launch_mechscope_direct(){
   target="$(actual_mechscope)" || { log 'direct fallback: MechScope target missing'; return 1; }
 
   if is_python_target "$target"; then
-    if ! PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m py_compile "$target" >>"$APP_LOG" 2>&1; then
+    if ! python_source_check "$target" >>"$APP_LOG" 2>&1; then
       log "direct fallback: Python health check failed target=$target"
       return 1
     fi

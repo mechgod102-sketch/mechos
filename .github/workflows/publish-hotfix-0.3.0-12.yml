@@ -1,12 +1,23 @@
-name: Publish MechOS v0.3.0 Hotfix 11
+name: Publish MechOS v0.3.0 Hotfix 12
 
-# Historical publisher retained for manual recovery only. Hotfix 12 owns the
-# current stable channel and shared runtime changes must not republish v11.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
+      - 'scripts/mechos-mode-launch-hotfix10.sh'
+      - 'scripts/mechos-hotfix-0.3.0-12-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-12.sh'
+      - 'scripts/validate-hotfix-0.3.0-12.sh'
+      - '.github/workflows/publish-hotfix-0.3.0-12.yml'
 
 permissions:
   contents: write
+
+concurrency:
+  group: mechos-hotfix-12-publish
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -20,28 +31,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Build and validate Hotfix 11
+      - name: Build and validate Hotfix 12
         run: |
           set -euo pipefail
-          bash -n scripts/mechos-vm-mode-runtime-hotfix5.sh
-          bash -n scripts/mechos-mode-launch-hotfix10.sh
-          PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/mechos-mechscope-runtime-imports-v11.py
-          bash scripts/build-hotfix-0.3.0-11.sh
-          bash scripts/validate-hotfix-0.3.0-11.sh
-      - name: Publish Hotfix 11 to Update Center stable channel
+          bash scripts/build-hotfix-0.3.0-12.sh
+          bash scripts/validate-hotfix-0.3.0-12.sh
+      - name: Publish Hotfix 12 to Update Center stable channel
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
-            updates/bundles/MechOS-0.3.0-hotfix.11-update.tar.zst \
-            updates/bundles/MechOS-0.3.0-hotfix.11-update.tar.zst.sha256 \
+            updates/bundles/MechOS-0.3.0-hotfix.12-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.12-update.tar.zst.sha256 \
             updates/stable.json
           if git diff --cached --quiet; then
-            echo 'Hotfix 11 is already published.'
+            echo 'Hotfix 12 is already published.'
             exit 0
           fi
-          git commit -m 'Publish MechOS v0.3.0 Hotfix 11'
+          git commit -m 'Publish MechOS v0.3.0 Hotfix 12'
           git reset --hard HEAD
           git clean -fd
           for attempt in 1 2 3; do
@@ -54,5 +62,5 @@ jobs:
             git clean -fd
             sleep $((attempt * 2))
           done
-          echo 'Unable to publish Hotfix 11 after three synchronized attempts.' >&2
+          echo 'Unable to publish Hotfix 12 after three synchronized attempts.' >&2
           exit 1

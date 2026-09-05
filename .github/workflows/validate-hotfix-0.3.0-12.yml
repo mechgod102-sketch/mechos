@@ -1,0 +1,31 @@
+name: Validate MechOS v0.3.0 Hotfix 12
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
+      - 'scripts/mechos-mode-launch-hotfix10.sh'
+      - 'scripts/mechos-hotfix-0.3.0-12-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-12.sh'
+      - 'scripts/validate-hotfix-0.3.0-12.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-12.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 12 source and bundle
+        run: |
+          set -euo pipefail
+          bash scripts/build-hotfix-0.3.0-12.sh
+          bash scripts/validate-hotfix-0.3.0-12.sh
