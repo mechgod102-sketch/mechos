@@ -119,15 +119,24 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
                 vpad = max(2, int(round(6 * s)))
                 hpad = max(4, int(round(10 * s)))
                 widget.setStyleSheet(f'padding:{vpad}px {hpad}px;')
-                title = widget.property('mechosTitle') or ''
-                subtitle = widget.property('mechosSubtitle') or ''
-                # A two-line label needs roughly 42 rendered pixels after
-                # borders/padding. Compact only short controls; larger cards
-                # retain their explanatory subtitle even at VM resolutions.
-                compact = bool(subtitle) and s < 0.72 and scaled.height() < 42
-                wanted = title if compact else title + (('\n' + subtitle) if subtitle else '')
-                if widget.text() != wanted:
-                    widget.setText(wanted)
+
+                # Only FixedCanvas.button() controls own mechosTitle/
+                # mechosSubtitle. Installer mode buttons and other custom
+                # QPushButtons deliberately manage their own text; touching
+                # them here used to replace their labels with an empty string
+                # on the first resize event.
+                title_prop = widget.property('mechosTitle')
+                if title_prop is not None:
+                    title = str(title_prop)
+                    subtitle_prop = widget.property('mechosSubtitle')
+                    subtitle = '' if subtitle_prop is None else str(subtitle_prop)
+                    # A two-line label needs roughly 42 rendered pixels after
+                    # borders/padding. Compact only short controls; larger cards
+                    # retain their explanatory subtitle even at VM resolutions.
+                    compact = bool(subtitle) and s < 0.72 and scaled.height() < 42
+                    wanted = title if compact else title + (('\n' + subtitle) if subtitle else '')
+                    if widget.text() != wanted:
+                        widget.setText(wanted)
         super().resizeEvent(event)
 
     def panel(self, painter, rect, fill='#08111e', border='#263a59', radius=20, width=1):
