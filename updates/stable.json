@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.7",
-  "release_name": "MechOS v0.3.0 Hotfix 7",
+  "version": "0.3.0-hotfix.9",
+  "release_name": "MechOS v0.3.0 Hotfix 9",
   "published_at": "2026-09-05",
-  "notes": "Recovery hotfix for upgraded VM installs. Replaces the broken Update Center launcher with a self-contained stable owner, repairs Creator Store QLineEdit imports, and fixes VirtualBox/VMware/QEMU MechScope launching when the installed backend is raw Python without a shebang. Preserves the Hotfix 6 reboot helper.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.7-update.tar.zst",
-  "bundle_sha256": "61f11b44a4e63156b6c1d5496fb9a37d910ff68fdb9318f624417399b9e1a323",
+  "notes": "Visual surface authority hotfix. Unifies the actual MechOS look across MechScope/Unified Store, Creator Mode/Creator Store/Creator Settings, Update Center, Recovery Center and Quick Actions; adds real Creator Store search filtering; restores RGB, brightness, audio and system controls to the source-owned Quick Actions panel; keeps responsive geometry, VM routing and verified update/reboot backends intact.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.9-update.tar.zst",
+  "bundle_sha256": "542a8e98d92eb0f81cb13112be05a3cf65534e9fcd6e863e12ec16116068df6d",
   "requires_reboot": true
 }
