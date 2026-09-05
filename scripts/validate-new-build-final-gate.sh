@@ -6,6 +6,7 @@ HARDENING="$ROOT/scripts/mechos-new-build-final-hardening.sh"
 BUILD111="$ROOT/scripts/mechos-build111-firstboot-splash-hotfix.sh"
 MANIFEST_FINAL="$ROOT/scripts/mechos-update-manifest-refresh-final.sh"
 MANIFEST_RUNTIME="$ROOT/scripts/mechos-update-manifest-refresh-runtime.sh"
+PREOOBE_AUTH="$ROOT/scripts/mechos-preoobe-update-auth-final.sh"
 PATCHER="$ROOT/scripts/patch-mechos-reference-v5.py"
 fail(){ echo "[validate-new-build-final-gate] ERROR: $*" >&2; exit 1; }
 
@@ -19,6 +20,8 @@ bash -n "$BUILD111" || fail "Build 111 firstboot/splash hotfix has invalid shell
 bash -n "$MANIFEST_FINAL" || fail "final Update Center manifest refresh integration has invalid shell syntax"
 [ -f "$MANIFEST_RUNTIME" ] || fail "Update Center manifest refresh runtime is missing"
 bash -n "$MANIFEST_RUNTIME" || fail "Update Center manifest refresh runtime has invalid shell syntax"
+[ -f "$PREOOBE_AUTH" ] || fail "pre-OOBE Update Center auth integration is missing"
+bash -n "$PREOOBE_AUTH" || fail "pre-OOBE Update Center auth integration has invalid shell syntax"
 [ -f "$PATCHER" ] || fail "Reference v5 patcher is missing"
 PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$PATCHER" || fail "Reference v5 patcher has invalid Python syntax"
 
@@ -62,19 +65,31 @@ grep -Fq '_mechos_refresh=' "$MANIFEST_RUNTIME" || fail "manifest cache-busting 
 grep -Fq 'Cache-Control: no-cache' "$MANIFEST_RUNTIME" || fail "manifest no-cache header missing"
 grep -Fq 'mechos-update-manifest-refresh-runtime.sh' "$MANIFEST_FINAL" || fail "final payload does not use manifest refresh runtime"
 
+# Pre-OOBE update authentication regression. The setup account has no password,
+# so Update Center must use exactly one guarded PolicyKit wrapper before OOBE.
+grep -Fq 'MECHOS_PREOOBE_UPDATE_AUTH_V1' "$PREOOBE_AUTH" || fail "pre-OOBE Update Center routing marker missing"
+grep -Fq 'subject.user == "mechos-setup"' "$PREOOBE_AUTH" || fail "PolicyKit rule is not restricted to mechos-setup"
+grep -Fq 'action.lookup("program") == "/usr/local/libexec/mechos-firstboot-update-apply"' "$PREOOBE_AUTH" || fail "PolicyKit grant is not restricted to guarded update wrapper"
+grep -Fq '[ ! -e "$STATE/oobe-complete" ]' "$PREOOBE_AUTH" || fail "guarded updater does not stop after OOBE completion"
+grep -Fq 'PKEXEC_UID' "$PREOOBE_AUTH" || fail "guarded updater does not verify PolicyKit caller"
+grep -Fq 'exec /usr/local/bin/mechos-update-helper apply' "$PREOOBE_AUTH" || fail "guarded updater does not call verified Update Center apply path"
+
 finalizer_line="$(grep -n 'mechos-finalize-install-payload.sh final' "$PATCHER" | tail -n1 | cut -d: -f1)"
 hardening_line="$(grep -n 'mechos-new-build-final-hardening.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 gate_line="$(grep -n 'mechos-new-build-final-gate.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 build111_line="$(grep -n 'mechos-build111-firstboot-splash-hotfix.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 manifest_line="$(grep -n 'mechos-update-manifest-refresh-final.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
+preoobe_line="$(grep -n 'mechos-preoobe-update-auth-final.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 [ -n "$finalizer_line" ] || fail "payload finalizer call missing"
 [ -n "$hardening_line" ] || fail "new-build hardening is not wired into the build"
 [ -n "$gate_line" ] || fail "new-build final gate is not wired into the build"
 [ -n "$build111_line" ] || fail "Build 111 post-install update is not wired into the build"
 [ -n "$manifest_line" ] || fail "fresh Update Center manifest stage is not wired into the build"
+[ -n "$preoobe_line" ] || fail "pre-OOBE Update Center auth stage is not wired into the build"
 [ "$hardening_line" -gt "$finalizer_line" ] || fail "new-build hardening must run after payload finalization"
 [ "$gate_line" -gt "$hardening_line" ] || fail "new-build gate must run after final hardening"
 [ "$build111_line" -gt "$gate_line" ] || fail "Build 111 OOBE/splash update must run after the final gate"
-[ "$manifest_line" -gt "$build111_line" ] || fail "fresh Update Center manifest patch must be the final targeted build stage"
+[ "$manifest_line" -gt "$build111_line" ] || fail "fresh Update Center manifest patch must run after Build 111 fixes"
+[ "$preoobe_line" -gt "$manifest_line" ] || fail "pre-OOBE updater auth must be the final targeted build stage"
 
-echo '[validate-new-build-final-gate] OK: OOBE, sudo separation, KDE splash suppression, fresh Update Center manifest discovery and final build order are guarded'
+echo '[validate-new-build-final-gate] OK: OOBE, sudo separation, KDE splash suppression, fresh Update Center discovery, passwordless guarded pre-OOBE update apply and final build order are guarded'
