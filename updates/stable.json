@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.7",
-  "release_name": "MechOS v0.3.0 Hotfix 7",
+  "version": "0.3.0-hotfix.8",
+  "release_name": "MechOS v0.3.0 Hotfix 8",
   "published_at": "2026-09-05",
-  "notes": "Recovery hotfix for upgraded VM installs. Replaces the broken Update Center launcher with a self-contained stable owner, repairs Creator Store QLineEdit imports, and fixes VirtualBox/VMware/QEMU MechScope launching when the installed backend is raw Python without a shebang. Preserves the Hotfix 6 reboot helper.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.7-update.tar.zst",
-  "bundle_sha256": "f9da77f8474f6198fe8bb817eb012493792e322c2395c60b7c8bc4e39bc87780",
+  "notes": "GUI authority hotfix. Restores the exact current source-owned Update Center, Recovery Center and Quick Actions layouts; reasserts the exact generated Unified Store v5 and Creator Settings page; carries responsive scaling and button alignment fixes into upgraded systems; preserves the VM-safe MechScope launcher and repaired reboot helper.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.8-update.tar.zst",
+  "bundle_sha256": "8099e7077015a10c0493db9a78c9565631253a7661aaa3e8efb4aeb8cdf7b0b8",
   "requires_reboot": true
 }
