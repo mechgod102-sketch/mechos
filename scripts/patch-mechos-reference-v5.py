@@ -96,9 +96,12 @@ bash /workspace/scripts/mechos-build119-vm-mechscope-final.sh
 # BUILD 120 REBOOT + VM CREATOR AUTHORITY. Keep the repaired reboot handler and
 # compact low-resolution VM geometry after older integrations.
 bash /workspace/scripts/mechos-build120-reboot-vm-creator-final.sh
-# BUILD 122 VM RECOVERY AUTHORITY. Absolute-last runtime repair: stable Update
-# Center owner, Creator Store QLineEdit import, and raw-Python VM MechScope launch.
+# BUILD 122 VM RECOVERY AUTHORITY. Keep stable updater/VM launch recovery first.
 bash /workspace/scripts/mechos-build122-vm-store-mechscope-final.sh
+# BUILD 125 FINAL SYSTEM SURFACES. Absolute-last GUI authority. Install the
+# exact checked-in responsive shells and re-run the exact Unified Store v5
+# generator in both Live and installed payloads after every older patch stage.
+bash /workspace/scripts/mechos-build125-final-surfaces.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
