@@ -9,7 +9,8 @@ fail(){ printf '[MechOS Hotfix13 integration] ERROR: %s\n' "$*" >&2; exit 1; }
 [ -d "$ROOT" ] || fail 'ArchISO rootfs missing'
 
 patch_tree(){
-  local tree="$1" mech="$tree/usr/local/bin/mechscope"
+  local tree="$1"
+  local mech="$tree/usr/local/bin/mechscope"
   [ -f "$tree/usr/local/bin/mechscope.real" ] && mech="$tree/usr/local/bin/mechscope.real"
   mkdir -p "$tree/usr/local/bin" "$tree/usr/local/libexec" "$tree/usr/local/share/mechos/ui"
 
