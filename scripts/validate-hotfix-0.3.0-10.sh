@@ -42,7 +42,7 @@ for f in "$APPLY" "$STORE_APPLY" "$STORE_GEN" "$MODE_LAUNCH" "$VM_RUNTIME"; do b
 
 # Graphical Creator Mode must be more than a palette/geometry change.
 grep -Fq 'MECHOS_CREATOR_VISUALS_V10' "$UI/creator_visual_shell_v10.py" || fail 'Creator v10 visual marker missing'
-for token in 'badge_pixmap' 'hero_pixmap' 'setIcon' 'VisualCreatorHome' 'CreatorVisualShellV10' 'project type icons'; do
+for token in 'badge_pixmap' 'hero_pixmap' 'setIcon' 'VisualCreatorHome' 'CreatorVisualShellV10' 'refresh_projects'; do
   grep -Fq "$token" "$UI/creator_visual_shell_v10.py" || fail "Creator graphical implementation missing: $token"
 done
 for app in blender unityhub unreal vscode gitkraken krita obs godot kdenlive audacity vrchat; do
