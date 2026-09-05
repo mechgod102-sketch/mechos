@@ -2,8 +2,9 @@
 """Replace Build 118's fragile exact-text MechScope launcher patch with a semantic guard."""
 from pathlib import Path
 import subprocess
+import sys
 
-path = Path('/workspace/scripts/mechos-build118-six-regression-final.sh')
+path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('/workspace/scripts/mechos-build118-six-regression-final.sh')
 text = path.read_text(encoding='utf-8')
 marker = '# MECHOS_BUILD118_SEMANTIC_LAUNCHER_GUARD_V2'
 if marker in text:
