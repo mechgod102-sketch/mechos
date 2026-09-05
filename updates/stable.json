@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.5",
-  "release_name": "MechOS v0.3.0 Hotfix 5",
+  "version": "0.3.0-hotfix.6",
+  "release_name": "MechOS v0.3.0 Hotfix 6",
   "published_at": "2026-09-05",
-  "notes": "Repairs MechScope launching on upgraded VirtualBox/VMware/QEMU installs by shipping the complete VM launcher/runtime pair and routing VM mode switches directly to the Plasma-hosted MechScope runtime instead of depending on a stale gaming-layer controller. The runtime preserves the first-run OOBE gate, prefers the real MechScope UI backend when a tutorial wrapper is present, performs a Python health check, records a dedicated launch log, and leaves physical-hardware Gamescope routing unchanged.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.5-update.tar.zst",
-  "bundle_sha256": "a47ed3c879fa3dbf05eca3bde6f534cccdcdd28a605b67b66ff400304a59cf36",
+  "notes": "Repairs the Update Center Restart MechOS action by replacing the invalid legacy reboot path with KDE Plasma shutdown authority, systemd-logind fallback and visible PolicyKit failure reporting. Also improves VirtualBox/VMware/QEMU Creator Mode at low resolutions by compacting short two-line controls and preventing narrow status labels from wrapping into neighboring controls.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.6-update.tar.zst",
+  "bundle_sha256": "9fd90614cb641359111c736d92f8ac0c9e14608460a8b3dcf666a56397ae4ef2",
   "requires_reboot": true
 }
