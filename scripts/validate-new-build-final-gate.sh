@@ -4,6 +4,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GATE="$ROOT/scripts/mechos-new-build-final-gate.sh"
 HARDENING="$ROOT/scripts/mechos-new-build-final-hardening.sh"
 BUILD111="$ROOT/scripts/mechos-build111-firstboot-splash-hotfix.sh"
+MANIFEST_FINAL="$ROOT/scripts/mechos-update-manifest-refresh-final.sh"
+MANIFEST_RUNTIME="$ROOT/scripts/mechos-update-manifest-refresh-runtime.sh"
 PATCHER="$ROOT/scripts/patch-mechos-reference-v5.py"
 fail(){ echo "[validate-new-build-final-gate] ERROR: $*" >&2; exit 1; }
 
@@ -13,6 +15,10 @@ bash -n "$GATE" || fail "final clean-build gate has invalid shell syntax"
 bash -n "$HARDENING" || fail "new-build final hardening has invalid shell syntax"
 [ -f "$BUILD111" ] || fail "Build 111 firstboot/splash hotfix is missing"
 bash -n "$BUILD111" || fail "Build 111 firstboot/splash hotfix has invalid shell syntax"
+[ -f "$MANIFEST_FINAL" ] || fail "final Update Center manifest refresh integration is missing"
+bash -n "$MANIFEST_FINAL" || fail "final Update Center manifest refresh integration has invalid shell syntax"
+[ -f "$MANIFEST_RUNTIME" ] || fail "Update Center manifest refresh runtime is missing"
+bash -n "$MANIFEST_RUNTIME" || fail "Update Center manifest refresh runtime has invalid shell syntax"
 [ -f "$PATCHER" ] || fail "Reference v5 patcher is missing"
 PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$PATCHER" || fail "Reference v5 patcher has invalid Python syntax"
 
@@ -30,9 +36,7 @@ grep -Fq 'MECHOS_CREATOR_REFERENCE_NATIVE_SCALE_V2' "$GATE" || fail "Creator ali
 grep -Fq 'MECHOS_NEW_BUILD_FINAL_GATE_V1' "$GATE" || fail "post-install final gate marker missing"
 grep -Fq "printf '0.3.0-hotfix.2\\n'" "$GATE" || fail "installed release metadata is not aligned with Hotfix 2"
 
-# Build 110 Live sudo regression guard. The disposable Live account must remain
-# passwordless, while the installed OOBE-created wheel account must use normal
-# password authentication. Do not let a generic wheel rule leak into Live.
+# Build 110 Live sudo regression guard.
 grep -Fq 'patch_tree "$ROOT" live' "$HARDENING" || fail "Live rootfs is not using the Live auth scope"
 grep -Fq 'patch_tree "$tmp" installed' "$HARDENING" || fail "installed payload is not using the installed auth scope"
 grep -Fq 'mechos ALL=(ALL:ALL) NOPASSWD: ALL' "$HARDENING" || fail "Live passwordless sudo policy missing"
@@ -41,8 +45,7 @@ grep -Fq '99-mechos-live' "$HARDENING" || fail "authoritative late Live sudoers 
 grep -Fq 'installed wheel sudo policy leaked into Live ISO' "$HARDENING" || fail "Live wheel-policy regression assertion missing"
 grep -Fq 'Live sudo policy leaked into installed payload' "$HARDENING" || fail "installed-payload Live-policy leak assertion missing"
 
-# Build 111 VM regressions: account creation reached Plasma but did not launch,
-# and Plasma displayed its stock KDE splash after the MechOS boot splash.
+# Build 111 VM regressions.
 grep -Fq 'MECHOS_BUILD111_FIRSTBOOT_HANDOFF_V1' "$BUILD111" || fail "Build 111 native OOBE handoff marker missing"
 grep -Fq 'MECHOS_BUILD111_OOBE_AUTHORITY_V1' "$BUILD111" || fail "Build 111 final OOBE authority marker missing"
 grep -Fq 'mechos-oobe-autostart.service' "$BUILD111" || fail "systemd-user OOBE fallback missing"
@@ -53,16 +56,25 @@ grep -Fq 'gpasswd -d "$SETUP_USER" wheel' "$BUILD111" || fail "temporary setup a
 grep -Fq 'Engine=none' "$BUILD111" || fail "stock KDE/Plasma session splash suppression missing"
 grep -Fq 'Theme=mechos' "$BUILD111" || fail "MechOS Plymouth authority check missing"
 
+# Update Center stale-manifest regression. Fresh checks must bypass CDN/proxy cache.
+grep -Fq 'MECHOS_MANIFEST_REFRESH_V1' "$MANIFEST_RUNTIME" || fail "fresh manifest patch marker missing"
+grep -Fq '_mechos_refresh=' "$MANIFEST_RUNTIME" || fail "manifest cache-busting query missing"
+grep -Fq 'Cache-Control: no-cache' "$MANIFEST_RUNTIME" || fail "manifest no-cache header missing"
+grep -Fq 'mechos-update-manifest-refresh-runtime.sh' "$MANIFEST_FINAL" || fail "final payload does not use manifest refresh runtime"
+
 finalizer_line="$(grep -n 'mechos-finalize-install-payload.sh final' "$PATCHER" | tail -n1 | cut -d: -f1)"
 hardening_line="$(grep -n 'mechos-new-build-final-hardening.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 gate_line="$(grep -n 'mechos-new-build-final-gate.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 build111_line="$(grep -n 'mechos-build111-firstboot-splash-hotfix.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
+manifest_line="$(grep -n 'mechos-update-manifest-refresh-final.sh' "$PATCHER" | tail -n1 | cut -d: -f1)"
 [ -n "$finalizer_line" ] || fail "payload finalizer call missing"
 [ -n "$hardening_line" ] || fail "new-build hardening is not wired into the build"
 [ -n "$gate_line" ] || fail "new-build final gate is not wired into the build"
 [ -n "$build111_line" ] || fail "Build 111 post-install update is not wired into the build"
+[ -n "$manifest_line" ] || fail "fresh Update Center manifest stage is not wired into the build"
 [ "$hardening_line" -gt "$finalizer_line" ] || fail "new-build hardening must run after payload finalization"
 [ "$gate_line" -gt "$hardening_line" ] || fail "new-build gate must run after final hardening"
-[ "$build111_line" -gt "$gate_line" ] || fail "Build 111 OOBE/splash update must be the final targeted build stage"
+[ "$build111_line" -gt "$gate_line" ] || fail "Build 111 OOBE/splash update must run after the final gate"
+[ "$manifest_line" -gt "$build111_line" ] || fail "fresh Update Center manifest patch must be the final targeted build stage"
 
-echo '[validate-new-build-final-gate] OK: OOBE, updater, VM/hardware mode switching, Creator alignment, Live/installed sudo separation, Build 111 firstboot launch, KDE splash suppression and final build order are guarded'
+echo '[validate-new-build-final-gate] OK: OOBE, sudo separation, KDE splash suppression, fresh Update Center manifest discovery and final build order are guarded'
