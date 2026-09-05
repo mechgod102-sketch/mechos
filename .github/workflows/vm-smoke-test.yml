@@ -75,7 +75,6 @@ jobs:
           test -S "$MON"
           test -s "$PIDFILE"
 
-          # Accept the default boot entry if the boot menu is waiting.
           sleep 8
           printf 'sendkey ret\n' | socat - UNIX-CONNECT:"$MON" >/dev/null || true
 
