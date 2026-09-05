@@ -102,10 +102,12 @@ bash /workspace/scripts/mechos-build119-vm-mechscope-final.sh
 bash /workspace/scripts/mechos-build120-reboot-vm-creator-final.sh
 # BUILD 122 VM RECOVERY AUTHORITY. Keep stable updater/VM launch recovery first.
 bash /workspace/scripts/mechos-build122-vm-store-mechscope-final.sh
-# BUILD 125 FINAL SYSTEM SURFACES. Absolute-last GUI authority. Install the
-# exact checked-in responsive shells and re-run the exact Unified Store v5
-# generator in both Live and installed payloads after every older patch stage.
+# BUILD 125 FINAL SYSTEM SURFACES. Absolute-last legacy GUI authority.
 bash /workspace/scripts/mechos-build125-final-surfaces.sh
+# HOTFIX 13 STABILITY AUTHORITY. This is deliberately the final pre-mkarchiso
+# owner so older generators cannot restore the broken updater, text-only/no-op
+# Performance Center, modal Store launch, or non-fullscreen MechScope state.
+bash /workspace/scripts/mechos-hotfix13-stability-integration.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
