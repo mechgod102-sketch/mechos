@@ -7,14 +7,12 @@ on:
     paths:
       - 'scripts/mechos-hotfix-0.3.0-2-apply.sh'
       - 'scripts/build-hotfix-0.3.0-2.sh'
-      - 'scripts/validate-hotfix-0.3.0-2.sh'
-      - '.github/workflows/publish-hotfix-0.3.0-2.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: mechos-hotfix-0.3.0-2-publish
+  group: mechos-hotfix-publish
   cancel-in-progress: false
 
 jobs:
@@ -26,12 +24,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Refuse stable-channel downgrade
+        id: guard
+        run: |
+          set -euo pipefail
+          current="$(python3 - <<'PY'
+import json
+from pathlib import Path
+p=Path('updates/stable.json')
+if p.exists():
+    try: print(json.loads(p.read_text()).get('version',''))
+    except Exception: print('')
+else: print('')
+PY
+)"
+          if [ -n "$current" ]; then
+            top="$(printf '%s\n%s\n' '0.3.0-hotfix.2' "$current" | sort -V | tail -n1)"
+            if [ "$top" = "$current" ] && [ "$current" != '0.3.0-hotfix.2' ]; then
+              echo "Stable already points to newer release $current; Hotfix 2 publisher will not run."
+              echo 'skip=true' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo 'skip=false' >> "$GITHUB_OUTPUT"
+
       - name: Install bundle tooling
+        if: steps.guard.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
 
       - name: Build Hotfix 2 bundle
+        if: steps.guard.outputs.skip != 'true'
         run: |
           set -euo pipefail
           chmod +x scripts/mechos-hotfix-0.3.0-2-apply.sh
@@ -40,7 +64,8 @@ jobs:
           bash scripts/build-hotfix-0.3.0-2.sh
           bash scripts/validate-hotfix-0.3.0-2.sh
 
-      - name: Publish verified bundle and stable manifest
+      - name: Publish verified archived bundle
+        if: steps.guard.outputs.skip != 'true'
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -54,4 +79,6 @@ jobs:
             exit 0
           fi
           git commit -m 'Publish MechOS v0.3.0 Hotfix 2'
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
