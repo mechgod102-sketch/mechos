@@ -1,15 +1,8 @@
-name: Validate MechOS v0.3.0 Hotfix 5
+name: Validate MechOS v0.3.0 Hotfix 5 (Archived)
 
+# Hotfix 5 is immutable historical validation. Newer VM runtime changes are
+# validated by the current source/hotfix workflows instead.
 on:
-  pull_request:
-    paths:
-      - 'scripts/mechos-hotfix-0.3.0-5-apply.sh'
-      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
-      - 'scripts/mechos-mode-launch-hotfix5.sh'
-      - 'scripts/build-hotfix-0.3.0-5.sh'
-      - 'scripts/validate-hotfix-0.3.0-5.sh'
-      - '.github/workflows/validate-hotfix-0.3.0-5.yml'
-      - '.github/workflows/publish-hotfix-0.3.0-5.yml'
   workflow_dispatch:
 
 permissions:
@@ -21,18 +14,12 @@ jobs:
     steps:
       - name: Checkout MechOS
         uses: actions/checkout@v4
-
       - name: Install bundle tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-
-      - name: Build Hotfix 5 candidate
+      - name: Build and validate archived Hotfix 5
         run: |
           set -euo pipefail
           bash scripts/build-hotfix-0.3.0-5.sh
-
-      - name: Validate Hotfix 5 candidate
-        run: |
-          set -euo pipefail
           bash scripts/validate-hotfix-0.3.0-5.sh
