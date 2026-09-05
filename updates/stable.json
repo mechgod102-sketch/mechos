@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.6",
-  "release_name": "MechOS v0.3.0 Hotfix 6",
+  "version": "0.3.0-hotfix.7",
+  "release_name": "MechOS v0.3.0 Hotfix 7",
   "published_at": "2026-09-05",
-  "notes": "Repairs the Update Center Restart MechOS action by replacing the invalid legacy reboot path with KDE Plasma shutdown authority, systemd-logind fallback and visible PolicyKit failure reporting. Also improves VirtualBox/VMware/QEMU Creator Mode at low resolutions by compacting short two-line controls and preventing narrow status labels from wrapping into neighboring controls.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.6-update.tar.zst",
-  "bundle_sha256": "9fd90614cb641359111c736d92f8ac0c9e14608460a8b3dcf666a56397ae4ef2",
+  "notes": "Recovery hotfix for upgraded VM installs. Replaces the broken Update Center launcher with a self-contained stable owner, repairs Creator Store QLineEdit imports, and fixes VirtualBox/VMware/QEMU MechScope launching when the installed backend is raw Python without a shebang. Preserves the Hotfix 6 reboot helper.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.7-update.tar.zst",
+  "bundle_sha256": "f9da77f8474f6198fe8bb817eb012493792e322c2395c60b7c8bc4e39bc87780",
   "requires_reboot": true
 }
