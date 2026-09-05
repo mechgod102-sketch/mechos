@@ -32,15 +32,48 @@ def patch_mechscope(path: Path):
     b=method_bounds(text,'MechScope','build_ui')
     if not b:raise SystemExit('MechScope.build_ui missing')
     s,e=b;body=text[s:e];head=body.find('\n')+1
-    inject="""        # MECHOS_HOTFIX14_UPDATE_CHECK_V1\n        try:\n            self.setStyleSheet((self.styleSheet() or '') + '\\nQMainWindow{background:#020611;color:#f4f7ff;}')\n            QTimer.singleShot(1800, lambda: __import__('subprocess').Popen(\n                ['/usr/local/bin/mechos-mechscope-update-check'],\n                stdout=__import__('subprocess').DEVNULL,\n                stderr=__import__('subprocess').DEVNULL,\n                start_new_session=True))\n        except Exception:\n            pass\n"""
+    inject="""        # MECHOS_HOTFIX14_UPDATE_CHECK_V1\n        try:\n            from PyQt6.QtCore import QTimer as _MechUpdateTimer\n            import subprocess as _MechUpdateSubprocess\n            self.setStyleSheet((self.styleSheet() or '') + '\\nQMainWindow{background:#020611;color:#f4f7ff;}')\n            _MechUpdateTimer.singleShot(1800, lambda: _MechUpdateSubprocess.Popen(\n                ['/usr/local/bin/mechos-mechscope-update-check'],\n                stdout=_MechUpdateSubprocess.DEVNULL,\n                stderr=_MechUpdateSubprocess.DEVNULL,\n                start_new_session=True))\n        except Exception:\n            pass\n"""
     body=body[:head]+inject+body[head:]
     text=text[:s]+body+text[e:]
-    # Hotfix13 guarantees QTimer for its fullscreen route, but retain a fallback.
-    if 'QTimer.singleShot' in text and 'QTimer' not in text.split('\n',30)[0:30]:
-        pass
     compile(text,str(path),'exec');path.write_text(text,encoding='utf-8')
 
+def patch_mode_launcher(path: Path):
+    if not path.is_file():raise SystemExit(f'Mode launcher missing: {path}')
+    text=path.read_text(encoding='utf-8')
+    marker='# MECHOS_HOTFIX14_CREATOR_DIRECT_V1'
+    if marker in text:return
+    anchor="case \"$MODE\" in gaming|mechscope|creator|desktop) ;; *) echo 'Usage: mechos-mode-launch {gaming|mechscope|creator|desktop}' >&2; exit 2 ;; esac\n"
+    if anchor not in text:raise SystemExit('Mode launcher validation anchor missing')
+    inject=r'''
+# MECHOS_HOTFIX14_CREATOR_DIRECT_V1
+# Creator Mode is a graphical MechOS surface, not a request to expose Plasma.
+# Start it first and verify that it remains alive before closing MechScope. If
+# Creator fails, MechScope is left untouched and the user sees a real error.
+if [ "$MODE" = creator ]; then
+  CREATOR=/usr/local/bin/mechos-creator-mode
+  CREATOR_LOG="$STATE_DIR/creator-mode-launch-v14.log"
+  [ -x "$CREATOR" ] || { notify_error 'Creator Mode is missing.'; exit 1; }
+  log 'Hotfix14 direct Creator transition requested'
+  nohup "$CREATOR" >>"$CREATOR_LOG" 2>&1 </dev/null &
+  creator_pid=$!
+  for i in $(seq 1 30); do
+    sleep 0.1
+    if ! kill -0 "$creator_pid" >/dev/null 2>&1; then
+      wait "$creator_pid" >/dev/null 2>&1 || rc=$?
+      notify_error "Creator Mode exited during startup (rc=${rc:-1})."
+      exit 1
+    fi
+  done
+  # Creator is now visibly established. Only now retire the MechScope process.
+  pkill -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1 || true
+  log "Creator Mode healthy pid=$creator_pid; MechScope retired after handoff"
+  exit 0
+fi
+'''
+    text=text.replace(anchor,anchor+inject,1)
+    path.write_text(text,encoding='utf-8')
+
 if __name__=='__main__':
-    if len(sys.argv)!=3:raise SystemExit('usage: patch quick|mechscope FILE')
-    kind=Path(sys.argv[1]).name if False else sys.argv[1];path=Path(sys.argv[2])
-    {'quick':patch_quick,'mechscope':patch_mechscope}[kind](path)
+    if len(sys.argv)!=3:raise SystemExit('usage: patch quick|mechscope|mode-launch FILE')
+    kind=sys.argv[1];path=Path(sys.argv[2])
+    {'quick':patch_quick,'mechscope':patch_mechscope,'mode-launch':patch_mode_launcher}[kind](path)
