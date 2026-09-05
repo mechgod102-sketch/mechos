@@ -1,0 +1,171 @@
+name: VM Smoke Test MechOS ISO
+
+on:
+  workflow_run:
+    workflows: ["Build MechOS Arch ISO"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  vm-smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Install VM test tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils socat python3-pil
+
+      - name: Download ISO artifact from completed build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p incoming
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir incoming
+          ISO="$(find incoming -type f -name '*.iso' -print -quit)"
+          test -n "$ISO"
+          test -s "$ISO"
+          SHA="$ISO.sha256"
+          test -s "$SHA"
+          (
+            cd "$(dirname "$ISO")"
+            sha256sum -c "$(basename "$SHA")"
+          )
+          printf 'ISO=%s\n' "$ISO" >> "$GITHUB_ENV"
+
+      - name: Boot ISO in QEMU and capture graphical checkpoints
+        run: |
+          set -euo pipefail
+          mkdir -p vm-smoke
+          MON=/tmp/mechos-qemu-monitor.sock
+          PIDFILE=/tmp/mechos-qemu.pid
+          SERIAL="$PWD/vm-smoke/serial.log"
+          rm -f "$MON" "$PIDFILE"
+
+          qemu-system-x86_64 \
+            -machine q35,accel=tcg \
+            -cpu max \
+            -smp 4 \
+            -m 4096 \
+            -cdrom "$ISO" \
+            -boot d \
+            -vga std \
+            -display vnc=:7 \
+            -serial "file:$SERIAL" \
+            -monitor "unix:$MON,server,nowait" \
+            -pidfile "$PIDFILE" \
+            -no-reboot \
+            -daemonize
+
+          for _ in $(seq 1 40); do
+            [ -S "$MON" ] && break
+            sleep 0.25
+          done
+          test -S "$MON"
+          test -s "$PIDFILE"
+
+          sleep 8
+          printf 'sendkey ret\n' | socat - UNIX-CONNECT:"$MON" >/dev/null || true
+
+          capture() {
+            local label="$1"
+            printf 'screendump %s/vm-smoke/%s.ppm\n' "$PWD" "$label" | socat - UNIX-CONNECT:"$MON" >/dev/null
+            test -s "vm-smoke/$label.ppm"
+          }
+
+          sleep 12
+          capture checkpoint-20s
+          sleep 50
+          capture checkpoint-70s
+          sleep 70
+          capture checkpoint-140s
+
+          kill -0 "$(cat "$PIDFILE")"
+          printf 'info status\n' | socat - UNIX-CONNECT:"$MON" | tee vm-smoke/qemu-status.txt
+          printf 'quit\n' | socat - UNIX-CONNECT:"$MON" >/dev/null || true
+
+      - name: Analyze VM screenshots for black/stuck boot
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageChops, ImageStat
+
+          shots = [
+              Path('vm-smoke/checkpoint-20s.ppm'),
+              Path('vm-smoke/checkpoint-70s.ppm'),
+              Path('vm-smoke/checkpoint-140s.ppm'),
+          ]
+          images = []
+          rows = []
+          for p in shots:
+              img = Image.open(p).convert('RGB')
+              images.append(img)
+              stat = ImageStat.Stat(img)
+              mean = sum(stat.mean) / 3.0
+              std = sum(stat.stddev) / 3.0
+              px = list(img.getdata())
+              nonblack = sum(1 for r, g, b in px if max(r, g, b) > 12) / max(1, len(px))
+              png = p.with_suffix('.png')
+              img.save(png)
+              rows.append((p.name, mean, std, nonblack))
+
+          final = images[-1]
+          first = images[0].resize(final.size)
+          delta = ImageStat.Stat(ImageChops.difference(first, final).convert('L')).mean[0]
+          final_mean = rows[-1][1]
+          final_std = rows[-1][2]
+          final_nonblack = rows[-1][3]
+
+          summary = [
+              'MechOS QEMU VM smoke test',
+              *[f'{name}: mean={mean:.2f} std={std:.2f} nonblack={ratio:.3f}' for name, mean, std, ratio in rows],
+              f'first-to-final delta={delta:.2f}',
+          ]
+
+          problems = []
+          if final_mean < 8.0:
+              problems.append('final framebuffer is effectively black')
+          if final_nonblack < 0.03:
+              problems.append('final framebuffer has too little visible content')
+          if final_std < 4.0:
+              problems.append('final framebuffer has almost no visual detail')
+          if delta < 1.5:
+              problems.append('VM display did not visibly progress from the early checkpoint')
+
+          if problems:
+              summary.append('RESULT=FAIL')
+              summary.extend('FAIL: ' + p for p in problems)
+          else:
+              summary.append('RESULT=PASS')
+              summary.append('PASS: ISO progressed to a non-black graphical framebuffer under QEMU')
+
+          Path('vm-smoke/summary.txt').write_text('\n'.join(summary) + '\n', encoding='utf-8')
+          print('\n'.join(summary))
+          if problems:
+              raise SystemExit(1)
+          PY
+
+      - name: Upload VM smoke-test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechOS-VM-smoke-${{ github.event.workflow_run.run_number }}
+          path: |
+            vm-smoke/*.png
+            vm-smoke/*.ppm
+            vm-smoke/*.txt
+            vm-smoke/*.log
+          if-no-files-found: warn
+          retention-days: 7
