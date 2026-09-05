@@ -82,13 +82,13 @@ bash /workspace/scripts/mechos-update-manifest-refresh-final.sh
 # verified update without being asked for a password that cannot exist before
 # account creation. The PolicyKit grant remains narrowly scoped.
 bash /workspace/scripts/mechos-preoobe-update-auth-final.sh
-# BUILD 113 LIVE-BOOT AUTHORITY. This intentionally runs last because Build 112
-# could remain on a black screen before the Live desktop. Reassert a visible,
-# separate Live splash, repair the SDDM plasma.desktop autologin target, force
-# Plymouth to release the VT, and add a redundant single-instance installer
-# launcher. It also restores the installed-system splash identity after all
-# installed-payload patch passes above.
+# BUILD 113 LIVE-BOOT AUTHORITY. Reassert the visible Live/installed splash
+# split and the Live Plasma/installer handoff after every older patch stage.
 bash /workspace/scripts/mechos-build113-live-boot-splash-fix.sh
+# BUILD 118 SIX-REGRESSION AUTHORITY. Runs absolute last before mkarchiso so
+# responsive VM geometry, deterministic OOBE/tutorial, reboot and MechScope
+# runtime fixes cannot be overwritten by an older generated integration.
+bash /workspace/scripts/mechos-build118-six-regression-final.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
