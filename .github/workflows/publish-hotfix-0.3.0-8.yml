@@ -1,0 +1,82 @@
+name: Publish MechOS v0.3.0 Hotfix 8
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-8-apply.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - 'scripts/mechos-final-surface-owner-v8-patch.py'
+      - 'scripts/mechos-creator-settings-v8-patch.py'
+      - 'scripts/mechos-apply-current-store-v8.sh'
+      - 'scripts/mechos-reference-v5-store-layout.sh'
+      - 'scripts/mechos-store-qlineedit-patch.py'
+      - 'scripts/mechos-reboot-hotfix6.sh'
+      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
+      - 'scripts/mechos-mode-launch-hotfix5.sh'
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/update_shell.py'
+      - 'src/mechos_ui/recovery_shell.py'
+      - 'src/mechos_ui/quick_actions_shell.py'
+      - 'src/mechos_ui/creator_shell.py'
+      - 'scripts/build-hotfix-0.3.0-8.sh'
+      - 'scripts/validate-hotfix-0.3.0-8.sh'
+      - '.github/workflows/publish-hotfix-0.3.0-8.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mechos-hotfix-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Build and validate Hotfix 8
+        run: |
+          set -euo pipefail
+          bash scripts/build-hotfix-0.3.0-8.sh
+          bash scripts/validate-hotfix-0.3.0-8.sh
+
+      - name: Publish Hotfix 8 to Update Center stable channel
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            updates/bundles/MechOS-0.3.0-hotfix.8-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.8-update.tar.zst.sha256 \
+            updates/stable.json
+          if git diff --cached --quiet; then
+            echo 'Hotfix 8 is already published.'
+            exit 0
+          fi
+          git commit -m 'Publish MechOS v0.3.0 Hotfix 8'
+          git reset --hard HEAD
+          git clean -fd
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort >/dev/null 2>&1 || true
+            git reset --hard HEAD
+            git clean -fd
+            sleep $((attempt * 2))
+          done
+          echo 'Unable to publish Hotfix 8 after three synchronized attempts.' >&2
+          exit 1
