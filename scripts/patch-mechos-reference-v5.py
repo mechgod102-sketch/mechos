@@ -69,11 +69,14 @@ bash /workspace/scripts/mechos-finalize-install-payload.sh final
 # update discovery cache, working Creator/MechScope desktop icons and Creator UI
 # coordinate alignment.
 bash /workspace/scripts/mechos-new-build-final-hardening.sh
-# ABSOLUTE LAST INSTALLED-PAYLOAD AUTHORITY. Nothing after this command may
-# replace OOBE, updater, mode-switch shortcuts or Creator geometry. It fixes the
-# exact VM + physical-hardware problems found during v0.3.0 testing and fails the
-# build if any of those invariants are missing.
+# FINAL INSTALLED-PAYLOAD AUTHORITY. Reassert OOBE, updater, mode-switch
+# shortcuts and Creator geometry after payload finalization.
 bash /workspace/scripts/mechos-new-build-final-gate.sh
+# BUILD 111 POST-INSTALL UPDATE. This is intentionally the last targeted patch:
+# account creation now has both KDE/XDG and systemd-user launch paths, the
+# temporary setup account is usable but non-admin, and Plasma's stock KDE splash
+# is suppressed so the branded MechOS Plymouth splash remains the only splash.
+bash /workspace/scripts/mechos-build111-firstboot-splash-hotfix.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
