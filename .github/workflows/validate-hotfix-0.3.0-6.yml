@@ -1,0 +1,36 @@
+name: Validate MechOS v0.3.0 Hotfix 6
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-6-apply.sh'
+      - 'scripts/mechos-reboot-hotfix6.sh'
+      - 'scripts/build-hotfix-0.3.0-6.sh'
+      - 'scripts/validate-hotfix-0.3.0-6.sh'
+      - 'src/mechos_ui/fixed_canvas.py'
+      - '.github/workflows/validate-hotfix-0.3.0-6.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Build Hotfix 6 candidate
+        run: |
+          set -euo pipefail
+          bash scripts/build-hotfix-0.3.0-6.sh
+
+      - name: Validate Hotfix 6 candidate
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-6.sh
