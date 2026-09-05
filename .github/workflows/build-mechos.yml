@@ -9,6 +9,10 @@ on:
       - 'scripts/mechos-new-build-final-gate.sh'
       - 'scripts/mechos-new-build-final-hardening.sh'
       - 'scripts/mechos-build113-live-boot-splash-fix.sh'
+      - 'scripts/mechos-build118-six-regression-final.sh'
+      - 'scripts/mechos-build119-vm-mechscope-final.sh'
+      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
+      - 'scripts/mechos-mode-launch-hotfix5.sh'
       - 'scripts/patch-mechos-reference-v5.py'
       - 'scripts/validate-new-build-final-gate.sh'
       - 'overlay/rootfs/etc/mechos/release'
@@ -81,6 +85,13 @@ jobs:
             echo 'Build 113 must not inspect package-owned Plasma session files before mkarchiso installs packages.' >&2
             exit 1
           fi
+          bash -n scripts/mechos-build118-six-regression-final.sh
+          bash -n scripts/mechos-build119-vm-mechscope-final.sh
+          bash -n scripts/mechos-vm-mode-runtime-hotfix5.sh
+          bash -n scripts/mechos-mode-launch-hotfix5.sh
+          grep -Fq 'MECHOS_HOTFIX5_VM_DIRECT_ROUTER_V1' scripts/mechos-mode-launch-hotfix5.sh
+          grep -Fq '/usr/local/bin/mechscope.real' scripts/mechos-vm-mode-runtime-hotfix5.sh
+          grep -Fq 'oobe-complete' scripts/mechos-vm-mode-runtime-hotfix5.sh
 
       - name: Apply cumulative MechOS integration
         run: |
@@ -139,6 +150,8 @@ jobs:
           grep -Fq 'mechos-new-build-final-hardening.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-new-build-final-gate.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-build113-live-boot-splash-fix.sh' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-build118-six-regression-final.sh' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-build119-vm-mechscope-final.sh' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh
           grep -Fq 'Session=plasma' scripts/build-mechos-archiso.sh
