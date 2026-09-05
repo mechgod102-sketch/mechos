@@ -67,12 +67,16 @@ python3 -m py_compile \
   "$STAGE/usr/local/share/mechos/ui/performance_shell.py"
 grep -Fq 'MECHOS_REBOOT_V14' "$STAGE/usr/local/bin/mechos-reboot"
 grep -Fq 'MECHOS_STREAM_CENTER_VISUAL_V14' "$STAGE/usr/local/bin/mechos-stream-center"
+grep -Fq 'MECHOS_HOTFIX14_ESCAPE_BACK_STREAMCENTER' "$STAGE/usr/local/bin/mechos-stream-center"
 grep -Fq 'MECHOS_MECHSCOPE_UPDATE_NOTIFY_V14' "$STAGE/usr/local/bin/mechos-mechscope-update-check"
 grep -Fq 'MECHOS_QUICK_ACTIONS_VISUAL_V14' "$STAGE/usr/local/share/mechos/ui/quick_actions_shell.py"
 grep -Fq 'MECHOS_RECOVERY_VISUAL_V14' "$STAGE/usr/local/share/mechos/ui/recovery_shell.py"
 grep -Fq 'MECHOS_VISUAL_SURFACES_V14_FIXED_CANVAS' "$STAGE/usr/local/share/mechos/ui/fixed_canvas.py"
 grep -Fq 'MECHOS_HOTFIX14_ESCAPE_BACK_CREATOR' "$STAGE/usr/local/libexec/mechos-hotfix14-runtime-patch"
 grep -Fq 'MECHOS_HOTFIX14_CREATOR_DIRECT_V1' "$STAGE/usr/local/libexec/mechos-hotfix14-runtime-patch"
+grep -Fq 'MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_CREATOR' "$STAGE/usr/local/libexec/mechos-hotfix14-runtime-patch"
+grep -Fq 'MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_STORE' "$STAGE/usr/local/libexec/mechos-hotfix14-runtime-patch"
+grep -Fq 'QIcon.fromTheme' "$STAGE/usr/local/libexec/mechos-hotfix14-runtime-patch"
 # Updates may require a restart but must never perform one automatically.
 for bad in 'shutdown -r' 'reboot -f' '/sbin/reboot'; do
   ! grep -R -Fq "$bad" "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-14-apply"
@@ -89,7 +93,7 @@ p=Path(sys.argv[1]); sha=sys.argv[2]
 data={
  'schema':1,'channel':'stable','version':'0.3.0-hotfix.14','release_name':'MechOS v0.3.0 Hotfix 14',
  'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
- 'notes':'Visual, navigation and session-stability hotfix. Redesigns and widens Quick Actions so controls no longer clip; refreshes Recovery Center visuals; replaces the small desktop Stream Center with a responsive fullscreen MechOS surface; explicitly paints dark backing pixels to eliminate white GUI margins; replaces the Restart button backend with a direct logind-first reboot path to avoid the blank/white Plasma logout transition; makes MechScope automatically check for updates once per gaming session and display a desktop notification only when updates are available; keeps MechScope alive behind Creator Mode so Creator no longer dumps the user to Plasma; and adds Escape/back navigation across Quick Actions, Unified Store, Creator Mode, Recovery, Performance, Update Center and Stream Center. Updates remain manual and never reboot, log out or power off automatically.',
+ 'notes':'Visual, navigation and session-stability hotfix. Redesigns and widens Quick Actions so controls no longer clip; refreshes Recovery Center visuals; replaces the small desktop Stream Center with a responsive fullscreen MechOS surface; explicitly paints dark backing pixels to eliminate white GUI margins; replaces the Restart button backend with a direct logind-first reboot path to avoid the blank/white Plasma logout transition; makes MechScope automatically check for updates once per gaming session and display a desktop notification only when updates are available; keeps MechScope alive behind Creator Mode so Creator no longer dumps the user to Plasma; adds Escape/back navigation across Quick Actions, Unified Store, Creator Mode, Recovery, Performance, Update Center and Stream Center; and uses each locally installed program/Flatpak actual desktop/theme icon in Creator Mode, Creator Store and Unified Store instead of imitation logo glyphs when that real icon is available. Updates remain manual and never reboot, log out or power off automatically.',
  'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst',
  'bundle_sha256':sha,'requires_reboot':True,
 }
