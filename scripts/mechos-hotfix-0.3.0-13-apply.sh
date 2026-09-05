@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX13_STABILITY_APPLY_V1
+# MECHOS_HOTFIX13_STABILITY_APPLY_V2
 STATE=/var/lib/mechos
 MARKER="$STATE/hotfix-0.3.0-13-applied"
 LOG=/var/log/mechos-hotfix-0.3.0-13.log
@@ -22,7 +22,7 @@ from pathlib import Path
 import sys
 p=Path(sys.argv[1]); compile(p.read_text(encoding='utf-8'),str(p),'exec')
 t=p.read_text(encoding='utf-8')
-for marker in ('MECHOS_HOTFIX13_FULLSCREEN_STORE_V1','MECHOS_HOTFIX13_STORE_PROCESS_V1'):
+for marker in ('MECHOS_HOTFIX13_FULLSCREEN_STORE_V1','MECHOS_HOTFIX13_STORE_PROCESS_V1','MECHOS_HOTFIX13_PROVIDER_INSTALL_V1'):
     if marker not in t: raise SystemExit(f'MechScope marker missing: {marker}')
 PY
 chmod 0755 "$TARGET"
@@ -40,13 +40,21 @@ done
 # Validate all system surfaces that Hotfix 13 protects.
 [ -x /usr/local/bin/mechos-update-center ] || { echo 'ERROR: Update Center launcher missing'; exit 74; }
 [ -x /usr/local/bin/mechos-performance-center ] || { echo 'ERROR: Performance Center launcher missing'; exit 75; }
-[ -x /usr/local/libexec/mechos-update-transaction-v13 ] || { echo 'ERROR: transaction engine missing'; exit 76; }
+[ -x /usr/local/bin/mechos-game-install ] || { echo 'ERROR: provider install controller missing'; exit 76; }
+[ -x /usr/local/libexec/mechos-update-transaction-v13 ] || { echo 'ERROR: transaction engine missing'; exit 77; }
 python3 - <<'PY'
 from pathlib import Path
-for name in ['/usr/local/libexec/mechos-update-center-v8.py','/usr/local/bin/mechos-performance-center']:
+for name in [
+    '/usr/local/libexec/mechos-update-center-v8.py',
+    '/usr/local/bin/mechos-performance-center',
+    '/usr/local/bin/mechos-game-install',
+]:
     p=Path(name)
     compile(p.read_text(encoding='utf-8'),str(p),'exec')
 PY
+grep -Fq 'steam://install/' /usr/local/bin/mechos-game-install
+grep -Fq 'lutris-installer-uri' /usr/local/bin/mechos-game-install
+grep -Fq 'Heroic Games Launcher' /usr/local/bin/mechos-game-install
 status="$(timeout 8 /usr/local/bin/mechos-update-helper status 2>&1)"
 printf '%s\n' "$status" | grep -q '^CURRENT_MECHOS_VERSION='
 printf '%s\n' "$status" | grep -q '^REBOOT_REQUIRED='
@@ -58,4 +66,4 @@ if [ -f /etc/mechos/mechos.conf ]; then
 fi
 printf 'MechOS v0.3.0 Hotfix 13\n' >/etc/system-release
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix 13 applied. Update transactions protected; Update Center and Performance Center validated; MechScope fullscreen/store patch active."
+echo "[$(date -Is)] Hotfix 13 applied. Update transactions protected; Update Center and Performance Center validated; MechScope fullscreen/store patch and provider install controller active."
