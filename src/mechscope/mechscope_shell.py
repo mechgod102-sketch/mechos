@@ -182,6 +182,68 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         self._label('Ⓐ  Select     Ⓑ  Back     ☰  Menu     ✥  D-Pad / Arrows  Navigate', QRect(22,875,890,42), 11, False, 'muted')
         self.pad_label = self._label('🎮  Controller: detecting', QRect(1350,875,295,42), 11, False, 'muted', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
 
+    def _recent_card_style(self, scale: float, artwork: str = '') -> str:
+        scale = max(.05, float(scale))
+        radius = max(4, int(round(10 * scale)))
+        border = max(1, int(round(scale)))
+        focus_border = max(2, int(round(3 * scale)))
+        top = max(10, int(round(142 * scale)))
+        hpad = max(4, int(round(10 * scale)))
+        bottom = max(4, int(round(10 * scale)))
+        style = (
+            'QPushButton{'
+            'background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #17273b,stop:.68 #0e1724,stop:1 #09111d);'
+            f'border:{border}px solid #2b405d;border-radius:{radius}px;color:#f5f8ff;'
+            f'text-align:left;padding:{top}px {hpad}px {bottom}px {hpad}px;font-weight:800'
+            '}'
+            f' QPushButton:hover,QPushButton:focus{{border:{focus_border}px solid #6da7ff}}'
+        )
+        if artwork:
+            crop = max(18, int(round(54 * scale)))
+            style += f' QPushButton{{border-image:url("{artwork}") 0 0 {crop} 0 stretch stretch;}}'
+        return style
+
+    def _layout_recent_widgets(self):
+        # MECHOS_RESPONSIVE_RECENT_GAMES_V1
+        # recent_widgets are children of a scaled host, so their local geometry
+        # must be scaled as well. Without this second-stage layout the host
+        # shrank at 720p/VM resolutions while 190x210 cards stayed full-size and
+        # clipped into adjacent panels.
+        if not self.recent_widgets or not hasattr(self, 'recent_host'):
+            return
+        host_w = max(1, self.recent_host.width())
+        host_h = max(1, self.recent_host.height())
+        sx = host_w / 1001.0
+        sy = host_h / 218.0
+        scale = min(sx, sy)
+
+        for child in self.recent_widgets:
+            if bool(child.property('mechosRecentEmpty')):
+                child.setGeometry(0, 0, host_w, max(1, int(round(210 * sy))))
+                pad = max(6, int(round(16 * scale)))
+                radius = max(4, int(round(10 * scale)))
+                child.setStyleSheet(
+                    f'color:#95a6be;background:#0b1320;border:1px solid #24364f;'
+                    f'border-radius:{radius}px;padding:{pad}px'
+                )
+                f = child.font(); f.setPointSize(max(7, int(round(11 * scale)))); child.setFont(f)
+                continue
+
+            index = child.property('mechosRecentIndex')
+            try:
+                index = int(index)
+            except Exception:
+                index = 0
+            child.setGeometry(
+                int(round(index * (190 + 12) * sx)),
+                0,
+                max(1, int(round(190 * sx))),
+                max(1, int(round(210 * sy))),
+            )
+            f = child.font(); f.setPointSize(max(7, int(round(11 * scale)))); f.setBold(True); child.setFont(f)
+            artwork = child.property('mechosArtwork') or ''
+            child.setStyleSheet(self._recent_card_style(scale, str(artwork)))
+
     def set_recent_games(self, games: Iterable, launch_game: Callable):
         for child in list(self.recent_widgets):
             child.deleteLater()
@@ -189,27 +251,30 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         games = list(games)[:5]
         if not games:
             q = QLabel('No installed Steam games detected yet. Open Steam Library to sign in or install games.', self.recent_host)
-            q.setWordWrap(True); q.setStyleSheet('color:#95a6be;background:#0b1320;border:1px solid #24364f;border-radius:10px;padding:16px')
-            q.setGeometry(0,0,1000,210); self.recent_widgets.append(q); return
+            q.setWordWrap(True)
+            q.setProperty('mechosRecentEmpty', True)
+            self.recent_widgets.append(q)
+            self._layout_recent_widgets()
+            return
 
-        card_w = 190; gap = 12
         for i, game in enumerate(games):
             title = getattr(game,'name',None) or getattr(game,'title',None) or str(game)
             btn = QPushButton(str(title), self.recent_host)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet('''QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #17273b,stop:.68 #0e1724,stop:1 #09111d);border:1px solid #2b405d;border-radius:10px;color:#f5f8ff;text-align:left;padding:142px 10px 10px 10px;font-weight:800} QPushButton:hover,QPushButton:focus{border:3px solid #6da7ff}''')
+            btn.setProperty('mechosRecentIndex', i)
+            btn.setProperty('mechosArtwork', '')
             btn.clicked.connect(lambda _=False,g=game: launch_game(g))
-            btn.setGeometry(i*(card_w+gap),0,card_w,210)
             # Use a local Steam artwork path when the backend supplies one.
             for attr in ('grid_path','cover_path','artwork','image','header_image'):
                 p = getattr(game,attr,None)
                 if p and Path(str(p)).is_file():
-                    btn.setStyleSheet(btn.styleSheet()+f'QPushButton{{border-image:url("{str(p)}") 0 0 54 0 stretch stretch;}}')
+                    btn.setProperty('mechosArtwork', str(p))
                     break
             self.recent_widgets.append(btn)
             if hasattr(self.owner,'focus_button'):
                 try:self.owner.focus_button(btn)
                 except Exception:pass
+        self._layout_recent_widgets()
 
     def resizeEvent(self, event):
         s = self._scale()
@@ -218,6 +283,7 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
             base = self.font_sizes.get(widget)
             if base is not None:
                 f = widget.font(); f.setPointSize(max(7,int(round(base*s)))); widget.setFont(f)
+        self._layout_recent_widgets()
         super().resizeEvent(event)
 
     def _panel(self, p, rect, fill='#07101b', border='#26374d', radius=14, width=1):
