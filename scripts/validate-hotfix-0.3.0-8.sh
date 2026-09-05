@@ -53,9 +53,9 @@ cat > "$TMP/creator.py" <<'PY'
 #!/usr/bin/env python3
 APP='/usr/local/bin/mechos-creator-app'
 def spawn(x): pass
-class QPushButton:
+class QPushButton(object):
     pass
-class Creator:
+class Creator(object):
     def scroll(self): pass
     def section(self,*a): pass
     def settings(self):
@@ -69,22 +69,24 @@ for label in 'System Settings' 'Performance Center' 'Update Center' 'Creator Fol
 done
 PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$TMP/creator.py"
 
-# Simulate source-owned owner attachment without running any system action.
+# Simulate source-owned owner attachment without running any system action. Use
+# explicit base classes because the real generated owners are Qt subclasses and
+# the owner patcher intentionally matches `class Name(` syntax.
 cat > "$TMP/recovery.py" <<'PY'
 #!/usr/bin/env python3
-class Recovery:
+class Recovery(object):
     pass
 def main(): pass
 PY
 cat > "$TMP/quick.py" <<'PY'
 #!/usr/bin/env python3
-class QuickActions:
+class QuickActions(object):
     pass
 def main(): pass
 PY
 cat > "$TMP/creator-owner.py" <<'PY'
 #!/usr/bin/env python3
-class Creator:
+class Creator(object):
     pass
 def main(): pass
 PY
@@ -101,8 +103,8 @@ done
 STORE_ROOT="$TMP/store-root"; mkdir -p "$STORE_ROOT/usr/local/bin"
 cat > "$STORE_ROOT/usr/local/bin/mechscope" <<'PY'
 #!/usr/bin/env python3
-class QDialog: pass
-class QMainWindow: pass
+class QDialog(object): pass
+class QMainWindow(object): pass
 class UnifiedStore(QDialog):
     pass
 class MechScope(QMainWindow):
