@@ -15,15 +15,18 @@ is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; 
 for f in \
   /usr/local/bin/mechos-mode-launch \
   /usr/local/libexec/mechos-mode-launch-base-v15 \
-  /usr/local/libexec/mechos-hotfix15-runtime-patch; do
+  /usr/local/libexec/mechos-hotfix15-runtime-patch \
+  /usr/local/libexec/mechos-provider-bootstrap-v15; do
   [ -x "$f" ] || { echo "ERROR: Hotfix15 component missing: $f"; exit 90; }
 done
 bash -n /usr/local/bin/mechos-mode-launch
 bash -n /usr/local/libexec/mechos-mode-launch-base-v15
+bash -n /usr/local/libexec/mechos-provider-bootstrap-v15
 
 grep -Fq 'MECHOS_MODE_LAUNCH_V15' /usr/local/bin/mechos-mode-launch
 grep -Fq 'MECHOS_CREATOR_HANDOFF_V15' /usr/local/bin/mechos-mode-launch
 grep -Fq 'MECHOS_CREATOR_VM_OVERLAY_V15' /usr/local/bin/mechos-mode-launch
+grep -Fq 'MECHOS_PROVIDER_BOOTSTRAP_V15' /usr/local/libexec/mechos-provider-bootstrap-v15
 
 # Creator Mode must exist and be syntactically healthy before the handoff is
 # accepted. This prevents a mode switch from hiding MechScope when Creator is
@@ -51,7 +54,8 @@ for unit in \
 done
 
 # Patch the installed Unified Store owner. Hotfix 15 removes xdg-open from the
-# user-facing browse/search actions so store navigation stays in Steam/Heroic.
+# user-facing browse/search actions, auto-installs missing provider clients and
+# then continues into Steam/Heroic.
 TARGET=/usr/local/bin/mechscope
 [ -f /usr/local/bin/mechscope.real ] && TARGET=/usr/local/bin/mechscope.real
 [ -f "$TARGET" ] || { echo 'ERROR: MechScope implementation missing'; exit 93; }
@@ -63,6 +67,8 @@ p=Path(sys.argv[1])
 t=p.read_text(encoding='utf-8')
 compile(t,str(p),'exec')
 assert 'MECHOS_HOTFIX15_NATIVE_UNIFIED_STORE' in t
+assert '_mechos_bootstrap_provider_v15' in t
+assert 'mechos-provider-bootstrap-v15' in t
 assert "spawn(['xdg-open', url.format(query=self.query())])" not in t
 assert "spawn(['xdg-open', url.format(query=q)])" not in t
 PY
@@ -83,4 +89,4 @@ fi
 printf 'MechOS v0.3.0 Hotfix 15\n' >/etc/system-release
 
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix15 applied: Creator starts and is health-checked above MechScope; VM Creator uses software rendering without stopping MechScope; Unified Store uses native Steam/Heroic launch paths instead of the desktop browser."
+echo "[$(date -Is)] Hotfix15 applied: Creator starts and is health-checked above MechScope; VM Creator uses software rendering without stopping MechScope; Unified Store stays native and auto-installs missing Steam/Heroic providers before opening them."
