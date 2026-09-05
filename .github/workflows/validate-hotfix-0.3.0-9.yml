@@ -1,0 +1,42 @@
+name: Validate MechOS v0.3.0 Hotfix 9
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-9-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-9.sh'
+      - 'scripts/validate-hotfix-0.3.0-9.sh'
+      - 'scripts/mechos-visual-surfaces-v9-patch.py'
+      - 'scripts/mechos-final-surface-owner-v8-patch.py'
+      - 'scripts/mechos-apply-current-store-v8.sh'
+      - 'scripts/mechos-reference-v5-store-layout.sh'
+      - 'scripts/mechos-store-qlineedit-patch.py'
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/update_shell.py'
+      - 'src/mechos_ui/recovery_shell.py'
+      - 'src/mechos_ui/quick_actions_shell.py'
+      - 'src/mechos_ui/creator_shell.py'
+      - 'src/mechos_ui/reference-v9.qss'
+      - '.github/workflows/validate-hotfix-0.3.0-9.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate visual source contract
+        run: python3 scripts/validate-visual-surfaces-v9.py
+      - name: Build and validate Hotfix 9 without publishing
+        run: |
+          set -euo pipefail
+          bash scripts/build-hotfix-0.3.0-9.sh
+          bash scripts/validate-hotfix-0.3.0-9.sh
