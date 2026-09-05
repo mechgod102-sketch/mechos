@@ -38,10 +38,11 @@ for f in "$ROOT/scripts/mechos-hotfix-0.3.0-14-apply.sh" "$ROOT/scripts/build-ho
   ! grep -Fq 'shutdown -r' "$f"
 done
 
-# Exercise runtime patching against small fixtures so changes to method/class
-# insertion cannot silently produce invalid installed Python or shell files.
+# Exercise runtime patching against realistic parenthesized class fixtures so
+# changes to method/class insertion cannot silently produce invalid installed
+# Python or shell files.
 cat >"$TMP/quick.py" <<'PY'
-class QuickActions:
+class QuickActions(object):
     def __init__(self):
         self.setStyleSheet(STYLE)
         self.setFixedWidth(470)
@@ -56,7 +57,7 @@ python3 -m py_compile "$TMP/quick.py"
 grep -Fq 'MECHOS_HOTFIX14_ESCAPE_BACK_QUICK' "$TMP/quick.py"
 
 cat >"$TMP/creator.py" <<'PY'
-class Creator:
+class Creator(object):
     def __init__(self):
         self.stack=None
         self.build()
@@ -70,11 +71,11 @@ grep -Fq 'MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_CREATOR' "$TMP/creator.py"
 grep -Fq 'MECHOS_HOTFIX14_ESCAPE_BACK_CREATOR' "$TMP/creator.py"
 
 cat >"$TMP/mechscope.py" <<'PY'
-class UnifiedStore:
+class UnifiedStore(object):
     def __init__(self):
         self.ready=True
     def open_selected_launcher(self): pass
-class MechScope:
+class MechScope(object):
     def __init__(self): pass
     def build_ui(self):
         self.ready=True
