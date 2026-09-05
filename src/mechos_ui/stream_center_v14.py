@@ -48,6 +48,7 @@ def call(args, timeout=12):
 
 class StreamCenter(QMainWindow):
     # MECHOS_STREAM_CENTER_VISUAL_V14
+    # MECHOS_HOTFIX14_ESCAPE_BACK_STREAMCENTER
     def __init__(self):
         super().__init__()
         self.setWindowTitle('MechOS Stream Center')
@@ -58,6 +59,11 @@ class StreamCenter(QMainWindow):
         QTimer.singleShot(0,self.showFullScreen)
         QTimer.singleShot(250,self.showFullScreen)
         QTimer.singleShot(500,self.refresh)
+
+    def keyPressEvent(self,event):
+        if event.key()==Qt.Key.Key_Escape:
+            self.close(); return
+        super().keyPressEvent(event)
 
     def card(self,name='card'):
         f=QFrame();f.setObjectName(name);return f
