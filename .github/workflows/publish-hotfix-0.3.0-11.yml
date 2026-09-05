@@ -18,8 +18,10 @@ on:
 permissions:
   contents: write
 
+# Latest stable publisher owns its own queue. Historical publishers are now
+# manual-only, so a shared runtime/UI change cannot cancel or downgrade v11.
 concurrency:
-  group: mechos-hotfix-publish
+  group: mechos-hotfix-11-publish
   cancel-in-progress: false
 
 jobs:
