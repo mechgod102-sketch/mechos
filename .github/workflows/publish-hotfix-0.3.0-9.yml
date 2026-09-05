@@ -1,32 +1,12 @@
 name: Publish MechOS v0.3.0 Hotfix 9
 
+# Historical publisher retained for manual recovery only. Hotfix 11 now owns
+# automatic stable publication so shared GUI files cannot downgrade stable.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-hotfix-0.3.0-9-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-9.sh'
-      - 'scripts/validate-hotfix-0.3.0-9.sh'
-      - 'scripts/mechos-visual-surfaces-v9-patch.py'
-      - 'scripts/mechos-final-surface-owner-v8-patch.py'
-      - 'scripts/mechos-apply-current-store-v8.sh'
-      - 'scripts/mechos-reference-v5-store-layout.sh'
-      - 'scripts/mechos-store-qlineedit-patch.py'
-      - 'src/mechos_ui/fixed_canvas.py'
-      - 'src/mechos_ui/update_shell.py'
-      - 'src/mechos_ui/recovery_shell.py'
-      - 'src/mechos_ui/quick_actions_shell.py'
-      - 'src/mechos_ui/creator_shell.py'
-      - 'src/mechos_ui/reference-v9.qss'
-      - '.github/workflows/publish-hotfix-0.3.0-9.yml'
 
 permissions:
   contents: write
-
-concurrency:
-  group: mechos-hotfix-publish
-  cancel-in-progress: false
 
 jobs:
   publish:
