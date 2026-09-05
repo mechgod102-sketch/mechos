@@ -39,14 +39,27 @@ resolve_owner(){
 }
 
 patch_tree(){
-  local tree="$1" recovery quick creator mechscope
+  local tree="$1" scope="${2:-installed}" recovery quick='' creator='' mechscope
+  local -a compile_targets
+
+  case "$scope" in
+    live|installed) ;;
+    *) fail "invalid surface scope '$scope' for $tree" ;;
+  esac
+
   mkdir -p "$tree/usr/local/share/mechos/ui" "$tree/usr/local/bin" "$tree/usr/local/libexec" "$tree/usr/share/applications" "$tree/etc/mechos"
 
-  # Install the exact checked-in GUI source that is used to generate current
-  # system surfaces. Do not copy screenshots or fork a second layout.
-  for f in fixed_canvas.py update_shell.py recovery_shell.py quick_actions_shell.py creator_shell.py; do
+  # Build 128 contract: Creator Mode and Quick Actions are intentionally
+  # post-install-only. Never require or recreate their owners in the Live tree.
+  # Common Live/installed surfaces still use the exact checked-in GUI source.
+  for f in fixed_canvas.py update_shell.py recovery_shell.py; do
     install -m 0644 "$SRC/$f" "$tree/usr/local/share/mechos/ui/$f"
   done
+  if [ "$scope" = "installed" ]; then
+    for f in quick_actions_shell.py creator_shell.py; do
+      install -m 0644 "$SRC/$f" "$tree/usr/local/share/mechos/ui/$f"
+    done
+  fi
 
   # Update Center: keep the Hotfix 7 backend behavior, but render the canonical
   # source-owned UpdateShell exactly instead of the temporary recovery UI.
@@ -72,12 +85,23 @@ Categories=System;Settings;
 EOF
 
   recovery="$(resolve_owner "$tree" mechos-recovery-center Recovery)" || fail "Recovery owner missing in $tree"
-  quick="$(resolve_owner "$tree" mechos-quick-actions QuickActions)" || fail "Quick Actions owner missing in $tree"
-  creator="$(resolve_owner "$tree" mechos-creator-mode Creator)" || fail "Creator owner missing in $tree"
   python3 "$OWNER_PATCH" "$recovery" recovery
-  python3 "$OWNER_PATCH" "$quick" quick
-  python3 "$OWNER_PATCH" "$creator" creator
-  python3 "$SETTINGS_PATCH" "$creator"
+
+  if [ "$scope" = "installed" ]; then
+    # MECHOS_BUILD128_POSTINSTALL_SCOPE_V1
+    quick="$(resolve_owner "$tree" mechos-quick-actions QuickActions)" || fail "Quick Actions owner missing from installed payload: $tree"
+    creator="$(resolve_owner "$tree" mechos-creator-mode Creator)" || fail "Creator owner missing from installed payload: $tree"
+    python3 "$OWNER_PATCH" "$quick" quick
+    python3 "$OWNER_PATCH" "$creator" creator
+    python3 "$SETTINGS_PATCH" "$creator"
+  else
+    # The earlier post-install staging/finalizer deliberately removes these
+    # executables from Live before this absolute-last surface pass.
+    [ ! -e "$tree/usr/local/bin/mechos-quick-actions" ] || fail "post-install-only Quick Actions leaked into Live tree"
+    [ ! -e "$tree/usr/local/bin/mechos-quick-actions.real" ] || fail "post-install-only Quick Actions wrapper leaked into Live tree"
+    [ ! -e "$tree/usr/local/bin/mechos-creator-mode" ] || fail "post-install-only Creator Mode leaked into Live tree"
+    [ ! -e "$tree/usr/local/bin/mechos-creator-mode.real" ] || fail "post-install-only Creator Mode wrapper leaked into Live tree"
+  fi
 
   # Re-run the exact current v5 Unified Store generator at the absolute-last
   # stage. This prevents older MechScope recovery code from leaving a partial
@@ -86,29 +110,40 @@ EOF
   if [ -f "$tree/usr/local/bin/mechscope.real" ]; then mechscope="$tree/usr/local/bin/mechscope.real"; else mechscope="$tree/usr/local/bin/mechscope"; fi
   [ -f "$mechscope" ] || fail "MechScope owner missing in $tree"
   if grep -Fq 'QLineEdit' "$mechscope"; then python3 "$QLINE" "$mechscope"; fi
-  if grep -Fq 'QLineEdit' "$creator"; then python3 "$QLINE" "$creator"; fi
+  if [ "$scope" = "installed" ] && grep -Fq 'QLineEdit' "$creator"; then python3 "$QLINE" "$creator"; fi
 
-  PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile \
-    "$tree/usr/local/libexec/mechos-update-center-v8.py" \
-    "$recovery" "$quick" "$creator" "$mechscope"
+  compile_targets=(
+    "$tree/usr/local/libexec/mechos-update-center-v8.py"
+    "$recovery"
+    "$mechscope"
+  )
+  if [ "$scope" = "installed" ]; then
+    compile_targets+=("$quick" "$creator")
+  fi
+  PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "${compile_targets[@]}"
   bash -n "$tree/usr/local/bin/mechos-update-center"
 
-  # Final content contract for both Live and installed trees.
+  # Common final content contract for Live and installed trees.
   grep -Fq 'MECHOS_UPDATE_CENTER_REFERENCE_V8' "$tree/usr/local/libexec/mechos-update-center-v8.py" || fail "Update Center v8 marker missing in $tree"
   grep -Fq "SYSTEM UPDATE CONTROL" "$tree/usr/local/share/mechos/ui/update_shell.py" || fail "Update GUI source missing in $tree"
   grep -Fq "RECOVERY CENTER" "$tree/usr/local/share/mechos/ui/recovery_shell.py" || fail "Recovery GUI source missing in $tree"
-  grep -Fq "QUICK ACTIONS" "$tree/usr/local/share/mechos/ui/quick_actions_shell.py" || fail "Quick Actions GUI source missing in $tree"
   grep -Fq 'MECHOS_HOTFIX8_SURFACE_OWNER_RECOVERY' "$recovery" || fail "Recovery owner is not source-owned in $tree"
-  grep -Fq 'MECHOS_HOTFIX8_SURFACE_OWNER_QUICK' "$quick" || fail "Quick Actions owner is not source-owned in $tree"
-  grep -Fq 'MECHOS_HOTFIX8_SURFACE_OWNER_CREATOR' "$creator" || fail "Creator owner is not source-owned in $tree"
-  grep -Fq 'MECHOS_CREATOR_SETTINGS_V8_EXACT' "$creator" || fail "Creator Settings exact page missing in $tree"
-  for label in 'System Settings' 'Performance Center' 'Update Center' 'Creator Folder Setup' 'Windows Creator Installer'; do
-    grep -Fq "$label" "$creator" || fail "Creator Settings control missing: $label"
-  done
   grep -Fq 'MECHOS_REFERENCE_UNIFIED_STORE_V5' "$mechscope" || fail "Unified Store v5 missing in $tree"
   for label in 'Explore All Games' 'Manage Library' 'Return to MechScope'; do
     grep -Fq "$label" "$mechscope" || fail "Unified Store control missing: $label"
   done
+
+  # Creator Mode, Creator Settings and Quick Actions exist only in the installed
+  # payload. Validate their exact owners there instead of forcing them into Live.
+  if [ "$scope" = "installed" ]; then
+    grep -Fq "QUICK ACTIONS" "$tree/usr/local/share/mechos/ui/quick_actions_shell.py" || fail "Quick Actions GUI source missing in installed payload"
+    grep -Fq 'MECHOS_HOTFIX8_SURFACE_OWNER_QUICK' "$quick" || fail "Quick Actions owner is not source-owned in installed payload"
+    grep -Fq 'MECHOS_HOTFIX8_SURFACE_OWNER_CREATOR' "$creator" || fail "Creator owner is not source-owned in installed payload"
+    grep -Fq 'MECHOS_CREATOR_SETTINGS_V8_EXACT' "$creator" || fail "Creator Settings exact page missing in installed payload"
+    for label in 'System Settings' 'Performance Center' 'Update Center' 'Creator Folder Setup' 'Windows Creator Installer'; do
+      grep -Fq "$label" "$creator" || fail "Creator Settings control missing: $label"
+    done
+  fi
 
   printf '0.3.0-hotfix.8\n' > "$tree/etc/mechos/release"
   if [ -f "$tree/etc/mechos/mechos.conf" ]; then
@@ -121,13 +156,15 @@ EOF
   printf 'MechOS v0.3.0 Hotfix 8\n' > "$tree/etc/system-release"
 }
 
-patch_tree "$ROOT"
+# Live contains only Live-authorized surfaces. Creator Mode and Quick Actions
+# are patched after extracting the installed payload where they actually live.
+patch_tree "$ROOT" live
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 tar --zstd -xpf "$ARCHIVE" -C "$tmp"
-patch_tree "$tmp"
+patch_tree "$tmp" installed
 replacement="$ARCHIVE.build125-final-surfaces"
 tar --zstd -cpf "$replacement" -C "$tmp" .
 mv -f "$replacement" "$ARCHIVE"
 rm -rf "$tmp"; trap - EXIT
 
-log 'Update Center, Recovery Center, Unified Store v5, Creator Settings and Quick Actions are exact current GUI authorities in Live and installed payloads'
+log 'Live Update/Recovery/Unified Store and installed Update/Recovery/Unified Store/Creator Settings/Quick Actions are exact current GUI authorities'
