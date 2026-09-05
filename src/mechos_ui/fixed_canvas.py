@@ -96,6 +96,8 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
 
     def resizeEvent(self, event):
         # MECHOS_VM_RESPONSIVE_GEOMETRY_V3
+        # MECHOS_VM_RESPONSIVE_GEOMETRY_V2 - compatibility marker for the
+        # Build 118 late-stage guard; V3 below is the authoritative behavior.
         # Scale geometry, typography and button padding together. On small VM
         # desktops, short controls drop their secondary line when the scaled
         # height cannot safely hold two lines. Narrow, short status labels also

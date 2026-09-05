@@ -27,6 +27,7 @@ jobs:
       - name: Run static validation
         run: |
           ./scripts/validate-project.sh
+          python3 scripts/validate-gui-button-wiring.py
           bash scripts/validate-gamescope-universal.sh
           bash scripts/validate-native-installer.sh
           bash scripts/validate-reference-ui.sh

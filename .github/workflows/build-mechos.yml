@@ -13,8 +13,14 @@ on:
       - 'scripts/mechos-build119-vm-mechscope-final.sh'
       - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
       - 'scripts/mechos-mode-launch-hotfix5.sh'
+      - 'scripts/mechos-update-center-recovery-v7.py'
+      - 'scripts/validate-gui-button-wiring.py'
       - 'scripts/patch-mechos-reference-v5.py'
       - 'scripts/validate-new-build-final-gate.sh'
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/installer_shell.py'
+      - 'src/mechos_ui/creator_shell.py'
+      - 'src/mechscope/mechscope_shell.py'
       - 'overlay/rootfs/etc/mechos/release'
       - 'overlay/rootfs/etc/mechos/mechos.conf'
       - 'overlay/rootfs/etc/system-release'
@@ -49,6 +55,7 @@ jobs:
       - name: Validate MechOS source
         run: |
           ./scripts/validate-project.sh
+          python3 scripts/validate-gui-button-wiring.py
           bash scripts/validate-gamescope-universal.sh
           bash scripts/validate-native-installer.sh
           bash scripts/validate-reference-ui.sh
@@ -173,7 +180,7 @@ jobs:
       - name: Upload MechOS ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MechOS-v0.3.0-hotfix.2-x86_64
+          name: MechOS-v0.3.0-hotfix.7-x86_64
           path: |
             out/**/*.iso
             out/**/*.iso.sha256
