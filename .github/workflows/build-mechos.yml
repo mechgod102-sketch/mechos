@@ -12,6 +12,13 @@ on:
       - 'scripts/mechos-build118-six-regression-final.sh'
       - 'scripts/mechos-build119-vm-mechscope-final.sh'
       - 'scripts/mechos-build125-final-surfaces.sh'
+      - 'scripts/mechos-hotfix13-stability-integration.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - 'scripts/mechos-performance-center-v13.py'
+      - 'scripts/mechos-game-install-controller-v13.py'
+      - 'scripts/mechos-update-transaction-v13.sh'
+      - 'scripts/mechos-update-helper-v13-patch.py'
+      - 'scripts/mechos-hotfix13-mechscope-patch.py'
       - 'scripts/validate-build125-final-surface-scope.sh'
       - 'scripts/mechos-visual-surfaces-v9-patch.py'
       - 'scripts/validate-visual-surfaces-v9.py'
@@ -25,6 +32,7 @@ on:
       - 'src/mechos_ui/fixed_canvas.py'
       - 'src/mechos_ui/installer_shell.py'
       - 'src/mechos_ui/update_shell.py'
+      - 'src/mechos_ui/performance_shell.py'
       - 'src/mechos_ui/recovery_shell.py'
       - 'src/mechos_ui/quick_actions_shell.py'
       - 'src/mechos_ui/creator_shell.py'
@@ -112,6 +120,20 @@ jobs:
           grep -Fq 'MECHOS_HOTFIX5_VM_DIRECT_ROUTER_V1' scripts/mechos-mode-launch-hotfix5.sh
           grep -Fq '/usr/local/bin/mechscope.real' scripts/mechos-vm-mode-runtime-hotfix5.sh
           grep -Fq 'oobe-complete' scripts/mechos-vm-mode-runtime-hotfix5.sh
+          bash -n scripts/mechos-hotfix13-stability-integration.sh
+          bash -n scripts/mechos-update-transaction-v13.sh
+          python3 -m py_compile \
+            scripts/mechos-update-center-reference-v8.py \
+            scripts/mechos-performance-center-v13.py \
+            scripts/mechos-game-install-controller-v13.py \
+            scripts/mechos-update-helper-v13-patch.py \
+            scripts/mechos-hotfix13-mechscope-patch.py \
+            src/mechos_ui/fixed_canvas.py \
+            src/mechos_ui/update_shell.py \
+            src/mechos_ui/performance_shell.py
+          grep -Fq 'MECHOS_HOTFIX13_STABILITY_INTEGRATION_V2' scripts/mechos-hotfix13-stability-integration.sh
+          grep -Fq 'MECHOS_UPDATE_TRANSACTION_V13' scripts/mechos-update-transaction-v13.sh
+          grep -Fq 'MECHOS_PERFORMANCE_CENTER_V13' scripts/mechos-performance-center-v13.py
 
       - name: Apply cumulative MechOS integration
         run: |
@@ -173,6 +195,7 @@ jobs:
           grep -Fq 'mechos-build118-six-regression-final.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-build119-vm-mechscope-final.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-build125-final-surfaces.sh' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-hotfix13-stability-integration.sh' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh
           grep -Fq 'Session=plasma' scripts/build-mechos-archiso.sh
@@ -194,7 +217,7 @@ jobs:
       - name: Upload MechOS ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MechOS-v0.3.0-hotfix.9-x86_64
+          name: MechOS-v0.3.0-hotfix.13-x86_64
           path: |
             out/**/*.iso
             out/**/*.iso.sha256
