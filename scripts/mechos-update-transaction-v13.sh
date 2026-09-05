@@ -39,11 +39,14 @@ while IFS= read -r -d '' f; do
   case "$first" in *bash*|*'/sh'*) bash -n "$f" ;; esac
 done < <(find "$STAGE" -type f -print0)
 
-# Core surfaces are self-hosting. If an update touches them, require the whole
-# validated pair before changing the running OS.
+# Core update surfaces are self-hosting. Any bundle that replaces the Update
+# Center/helper must also carry a validated reboot helper. This prevents a
+# successful update from leaving the user with a dead Restart MechOS button.
 if [ -e "$STAGE/usr/local/bin/mechos-update-center" ] || [ -e "$STAGE/usr/local/bin/mechos-update-helper" ]; then
   [ -x "$STAGE/usr/local/bin/mechos-update-center" ] || fail 'bundle touches updater but lacks executable Update Center'
   [ -x "$STAGE/usr/local/bin/mechos-update-helper" ] || fail 'bundle touches updater but lacks executable update helper'
+  [ -x "$STAGE/usr/local/bin/mechos-reboot" ] || fail 'bundle touches updater but lacks executable reboot helper'
+  bash -n "$STAGE/usr/local/bin/mechos-reboot"
 fi
 
 # Save every file/symlink that will be replaced and track new files so rollback
@@ -62,11 +65,13 @@ rollback(){
 }
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback; fi; rm -rf "$WORK"; exit "$rc"' EXIT
 
-# Install ordinary files first. Update Center/helper are applied last so a bad
-# app or theme cannot destroy the updater that would be needed for recovery.
+# Install ordinary files first. Critical Update Center components are excluded
+# from rsync and installed explicitly last. This includes mechos-reboot so the
+# restart helper can never be silently skipped by an ordinary payload copy.
 rsync -aHAX --safe-links \
   --exclude='usr/local/bin/mechos-update-center' \
   --exclude='usr/local/bin/mechos-update-helper' \
+  --exclude='usr/local/bin/mechos-reboot' \
   --exclude='usr/local/libexec/mechos-update-center-v8.py' \
   --exclude='usr/local/share/mechos/ui/update_shell.py' \
   --exclude='usr/local/share/mechos/ui/fixed_canvas.py' \
@@ -77,15 +82,23 @@ for rel in \
   usr/local/share/mechos/ui/fixed_canvas.py \
   usr/local/share/mechos/ui/update_shell.py \
   usr/local/bin/mechos-update-helper \
+  usr/local/bin/mechos-reboot \
   usr/local/bin/mechos-update-center; do
   [ -e "$STAGE/$rel" ] || continue
   install -D -m "$( [ -x "$STAGE/$rel" ] && echo 0755 || echo 0644 )" "$STAGE/$rel" "/$rel"
 done
 
-# Postflight: the OS is not accepted unless the updater and user-facing system
-# surfaces are still executable and syntactically healthy.
-for f in /usr/local/bin/mechos-update-helper /usr/local/bin/mechos-update-center; do [ -x "$f" ] || { fail "critical updater missing: $f"; exit 50; }; done
+# Postflight: an update is not accepted unless Update Center, its helper, and
+# the user-controlled restart helper are all present, executable and healthy.
+# Any failure here rolls the entire update back to the pre-update snapshot.
+for f in \
+  /usr/local/bin/mechos-update-helper \
+  /usr/local/bin/mechos-reboot \
+  /usr/local/bin/mechos-update-center; do
+  [ -x "$f" ] || { fail "critical updater component missing: $f"; exit 50; }
+done
 bash -n /usr/local/bin/mechos-update-helper
+bash -n /usr/local/bin/mechos-reboot
 python3 - <<'PY'
 from pathlib import Path
 for name in ['/usr/local/libexec/mechos-update-center-v8.py','/usr/local/bin/mechos-performance-center']:
@@ -99,7 +112,7 @@ printf '%s\n' "$STATUS" | grep -q '^REBOOT_REQUIRED=' || { fail 'update helper s
 [ -x /usr/local/bin/mechos-performance-center ] || { fail 'Performance Center missing after update'; exit 54; }
 [ -x /usr/local/bin/mechscope ] || [ -x /usr/local/bin/mechscope.real ] || { fail 'MechScope missing after update'; exit 55; }
 
-log "transaction committed for $VERSION; backup=$BACKUP"
+log "transaction committed for $VERSION; updater, reboot helper and surfaces verified; backup=$BACKUP"
 trap - EXIT
 rm -rf "$WORK"
 exit 0
