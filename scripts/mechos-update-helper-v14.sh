@@ -144,20 +144,26 @@ apply_mechos(){
   [ -n "$latest" ] && [ -n "$url" ] && [ -n "$sha" ] || { echo 'Stable manifest is incomplete.' >&2; return 11; }
   if [ "$latest" = "$current" ]; then log "MechOS already current: $current"; return 0; fi
 
-  local work bundle stage tx
+  local work bundle stage tx rc=0
   work="$(mktemp -d /tmp/mechos-update-v14.XXXXXX)"; bundle="$work/update.tar.zst"; stage="$work/stage"
-  trap 'rm -rf "$work"' RETURN
   mkdir -p "$stage"
   log "downloading MechOS $latest"
-  curl -fL --retry 3 --connect-timeout 10 -H 'Cache-Control: no-cache' "$url" -o "$bundle"
-  printf '%s  %s\n' "$sha" "$bundle" | sha256sum -c -
-  validate_bundle "$bundle"
-  tar --zstd -xpf "$bundle" -C "$stage"
+  if ! curl -fL --retry 3 --connect-timeout 10 -H 'Cache-Control: no-cache' "$url" -o "$bundle"; then
+    rm -rf "$work"; return 13
+  fi
+  if ! printf '%s  %s\n' "$sha" "$bundle" | sha256sum -c -; then rm -rf "$work"; return 14; fi
+  if ! validate_bundle "$bundle"; then rm -rf "$work"; return 15; fi
+  if ! tar --zstd -xpf "$bundle" -C "$stage"; then rm -rf "$work"; return 16; fi
 
   tx=/usr/local/libexec/mechos-update-transaction-v13
   if [ ! -x "$tx" ] && [ -x "$stage/usr/local/libexec/mechos-update-transaction-v13" ]; then tx="$stage/usr/local/libexec/mechos-update-transaction-v13"; fi
-  [ -x "$tx" ] || { echo 'Transactional update engine is missing; update was not applied.' >&2; return 12; }
-  "$tx" "$stage" "$latest"
+  if [ ! -x "$tx" ]; then
+    echo 'Transactional update engine is missing; update was not applied.' >&2
+    rm -rf "$work"; return 12
+  fi
+  "$tx" "$stage" "$latest" || rc=$?
+  if [ "$rc" -ne 0 ]; then rm -rf "$work"; return "$rc"; fi
+  rm -rf "$work"
   mkdir -p "$STATE"
   [ "$reboot" = 1 ] && touch "$STATE/reboot-required"
   log "MechOS updated from $current to $latest; restart is user-controlled"
