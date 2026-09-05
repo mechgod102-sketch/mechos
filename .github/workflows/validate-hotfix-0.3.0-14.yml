@@ -1,0 +1,49 @@
+name: Validate MechOS v0.3.0 Hotfix 14
+
+on:
+  pull_request:
+    paths:
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/quick_actions_shell.py'
+      - 'src/mechos_ui/recovery_shell.py'
+      - 'src/mechos_ui/stream_center_v14.py'
+      - 'scripts/mechos-reboot-v14.sh'
+      - 'scripts/mechos-update-helper-v14.sh'
+      - 'scripts/mechos-update-guard-v14.sh'
+      - 'scripts/mechos-update-transaction-v13.sh'
+      - 'scripts/mechos-mechscope-update-notify-v14.sh'
+      - 'scripts/mechos-hotfix14-runtime-patch.py'
+      - 'scripts/mechos-hotfix-0.3.0-14-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-14.sh'
+      - 'scripts/validate-hotfix-0.3.0-14.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-14.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 14 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-14.sh
+      - name: Build and inspect Hotfix 14 bundle
+        run: |
+          set -euo pipefail
+          bash scripts/build-hotfix-0.3.0-14.sh
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst
+          test -s "$BUNDLE"
+          (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+          tar --zstd -tf "$BUNDLE" > /tmp/hotfix14-files.txt
+          grep -Fq './usr/local/bin/mechos-update-helper' /tmp/hotfix14-files.txt
+          grep -Fq './usr/local/libexec/mechos-update-helper-v14' /tmp/hotfix14-files.txt
+          grep -Fq './usr/local/libexec/mechos-update-guard-v14' /tmp/hotfix14-files.txt
+          grep -Fq './usr/local/bin/mechos-reboot' /tmp/hotfix14-files.txt
+          grep -Fq './usr/local/bin/mechos-stream-center' /tmp/hotfix14-files.txt
+          grep -Fq './usr/lib/systemd/system/mechos-update-guard-v14.service' /tmp/hotfix14-files.txt
