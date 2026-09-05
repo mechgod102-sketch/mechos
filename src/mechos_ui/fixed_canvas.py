@@ -17,6 +17,7 @@ BASE_H = 1080
 
 class FixedCanvas(QWidget):
     # MECHOS_VISUAL_SURFACES_V14_FIXED_CANVAS
+    # MECHOS_VISUAL_SURFACES_V9_FIXED_CANVAS - compatibility marker for prior visual gates.
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rects = {}
