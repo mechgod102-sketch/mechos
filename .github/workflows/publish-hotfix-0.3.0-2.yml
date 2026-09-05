@@ -28,16 +28,7 @@ jobs:
         id: guard
         run: |
           set -euo pipefail
-          current="$(python3 - <<'PY'
-import json
-from pathlib import Path
-p=Path('updates/stable.json')
-if p.exists():
-    try: print(json.loads(p.read_text()).get('version',''))
-    except Exception: print('')
-else: print('')
-PY
-)"
+          current="$(python3 -c "import json; print(json.load(open('updates/stable.json', encoding='utf-8')).get('version',''))" 2>/dev/null || true)"
           if [ -n "$current" ]; then
             top="$(printf '%s\n%s\n' '0.3.0-hotfix.2' "$current" | sort -V | tail -n1)"
             if [ "$top" = "$current" ] && [ "$current" != '0.3.0-hotfix.2' ]; then
