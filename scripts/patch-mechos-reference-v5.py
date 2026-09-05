@@ -85,10 +85,15 @@ bash /workspace/scripts/mechos-preoobe-update-auth-final.sh
 # BUILD 113 LIVE-BOOT AUTHORITY. Reassert the visible Live/installed splash
 # split and the Live Plasma/installer handoff after every older patch stage.
 bash /workspace/scripts/mechos-build113-live-boot-splash-fix.sh
-# BUILD 118 SIX-REGRESSION AUTHORITY. Runs absolute last before mkarchiso so
+# BUILD 118 SIX-REGRESSION AUTHORITY. Runs after older generated integrations so
 # responsive VM geometry, deterministic OOBE/tutorial, reboot and MechScope
-# runtime fixes cannot be overwritten by an older generated integration.
+# runtime fixes cannot be overwritten.
 bash /workspace/scripts/mechos-build118-six-regression-final.sh
+# BUILD 119 VM MECHSCOPE AUTHORITY. Run absolute last before mkarchiso. Upgraded
+# VM installs must not depend on an old gaming-layer controller to enter
+# MechScope; the launcher routes directly to the Plasma-hosted VM runtime while
+# physical hardware keeps the normal Gamescope controller path.
+bash /workspace/scripts/mechos-build119-vm-mechscope-final.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
