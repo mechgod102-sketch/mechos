@@ -19,6 +19,11 @@ jobs:
       - name: Checkout MechOS
         uses: actions/checkout@v4
 
+      - name: Install validation tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
       - name: Run static validation
         run: |
           ./scripts/validate-project.sh
@@ -52,3 +57,10 @@ jobs:
           bash scripts/validate-firstboot-vm-runtime.sh
           bash scripts/validate-hotfix-0.3.0-2.sh
           bash scripts/validate-new-build-final-gate.sh
+          bash scripts/validate-build122-vm-recovery.sh
+
+      - name: Build and validate Hotfix 7 recovery bundle
+        run: |
+          set -euo pipefail
+          bash scripts/build-hotfix-0.3.0-7.sh
+          bash scripts/validate-hotfix-0.3.0-7.sh

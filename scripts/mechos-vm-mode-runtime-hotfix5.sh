@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# MECHOS_VM_MECHSCOPE_PYTHON_EXEC_V2
 MODE="${1:-boot}"
 STATE=/var/lib/mechos
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
@@ -70,48 +71,64 @@ wait_for_graphics(){
 }
 
 actual_mechscope(){
-  # Tutorial integration may wrap /usr/local/bin/mechscope. VM mode switching
-  # must start the real UI backend, while tutorial/OOBE remain independent
-  # first-run authorities.
-  if [ -x /usr/local/bin/mechscope.real ]; then
+  if [ -f /usr/local/bin/mechscope.real ]; then
     printf '%s\n' /usr/local/bin/mechscope.real
-  elif [ -x /usr/local/bin/mechscope ]; then
+  elif [ -f /usr/local/bin/mechscope ]; then
     printf '%s\n' /usr/local/bin/mechscope
   else
     return 1
   fi
 }
 
-python_health_check(){
+is_python_target(){
   local target="$1" first
   first="$(head -n1 "$target" 2>/dev/null || true)"
   case "$first" in
-    *python*)
-      PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$target" >>"$APP_LOG" 2>&1 || {
-        log "MechScope Python health check failed target=$target"
-        return 1
-      }
-      ;;
+    *python*) return 0 ;;
   esac
+  # Older installed payloads can contain raw Python at mechscope.real without a
+  # shebang. Detect that source instead of asking /bin/sh to interpret it.
+  grep -Eq '^[[:space:]]*(from|import)[[:space:]]+[A-Za-z0-9_\.]+' "$target" 2>/dev/null
+}
+
+python_health_check(){
+  local target="$1"
+  if is_python_target "$target"; then
+    PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m py_compile "$target" >>"$APP_LOG" 2>&1 || {
+      log "MechScope Python health check failed target=$target"
+      return 1
+    }
+  fi
+}
+
+mechscope_running(){
+  pgrep -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1
 }
 
 launch_mechscope(){
   local target pid i
+  local -a command
   target="$(actual_mechscope)" || { log "MechScope executable missing"; return 1; }
   python_health_check "$target" || return 1
 
-  # Do not depend on the stale Hotfix-4 user service. It may point at the old
-  # wrapper/controller path on upgraded VirtualBox installs.
   systemctl --user stop mechos-vm-mechscope.service >/dev/null 2>&1 || true
 
-  if pgrep -u "$(id -u)" -f '(/usr/local/bin/mechscope.real|/usr/local/bin/mechscope)( |$)' >/dev/null 2>&1; then
+  if mechscope_running; then
     log "MechScope already running"
     return 0
   fi
 
   : >"$APP_LOG"
-  log "launching MechScope directly in Plasma VM session target=$target virt=$virt"
-  nohup "$target" >>"$APP_LOG" 2>&1 </dev/null &
+  if is_python_target "$target"; then
+    command=(/usr/bin/python3 "$target")
+    log "launching Python MechScope in Plasma VM session target=$target virt=$virt"
+  else
+    [ -x "$target" ] || { log "MechScope target is not executable target=$target"; return 1; }
+    command=("$target")
+    log "launching executable MechScope in Plasma VM session target=$target virt=$virt"
+  fi
+
+  nohup "${command[@]}" >>"$APP_LOG" 2>&1 </dev/null &
   pid=$!
   for i in $(seq 1 30); do
     sleep 0.1
@@ -122,7 +139,7 @@ launch_mechscope(){
     fi
     if [ "$i" -ge 10 ]; then
       printf '%s\n' "$pid" > "$STATE_DIR/mechscope.pid"
-      log "MechScope launch healthy pid=$pid"
+      log "MechScope launch healthy pid=$pid command=${command[*]}"
       return 0
     fi
   done
@@ -157,13 +174,13 @@ case "$MODE" in
     ;;
   creator)
     printf 'creator\n' > "$MODE_FILE"
-    pkill -u "$(id -u)" -f '(/usr/local/bin/mechscope.real|/usr/local/bin/mechscope)( |$)' >/dev/null 2>&1 || true
+    pkill -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1 || true
     launch_creator
     ;;
   desktop)
     printf 'desktop\n' > "$MODE_FILE"
     systemctl --user stop mechos-vm-mechscope.service mechos-vm-creator.service >/dev/null 2>&1 || true
-    pkill -u "$(id -u)" -f '(/usr/local/bin/mechscope.real|/usr/local/bin/mechscope)( |$)' >/dev/null 2>&1 || true
+    pkill -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1 || true
     ;;
   stop)
     systemctl --user stop mechos-vm-mechscope.service mechos-vm-creator.service >/dev/null 2>&1 || true

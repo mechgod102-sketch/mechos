@@ -1,18 +1,8 @@
-name: Validate MechOS v0.3.0 Hotfix 4
+name: Validate MechOS v0.3.0 Hotfix 4 (Archived)
 
+# Hotfix 4 is immutable historical validation. Newer source changes must not
+# re-run an old validator against newer runtime markers.
 on:
-  pull_request:
-    paths:
-      - 'scripts/mechos-hotfix-0.3.0-4-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-4.sh'
-      - 'scripts/validate-hotfix-0.3.0-4.sh'
-      - 'scripts/mechos-build118-six-regression-final.sh'
-      - 'scripts/patch-mechos-reference-v5.py'
-      - 'src/mechos_ui/fixed_canvas.py'
-      - 'src/mechos_ui/installer_shell.py'
-      - 'src/mechos_ui/creator_shell.py'
-      - 'src/mechscope/mechscope_shell.py'
-      - '.github/workflows/validate-hotfix-0.3.0-4.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,27 +15,12 @@ jobs:
     steps:
       - name: Checkout MechOS
         uses: actions/checkout@v4
-
       - name: Install bundle tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-
-      - name: Validate next ISO final authority
+      - name: Build and validate archived Hotfix 4
         run: |
           set -euo pipefail
-          bash -n scripts/mechos-build118-six-regression-final.sh
-          python3 -m py_compile src/mechos_ui/fixed_canvas.py src/mechos_ui/installer_shell.py src/mechos_ui/creator_shell.py src/mechscope/mechscope_shell.py
-          grep -Fq 'MECHOS_VM_RESPONSIVE_GEOMETRY_V2' src/mechos_ui/fixed_canvas.py
-          grep -Fq 'mechos-build118-six-regression-final.sh' scripts/patch-mechos-reference-v5.py
-          grep -Fq 'Session=mechscope.desktop' scripts/mechos-build118-six-regression-final.sh
-          grep -Fq 'MECHOS_BUILD118_REBOOT_V1' scripts/mechos-build118-six-regression-final.sh
-          grep -Fq 'MECHOS_BUILD118_DIRECT_MECHSCOPE_FALLBACK' scripts/mechos-build118-six-regression-final.sh
-
-      - name: Build Hotfix 4 candidate
-        run: |
-          chmod +x scripts/mechos-hotfix-0.3.0-4-apply.sh scripts/build-hotfix-0.3.0-4.sh scripts/validate-hotfix-0.3.0-4.sh
           bash scripts/build-hotfix-0.3.0-4.sh
-
-      - name: Validate Hotfix 4 candidate
-        run: bash scripts/validate-hotfix-0.3.0-4.sh
+          bash scripts/validate-hotfix-0.3.0-4.sh
