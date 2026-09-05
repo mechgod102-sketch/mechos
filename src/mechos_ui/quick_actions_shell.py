@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QLabel, QPushButton, QWidget
 
 class QuickActionsShell(QWidget):
     # MECHOS_QUICK_ACTIONS_VISUAL_V14
+    # MECHOS_QUICK_ACTIONS_VISUAL_V9 - compatibility marker for prior visual gates.
     BASE_W = 700
     BASE_H = 1080
 
