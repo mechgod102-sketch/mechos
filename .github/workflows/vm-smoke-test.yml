@@ -1,4 +1,4 @@
-name: VM Smoke Test MechOS ISO
+name: VM Lifecycle Test MechOS ISO
 
 on:
   workflow_run:
@@ -10,28 +10,32 @@ permissions:
   actions: read
 
 jobs:
-  vm-smoke:
+  vm-lifecycle:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 90
 
     steps:
       - name: Checkout MechOS
         uses: actions/checkout@v4
 
-      - name: Install VM test tooling
+      - name: Install full VM lifecycle tooling
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils socat python3-pil
+          sudo apt-get install -y \
+            qemu-system-x86 qemu-utils ovmf socat \
+            python3-pil python3-pip libguestfs-tools
+          python3 -m pip install --break-system-packages vncdotool
+          python3 -m py_compile scripts/vm_lifecycle_runner.py
 
-      - name: Download ISO artifact from completed build
+      - name: Download and verify exact ISO artifact
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
-          mkdir -p incoming
+          mkdir -p incoming vm-lifecycle
           gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir incoming
           ISO="$(find incoming -type f -name '*.iso' -print -quit)"
           test -n "$ISO"
@@ -43,129 +47,241 @@ jobs:
             sha256sum -c "$(basename "$SHA")"
           )
           printf 'ISO=%s\n' "$ISO" >> "$GITHUB_ENV"
+          printf 'DISK=%s/vm-lifecycle/mechos-test.qcow2\n' "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          printf 'VNC_SERVER=127.0.0.1::5907\n' >> "$GITHUB_ENV"
+          printf 'VM_EVIDENCE_DIR=vm-lifecycle\n' >> "$GITHUB_ENV"
 
-      - name: Boot ISO in QEMU and capture graphical checkpoints
+      - name: Record build-time GUI and lifecycle gates
         run: |
           set -euo pipefail
-          mkdir -p vm-smoke
+          {
+            echo 'MechOS full VM lifecycle preflight'
+            echo "Source commit: $GITHUB_SHA"
+            echo "ISO build run: ${{ github.event.workflow_run.run_number }}"
+            echo
+            echo 'Static GUI wiring validation:'
+            python3 scripts/validate-gui-button-wiring.py
+            echo
+            echo 'VM runtime validation:'
+            bash scripts/validate-vm-mode-runtime-final.sh
+            echo
+            echo 'Installed MechScope launch validation:'
+            bash scripts/validate-installed-mechscope-launch.sh
+            echo
+            echo 'Installer automatic reboot validation:'
+            bash scripts/validate-installer-auto-reboot.sh
+          } | tee vm-lifecycle/preflight.txt
+
+      - name: Create disposable installed-system disk
+        run: |
+          set -euo pipefail
+          qemu-img create -f qcow2 "$DISK" 64G
+          qemu-img info "$DISK" | tee vm-lifecycle/qcow-info-before.txt
+
+      - name: Boot exact ISO in UEFI QEMU VM
+        run: |
+          set -euo pipefail
           MON=/tmp/mechos-qemu-monitor.sock
           PIDFILE=/tmp/mechos-qemu.pid
-          SERIAL="$PWD/vm-smoke/serial.log"
+          SERIAL="$GITHUB_WORKSPACE/vm-lifecycle/serial.log"
           rm -f "$MON" "$PIDFILE"
+
+          OVMF_CODE="$(find /usr/share/OVMF -maxdepth 1 -type f -name 'OVMF_CODE*.fd' | sort | head -n1)"
+          OVMF_VARS="$(find /usr/share/OVMF -maxdepth 1 -type f -name 'OVMF_VARS*.fd' | sort | head -n1)"
+          test -s "$OVMF_CODE"
+          test -s "$OVMF_VARS"
+          cp "$OVMF_VARS" vm-lifecycle/OVMF_VARS.fd
 
           qemu-system-x86_64 \
             -machine q35,accel=tcg \
             -cpu max \
             -smp 4 \
-            -m 4096 \
+            -m 6144 \
+            -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+            -drive "if=pflash,format=raw,file=$GITHUB_WORKSPACE/vm-lifecycle/OVMF_VARS.fd" \
+            -drive "file=$DISK,if=virtio,format=qcow2,cache=writeback" \
             -cdrom "$ISO" \
-            -boot d \
+            -boot once=d,menu=on \
             -vga std \
-            -display vnc=:7 \
+            -display vnc=127.0.0.1:7 \
+            -device virtio-net-pci,netdev=net0 \
+            -netdev user,id=net0 \
             -serial "file:$SERIAL" \
             -monitor "unix:$MON,server,nowait" \
             -pidfile "$PIDFILE" \
-            -no-reboot \
             -daemonize
 
-          for _ in $(seq 1 40); do
+          for _ in $(seq 1 80); do
             [ -S "$MON" ] && break
             sleep 0.25
           done
           test -S "$MON"
           test -s "$PIDFILE"
+          kill -0 "$(cat "$PIDFILE")"
+          printf 'info status\n' | socat - UNIX-CONNECT:"$MON" | tee vm-lifecycle/qemu-status-start.txt
 
-          sleep 8
-          printf 'sendkey ret\n' | socat - UNIX-CONNECT:"$MON" >/dev/null || true
+      - name: Run full graphical Live-to-postinstall lifecycle
+        run: |
+          set -euo pipefail
+          python3 scripts/vm_lifecycle_runner.py
+          kill -0 "$(cat /tmp/mechos-qemu.pid)"
+          printf 'info status\n' | socat - UNIX-CONNECT:/tmp/mechos-qemu-monitor.sock | tee vm-lifecycle/qemu-status-after-lifecycle.txt
 
-          capture() {
-            local label="$1"
-            printf 'screendump %s/vm-smoke/%s.ppm\n' "$PWD" "$label" | socat - UNIX-CONNECT:"$MON" >/dev/null
-            test -s "vm-smoke/$label.ppm"
+      - name: Stop VM for installed-disk audit
+        if: always()
+        run: |
+          set +e
+          if [ -S /tmp/mechos-qemu-monitor.sock ]; then
+            printf 'system_powerdown\n' | socat - UNIX-CONNECT:/tmp/mechos-qemu-monitor.sock >/dev/null 2>&1
+            for _ in $(seq 1 30); do
+              PID="$(cat /tmp/mechos-qemu.pid 2>/dev/null)"
+              [ -n "$PID" ] || break
+              kill -0 "$PID" 2>/dev/null || break
+              sleep 1
+            done
+            PID="$(cat /tmp/mechos-qemu.pid 2>/dev/null)"
+            if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+              printf 'quit\n' | socat - UNIX-CONNECT:/tmp/mechos-qemu-monitor.sock >/dev/null 2>&1
+              sleep 2
+            fi
+          fi
+          qemu-img info "$DISK" | tee vm-lifecycle/qcow-info-after.txt
+
+      - name: Audit installed filesystem and first-boot cleanup
+        run: |
+          set -euo pipefail
+          export LIBGUESTFS_BACKEND=direct
+          audit=vm-lifecycle/installed-audit.txt
+          : > "$audit"
+
+          vcat() {
+            sudo -E virt-cat -a "$DISK" -i "$1"
+          }
+          vls() {
+            sudo -E virt-ls -a "$DISK" -i "$1"
           }
 
-          sleep 12
-          capture checkpoint-20s
-          sleep 50
-          capture checkpoint-70s
-          sleep 70
-          capture checkpoint-140s
+          release="$(vcat /etc/mechos/release | tr -d '\r')"
+          printf 'release=%s\n' "$release" | tee -a "$audit"
+          test -n "$release"
 
-          kill -0 "$(cat "$PIDFILE")"
-          printf 'info status\n' | socat - UNIX-CONNECT:"$MON" | tee vm-smoke/qemu-status.txt
-          printf 'quit\n' | socat - UNIX-CONNECT:"$MON" >/dev/null || true
+          passwd="$(vcat /etc/passwd)"
+          printf '%s\n' "$passwd" > vm-lifecycle/installed-passwd.txt
+          grep -q '^mechvmtest:' vm-lifecycle/installed-passwd.txt
+          if grep -q '^mechos-setup:' vm-lifecycle/installed-passwd.txt; then
+            echo 'FAIL: temporary mechos-setup account survived post-OOBE reboot' | tee -a "$audit"
+            exit 1
+          fi
+          echo 'PASS: permanent test account exists and temporary setup account is removed' | tee -a "$audit"
 
-      - name: Analyze VM screenshots for black/stuck boot
+          vls /var/lib/mechos | tee vm-lifecycle/mechos-state-files.txt
+          grep -Fxq 'installed' vm-lifecycle/mechos-state-files.txt
+          grep -Fxq 'oobe-complete' vm-lifecycle/mechos-state-files.txt
+          echo 'PASS: installed and OOBE-complete markers exist' | tee -a "$audit"
+
+          vls /usr/local/bin | tee vm-lifecycle/usr-local-bin.txt
+          for binary in \
+            mechos-update-center \
+            mechos-recovery-center \
+            mechos-quick-actions \
+            mechos-creator-mode \
+            mechos-mode-launch \
+            mechos-vm-mode-runtime \
+            mechos-reboot; do
+            grep -Fxq "$binary" vm-lifecycle/usr-local-bin.txt || {
+              echo "FAIL: installed binary missing: $binary" | tee -a "$audit"
+              exit 1
+            }
+          done
+          if ! grep -Eq '^mechscope(\.real)?$' vm-lifecycle/usr-local-bin.txt; then
+            echo 'FAIL: installed MechScope implementation missing' | tee -a "$audit"
+            exit 1
+          fi
+          echo 'PASS: all major post-install GUI/runtime launchers exist' | tee -a "$audit"
+
+          # Pull the VM mode logs that previously exposed the persistent
+          # MechScope failure. A launch error here fails the lifecycle test.
+          for log in mode-shortcut.log vm-mode-runtime.log vm-mechscope-launch.log; do
+            if sudo -E virt-cat -a "$DISK" -i "/home/mechvmtest/.local/state/mechos/$log" > "vm-lifecycle/$log" 2>/dev/null; then
+              if grep -Eqi '(^|[[:space:]])ERROR:|could not be started|syntax error|command not found' "vm-lifecycle/$log"; then
+                echo "FAIL: runtime error found in $log" | tee -a "$audit"
+                cat "vm-lifecycle/$log" | tee -a "$audit"
+                exit 1
+              fi
+              echo "PASS: $log contains no launcher failure" | tee -a "$audit"
+            else
+              echo "INFO: $log was not created by this route" | tee -a "$audit"
+            fi
+          done
+
+      - name: Analyze lifecycle evidence
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageChops, ImageStat
 
-          shots = [
-              Path('vm-smoke/checkpoint-20s.ppm'),
-              Path('vm-smoke/checkpoint-70s.ppm'),
-              Path('vm-smoke/checkpoint-140s.ppm'),
+          root = Path('vm-lifecycle')
+          required = [
+              '01-live-boot-early.png',
+              '03-live-installer.png',
+              '05-install-started.png',
+              '06-oobe-welcome.png',
+              '07-oobe-account.png',
+              '14-postinstall-first-session.png',
+              '16-update-center.png',
+              '19-recovery-center.png',
+              '21-quick-actions.png',
+              '23-creator-mode.png',
+              '24-creator-store.png',
+              '25-creator-settings.png',
+              '27-mechscope.png',
+              '28-unified-store.png',
+              '30-reboot-helper-transition.png',
+              '31-post-reboot-session.png',
+              '32-post-reboot-update-center.png',
+              '33-final-postinstall-desktop.png',
           ]
-          images = []
-          rows = []
-          for p in shots:
-              img = Image.open(p).convert('RGB')
-              images.append(img)
+          missing = [name for name in required if not (root / name).is_file()]
+          if missing:
+              raise SystemExit('missing lifecycle screenshots: ' + ', '.join(missing))
+
+          lines = ['MechOS full VM lifecycle screenshot audit']
+          for name in required:
+              img = Image.open(root / name).convert('RGB')
               stat = ImageStat.Stat(img)
               mean = sum(stat.mean) / 3.0
               std = sum(stat.stddev) / 3.0
-              px = list(img.getdata())
-              nonblack = sum(1 for r, g, b in px if max(r, g, b) > 12) / max(1, len(px))
-              png = p.with_suffix('.png')
-              img.save(png)
-              rows.append((p.name, mean, std, nonblack))
+              thumb = img.copy(); thumb.thumbnail((640, 360))
+              px = list(thumb.getdata())
+              nonblack = sum(1 for r,g,b in px if max(r,g,b) > 12) / max(1, len(px))
+              lines.append(f'{name}: mean={mean:.2f} std={std:.2f} nonblack={nonblack:.3f}')
+              if mean < 7.0 or std < 3.0 or nonblack < 0.025:
+                  raise SystemExit(f'{name}: framebuffer is effectively black/blank')
 
-          final = images[-1]
-          first = images[0].resize(final.size)
-          delta = ImageStat.Stat(ImageChops.difference(first, final).convert('L')).mean[0]
-          final_mean = rows[-1][1]
-          final_std = rows[-1][2]
-          final_nonblack = rows[-1][3]
-
-          summary = [
-              'MechOS QEMU VM smoke test',
-              *[f'{name}: mean={mean:.2f} std={std:.2f} nonblack={ratio:.3f}' for name, mean, std, ratio in rows],
-              f'first-to-final delta={delta:.2f}',
-          ]
-
-          problems = []
-          if final_mean < 8.0:
-              problems.append('final framebuffer is effectively black')
-          if final_nonblack < 0.03:
-              problems.append('final framebuffer has too little visible content')
-          if final_std < 4.0:
-              problems.append('final framebuffer has almost no visual detail')
-          if delta < 1.5:
-              problems.append('VM display did not visibly progress from the early checkpoint')
-
-          if problems:
-              summary.append('RESULT=FAIL')
-              summary.extend('FAIL: ' + p for p in problems)
-          else:
-              summary.append('RESULT=PASS')
-              summary.append('PASS: ISO progressed to a non-black graphical framebuffer under QEMU')
-
-          Path('vm-smoke/summary.txt').write_text('\n'.join(summary) + '\n', encoding='utf-8')
-          print('\n'.join(summary))
-          if problems:
-              raise SystemExit(1)
+          first = Image.open(root / '01-live-boot-early.png').convert('RGB')
+          final = Image.open(root / '33-final-postinstall-desktop.png').convert('RGB')
+          if first.size != final.size:
+              first = first.resize(final.size)
+          d = ImageStat.Stat(ImageChops.difference(first, final).convert('L')).mean[0]
+          lines.append(f'live-to-final framebuffer delta={d:.2f}')
+          if d < 2.0:
+              raise SystemExit('Live boot and final installed desktop are visually stuck on the same framebuffer')
+          lines.append('RESULT=PASS')
+          lines.append('PASS: required Live, install, OOBE, post-install, system-surface and post-reboot evidence exists and is non-black.')
+          (root / 'evidence-audit.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          print('\n'.join(lines))
           PY
 
-      - name: Upload VM smoke-test evidence
+      - name: Upload full VM lifecycle evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MechOS-VM-smoke-${{ github.event.workflow_run.run_number }}
+          name: MechOS-VM-lifecycle-${{ github.event.workflow_run.run_number }}
           path: |
-            vm-smoke/*.png
-            vm-smoke/*.ppm
-            vm-smoke/*.txt
-            vm-smoke/*.log
+            vm-lifecycle/*.png
+            vm-lifecycle/*.txt
+            vm-lifecycle/*.log
+            vm-lifecycle/*.ppm
           if-no-files-found: warn
           retention-days: 7
