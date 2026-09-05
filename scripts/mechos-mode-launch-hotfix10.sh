@@ -2,10 +2,13 @@
 set -Eeuo pipefail
 
 # MECHOS_HOTFIX10_PHYSICAL_MECHSCOPE_FALLBACK_V1
+# MECHOS_HOTFIX11_VM_FAILURE_LOGS_V1
 MODE="${1:-}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
 LOG="$STATE_DIR/mode-shortcut.log"
 APP_LOG="$STATE_DIR/mechscope-launch.log"
+VM_LOG="$STATE_DIR/vm-mode-runtime.log"
+VM_APP_LOG="$STATE_DIR/vm-mechscope-launch.log"
 mkdir -p "$STATE_DIR"
 
 log(){ printf '[%s] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG"; }
@@ -14,6 +17,13 @@ notify_error(){
   log "ERROR: $msg"
   if command -v kdialog >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
     kdialog --title 'MechOS Mode Launcher' --error "$msg\n\nLogs:\n$LOG\n$APP_LOG" >/dev/null 2>&1 || true
+  fi
+}
+notify_vm_error(){
+  local msg="$1"
+  log "ERROR: $msg"
+  if command -v kdialog >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+    kdialog --title 'MechOS Mode Launcher' --error "$msg\n\nVM logs:\n$LOG\n$VM_LOG\n$VM_APP_LOG" >/dev/null 2>&1 || true
   fi
 }
 
@@ -124,14 +134,14 @@ log "request mode=$REQUESTED_MODE virtualization=${virt:-none} live=$live sessio
 # real hardware.
 if [ -n "$virt" ] && [ "$virt" != none ] && [ "$live" -eq 0 ]; then
   runtime=/usr/local/bin/mechos-vm-mode-runtime
-  [ -x "$runtime" ] || { notify_error 'MechOS VM mode runtime is missing.'; exit 1; }
+  [ -x "$runtime" ] || { notify_vm_error 'MechOS VM mode runtime is missing.'; exit 1; }
   log "virtualization=$virt; routing mode=$REQUESTED_MODE to VM runtime"
   if "$runtime" "$REQUESTED_MODE" >>"$LOG" 2>&1; then
     log "VM mode=$REQUESTED_MODE launch accepted"
     exit 0
   else
     rc=$?
-    notify_error "$REQUESTED_MODE could not be started in the virtual machine (runtime rc=$rc)."
+    notify_vm_error "$REQUESTED_MODE could not be started in the virtual machine (runtime rc=$rc)."
     exit "$rc"
   fi
 fi
