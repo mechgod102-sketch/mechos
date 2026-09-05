@@ -39,7 +39,7 @@ jobs:
           bash scripts/build-hotfix-0.3.0-14.sh
           BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst
           test -s "$BUNDLE"
-          sha256sum -c "$BUNDLE.sha256"
+          (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
           tar --zstd -tf "$BUNDLE" > /tmp/hotfix14-files.txt
           grep -Fq './usr/local/bin/mechos-update-helper' /tmp/hotfix14-files.txt
           grep -Fq './usr/local/libexec/mechos-update-helper-v14' /tmp/hotfix14-files.txt
