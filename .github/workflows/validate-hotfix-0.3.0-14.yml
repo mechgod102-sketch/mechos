@@ -1,0 +1,28 @@
+name: Validate MechOS v0.3.0 Hotfix 14
+
+on:
+  pull_request:
+    paths:
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/quick_actions_shell.py'
+      - 'src/mechos_ui/recovery_shell.py'
+      - 'src/mechos_ui/stream_center_v14.py'
+      - 'scripts/mechos-reboot-v14.sh'
+      - 'scripts/mechos-mechscope-update-notify-v14.sh'
+      - 'scripts/mechos-hotfix14-runtime-patch.py'
+      - 'scripts/mechos-hotfix-0.3.0-14-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-14.sh'
+      - 'scripts/validate-hotfix-0.3.0-14.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-14.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Validate Hotfix 14
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-14.sh
