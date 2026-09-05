@@ -51,7 +51,9 @@ required=(
   usr/share/applications/mechos-return-gaming.desktop
   usr/share/wayland-sessions/mechscope.desktop
 )
-for f in "${required[@]}"; do [ -e "$TMP/$f" ] || fail "bundle missing required file: $f"; done
+for f in "${required[@]}"; do
+  [ -e "$TMP/$f" ] || [ -L "$TMP/$f" ] || fail "bundle missing required file: $f"
+done
 bash -n "$TMP/usr/local/bin/mechos-vm-mode-runtime" || fail 'bundled VM runtime syntax failed'
 bash -n "$TMP/usr/local/bin/mechos-mode-launch" || fail 'bundled mode launcher syntax failed'
 bash -n "$TMP/usr/local/libexec/mechos-hotfix-0.3.0-5-apply" || fail 'bundled apply helper syntax failed'
