@@ -28,13 +28,13 @@ grep -Fq 'pkexec /usr/bin/pacman -S --needed --noconfirm steam' "$ROOT/scripts/m
 grep -Fq 'MECHOS_HOTFIX15_INTERNAL_GAME_BROWSER' "$ROOT/scripts/mechos-hotfix15-game-browser-patch.py"
 grep -Fq 'mechos-game-catalog-v15' "$ROOT/scripts/mechos-hotfix15-game-browser-patch.py"
 grep -Fq 'Search All Stores' "$ROOT/scripts/mechos-hotfix15-game-browser-patch.py"
+grep -Fq 'MECHOS_HOTFIX15_UNIFIED_STORE_VISUAL' "$ROOT/scripts/mechos-hotfix15-runtime-patch.py"
+grep -Fq 'PLAY ANYWHERE' "$ROOT/scripts/mechos-hotfix15-runtime-patch.py"
+grep -Fq 'FEATURED / INSTALLED GAMES' "$ROOT/scripts/mechos-hotfix15-runtime-patch.py"
 
 grep -Fq 'MechOS-Unified-Store/0.3.0-hotfix.15' "$ROOT/scripts/mechos-game-catalog-v15.py"
 grep -Fq 'https://www.cheapshark.com/api/1.0' "$ROOT/scripts/mechos-game-catalog-v15.py"
 
-# Smoke-patch a minimal generated MechScope owner. The hotfix must compile after
-# both patches, retain search methods as native Game Browser actions and contain
-# no old xdg-open store-search handoff.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 cat >"$tmp/mechscope" <<'PY'
 #!/usr/bin/env python3
@@ -50,6 +50,8 @@ class UnifiedStore(object):
       ('GOG','GOG','https://www.gog.com/en/games?query={query}',['flatpak','run','com.heroicgameslauncher.hgl']),
       ('Amazon Games','Amazon','https://gaming.amazon.com/home',['flatpak','run','com.heroicgameslauncher.hgl']),
     ]
+    def build_reference_store(self):
+        pass
     def select_store(self,index):
         self.selected_store=index
     def browse_selected(self):
@@ -62,6 +64,8 @@ class UnifiedStore(object):
             spawn(['xdg-open',url.format(query=q)])
     def open_selected_launcher(self):
         spawn(self.STORES[self.selected_store][3])
+    def refresh_library(self):
+        pass
     def query(self):
         return quote_plus(self.search.text().strip())
 class MechScope(object):
@@ -76,10 +80,13 @@ p=Path(sys.argv[1]); t=p.read_text(encoding='utf-8')
 compile(t,str(p),'exec')
 assert 'MECHOS_HOTFIX15_NATIVE_UNIFIED_STORE' in t
 assert 'MECHOS_HOTFIX15_INTERNAL_GAME_BROWSER' in t
+assert 'MECHOS_HOTFIX15_UNIFIED_STORE_VISUAL' in t
+assert 'PLAY ANYWHERE' in t
+assert 'FEATURED / INSTALLED GAMES' in t
 assert '_mechos_show_game_browser_v15' in t
-assert "spawn(['xdg-open', url.format(query=self.query())])" not in t
+assert "spawn(['xdg-open', self.STORES[self.selected_store][2].format(query=self.query())])" not in t
 assert "spawn(['xdg-open',url.format(query=q)])" not in t
 assert "self._mechos_show_game_browser_v15('all')" in t
 PY
 
-echo 'Hotfix 15 validation passed: Creator overlay is safe, Unified Store search remains inside MechOS, and missing provider clients are auto-installed only on provider handoff.'
+echo 'Hotfix 15 validation passed: Creator overlay is safe, Unified Store has the redesigned native shell, game search stays inside MechOS, and missing provider clients auto-install only on provider handoff.'
