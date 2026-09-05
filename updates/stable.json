@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.10",
-  "release_name": "MechOS v0.3.0 Hotfix 10",
+  "version": "0.3.0-hotfix.11",
+  "release_name": "MechOS v0.3.0 Hotfix 11",
   "published_at": "2026-09-05",
-  "notes": "Creator graphics and MechScope launch reliability hotfix. Adds an always-available vector graphical layer to Creator Mode with app/tool/project badges and a creator hero visual while preserving live data and real backends. Repairs physical/non-virtual MechScope launches by preserving the accelerated controller path, verifying that MechScope actually appears, and falling back to the real MechScope target with hardware acceleration intact when the controller fails or produces no process. Adds detailed launcher and app startup diagnostics.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.10-update.tar.zst",
-  "bundle_sha256": "40b8f7600be2543db45f241714c8863189d7bef394ddda19991b4ee9d641b7b0",
+  "notes": "VM MechScope reliability hotfix. Repairs the runtime rc=1 path seen in Oracle VirtualBox by retrying MechScope with the active Qt platform, XWayland/xcb and native Wayland while keeping software rendering and Gamescope disabled in VMs. Adds a three-second startup health probe, runtime Qt import guard, correct VM log paths and mirrored MechScope startup diagnostics. Also restores a logging Update Center launcher and carries Hotfix 10 Creator graphics and Hotfix 9 storefront/backend authority forward.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.11-update.tar.zst",
+  "bundle_sha256": "6b1150e08de76c0f1235f8b252835b93e9694469e617fd95eac3f911681cc940",
   "requires_reboot": true
 }
