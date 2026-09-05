@@ -8,13 +8,14 @@ on:
       - 'scripts/mechos-hotfix-0.3.0-3-apply.sh'
       - 'scripts/build-hotfix-0.3.0-3.sh'
       - 'scripts/validate-hotfix-0.3.0-3.sh'
+      - 'scripts/mechos-preoobe-update-auth-runtime.sh'
       - '.github/workflows/publish-hotfix-0.3.0-3.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: mechos-hotfix-0.3.0-3-publish
+  group: mechos-hotfix-publish
   cancel-in-progress: false
 
 jobs:
@@ -54,4 +55,17 @@ jobs:
             exit 0
           fi
           git commit -m 'Publish MechOS v0.3.0 Hotfix 3'
-          git push origin HEAD:main
+
+          # Another publisher or validation bot may have advanced main after
+          # checkout. Rebase the generated release commit before pushing so a
+          # harmless concurrent commit cannot strand the stable hotfix.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort >/dev/null 2>&1 || true
+            sleep $((attempt * 2))
+          done
+          echo 'Unable to publish Hotfix 3 after three synchronized attempts.' >&2
+          exit 1
