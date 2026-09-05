@@ -1,0 +1,1 @@
+Build 116 failed because the final Live boot stage only patched the XDG installer autostart if the desktop file already existed, but later validation required it unconditionally. The final Live stage now recreates the XDG autostart authoritatively and validates it before mkarchiso.
