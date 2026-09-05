@@ -60,6 +60,29 @@ def patch_store(path: Path):
         return
 
     helper = r'''    # MECHOS_HOTFIX15_NATIVE_UNIFIED_STORE
+    def _mechos_bootstrap_provider_v15(self, provider):
+        import subprocess as _store_subprocess
+        helper = '/usr/local/libexec/mechos-provider-bootstrap-v15'
+        try:
+            result = _store_subprocess.run(
+                [helper, provider],
+                stdout=_store_subprocess.DEVNULL,
+                stderr=_store_subprocess.DEVNULL,
+                timeout=900,
+                check=False,
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, 'Store setup failed', f'MechOS could not install the required {provider} provider.\n\n{exc}')
+            return False
+        if result.returncode != 0:
+            QMessageBox.warning(
+                self,
+                'Store setup failed',
+                f'MechOS could not install the required {provider} provider (code {result.returncode}).\n\nCheck ~/.local/state/mechos/store/provider-bootstrap-v15.log for details.'
+            )
+            return False
+        return True
+
     def _mechos_open_native_store_v15(self, search=False):
         import shutil as _store_shutil
         import subprocess as _store_subprocess
@@ -68,10 +91,13 @@ def patch_store(path: Path):
 
         if name == 'Steam':
             if not _store_shutil.which('steam'):
-                QMessageBox.warning(self, 'Steam not installed', 'Steam is not installed. Install it from MechOS first, then reopen Unified Store.')
+                if not self._mechos_bootstrap_provider_v15('steam'):
+                    return False
+            if not _store_shutil.which('steam'):
+                QMessageBox.warning(self, 'Steam setup failed', 'Steam installation completed but the Steam executable is still unavailable.')
                 return False
-            # Keep browsing inside the Steam client instead of handing the URL
-            # to the desktop web browser. Search uses Steam's own openurl route.
+            # Keep browsing inside the Steam client instead of handing a store
+            # URL to the desktop browser. Search uses Steam's own protocol.
             if search and q:
                 target = 'steam://openurl/https://store.steampowered.com/search/?term=' + q
             else:
@@ -79,26 +105,32 @@ def patch_store(path: Path):
             spawn(['steam', target])
             return True
 
-        # Epic, GOG and Amazon entries are handled by the installed Heroic
-        # launcher. Do not fall back to xdg-open: if Heroic is missing, tell the
-        # user inside MechOS so Unified Store never unexpectedly opens a browser.
+        # Epic, GOG and Amazon entries are owned by Heroic on MechOS. If Heroic
+        # is missing, install it automatically as a user Flatpak, then continue.
         if not _store_shutil.which('flatpak'):
-            QMessageBox.warning(self, 'Heroic unavailable', 'Flatpak is unavailable, so Heroic cannot be opened from Unified Store.')
+            QMessageBox.warning(self, 'Heroic setup failed', 'Flatpak is unavailable, so MechOS cannot install Heroic Games Launcher automatically.')
             return False
-        try:
-            probe = _store_subprocess.run(
-                ['flatpak', 'info', 'com.heroicgameslauncher.hgl'],
-                stdout=_store_subprocess.DEVNULL,
-                stderr=_store_subprocess.DEVNULL,
-                timeout=4,
-                check=False,
-            )
-            if probe.returncode != 0:
-                QMessageBox.warning(self, 'Heroic not installed', 'Heroic Games Launcher is not installed. Install it from MechOS, then reopen Unified Store.')
+
+        def heroic_installed():
+            try:
+                probe = _store_subprocess.run(
+                    ['flatpak', 'info', 'com.heroicgameslauncher.hgl'],
+                    stdout=_store_subprocess.DEVNULL,
+                    stderr=_store_subprocess.DEVNULL,
+                    timeout=8,
+                    check=False,
+                )
+                return probe.returncode == 0
+            except Exception:
                 return False
-        except Exception:
-            QMessageBox.warning(self, 'Heroic unavailable', 'MechOS could not verify the Heroic Games Launcher installation.')
+
+        if not heroic_installed():
+            if not self._mechos_bootstrap_provider_v15('heroic'):
+                return False
+        if not heroic_installed():
+            QMessageBox.warning(self, 'Heroic setup failed', 'Heroic installation completed but MechOS could not verify it.')
             return False
+
         spawn(['flatpak', 'run', 'com.heroicgameslauncher.hgl'])
         return True
 '''
@@ -120,9 +152,8 @@ def patch_store(path: Path):
         self._mechos_open_native_store_v15(search=True)
 ''')
     text = replace_method(text, 'UnifiedStore', 'search_all', r'''    def search_all(self):
-        # Open the two native provider clients used by MechOS. This deliberately
-        # avoids xdg-open/browser tabs. Steam receives the typed query; Heroic
-        # opens once for Epic/GOG/Amazon browsing.
+        # Open the native provider clients used by MechOS instead of browser
+        # tabs. Missing providers are installed automatically before launch.
         original = self.selected_store
         self.selected_store = 0
         self._mechos_open_native_store_v15(search=True)
@@ -136,7 +167,7 @@ def patch_store(path: Path):
 
     text = text.replace(
         'Search official PC stores, open the authorized launcher, then return to MechScope. Purchases, accounts, licenses, downloads and anti-cheat remain with each official provider.',
-        'Open official PC store clients without leaving MechOS for the desktop browser. Purchases, accounts, licenses, downloads and anti-cheat remain with each official provider.',
+        'Open official PC store clients without leaving MechOS for the desktop browser. Missing store clients are installed automatically when selected. Purchases, accounts, licenses, downloads and anti-cheat remain with each official provider.',
         1,
     )
     text = text.replace('Search Selected Store', 'Open Selected Store', 1)
