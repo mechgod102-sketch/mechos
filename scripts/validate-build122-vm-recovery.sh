@@ -22,9 +22,11 @@ python3 - "$REF" <<'PY'
 from pathlib import Path
 import sys
 t=Path(sys.argv[1]).read_text()
-a=t.find('mechos-build120-reboot-vm-creator-final.sh')
-b=t.find('mechos-build122-vm-store-mechscope-final.sh')
-c=t.find("mkarchiso -v")
+a=t.find('bash /workspace/scripts/mechos-build120-reboot-vm-creator-final.sh')
+b=t.find('bash /workspace/scripts/mechos-build122-vm-store-mechscope-final.sh')
+# The patcher also contains an mkarchiso anchor string near the top, so validate
+# against the final occurrence representing the generated build command.
+c=t.rfind('mkarchiso -v')
 assert -1 not in (a,b,c), 'final build stage marker missing'
 assert a < b < c, 'Build 122 must run after Build 120 and before mkarchiso'
 PY
