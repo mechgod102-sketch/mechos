@@ -10,6 +10,9 @@ on:
       - 'src/mechos_ui/recovery_shell.py'
       - 'src/mechos_ui/stream_center_v14.py'
       - 'scripts/mechos-reboot-v14.sh'
+      - 'scripts/mechos-update-helper-v14.sh'
+      - 'scripts/mechos-update-guard-v14.sh'
+      - 'scripts/mechos-update-transaction-v13.sh'
       - 'scripts/mechos-mechscope-update-notify-v14.sh'
       - 'scripts/mechos-hotfix14-runtime-patch.py'
       - 'scripts/mechos-hotfix-0.3.0-14-apply.sh'
@@ -41,6 +44,10 @@ jobs:
           set -euo pipefail
           bash scripts/validate-hotfix-0.3.0-14.sh
           bash scripts/build-hotfix-0.3.0-14.sh
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst
+          sha256sum -c "$BUNDLE.sha256"
+          tar --zstd -tf "$BUNDLE" | grep -Fq './usr/local/bin/mechos-update-helper'
+          tar --zstd -tf "$BUNDLE" | grep -Fq './usr/local/libexec/mechos-update-guard-v14'
       - name: Publish Hotfix 14 to Update Center stable channel
         run: |
           set -euo pipefail
