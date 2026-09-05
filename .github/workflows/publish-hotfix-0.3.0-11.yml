@@ -1,28 +1,12 @@
 name: Publish MechOS v0.3.0 Hotfix 11
 
+# Historical publisher retained for manual recovery only. Hotfix 12 owns the
+# current stable channel and shared runtime changes must not republish v11.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-hotfix-0.3.0-11-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-11.sh'
-      - 'scripts/validate-hotfix-0.3.0-11.sh'
-      - 'scripts/mechos-mechscope-runtime-imports-v11.py'
-      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
-      - 'scripts/mechos-mode-launch-hotfix10.sh'
-      - 'scripts/mechos-creator-visual-owner-v10-patch.py'
-      - 'src/mechos_ui/creator_visual_shell_v10.py'
-      - '.github/workflows/publish-hotfix-0.3.0-11.yml'
 
 permissions:
   contents: write
-
-# Latest stable publisher owns its own queue. Historical publishers are now
-# manual-only, so a shared runtime/UI change cannot cancel or downgrade v11.
-concurrency:
-  group: mechos-hotfix-11-publish
-  cancel-in-progress: false
 
 jobs:
   publish:
