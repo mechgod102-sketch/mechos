@@ -61,39 +61,28 @@ def patch_mechscope(path: Path):
 
     helper = r'''    # MECHOS_HOTFIX16_SINGLE_WINDOW_SHELL
     def _mechos_shell_install_v16(self):
-        from pathlib import Path as _ShellPath
         import os as _shell_os
+        from pathlib import Path as _ShellPath
         from PyQt6.QtCore import QTimer as _ShellTimer
-        from PyQt6.QtWidgets import (
-            QFrame as _ShellFrame,
-            QHBoxLayout as _ShellHBox,
-            QLabel as _ShellLabel,
-            QPushButton as _ShellButton,
-            QStackedWidget as _ShellStack,
-            QVBoxLayout as _ShellVBox,
-            QWidget as _ShellWidget,
-        )
-
+        from PyQt6.QtWidgets import QFrame as _ShellFrame, QHBoxLayout as _ShellHBox, QLabel as _ShellLabel, QPushButton as _ShellButton, QStackedWidget as _ShellStack, QVBoxLayout as _ShellVBox, QWidget as _ShellWidget
         if hasattr(self, '_mechos_shell_stack_v16'):
             return
         home = self.takeCentralWidget()
         if home is None:
             return
-
         wrapper = _ShellWidget(self)
         layout = _ShellVBox(wrapper)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-
         nav = _ShellFrame(wrapper)
         nav.setObjectName('mechosUnifiedNavV16')
-        nav.setStyleSheet('''
-QFrame#mechosUnifiedNavV16{background:#050914;border-bottom:1px solid #24324d}
-QPushButton{background:#0b1424;border:1px solid #2b3e5d;border-radius:9px;padding:9px 13px;color:#eef4ff;font-weight:800}
-QPushButton:hover{border:1px solid #8b5cf6;background:#111d33}
-QPushButton:checked{background:#5f35d5;border:1px solid #c084fc;color:white}
-QLabel{color:#9fb0c8;font-weight:800}
-''')
+        nav.setStyleSheet(
+            'QFrame#mechosUnifiedNavV16{background:#050914;border-bottom:1px solid #24324d}'
+            'QPushButton{background:#0b1424;border:1px solid #2b3e5d;border-radius:9px;padding:9px 13px;color:#eef4ff;font-weight:800}'
+            'QPushButton:hover{border:1px solid #8b5cf6;background:#111d33}'
+            'QPushButton:checked{background:#5f35d5;border:1px solid #c084fc;color:white}'
+            'QLabel{color:#9fb0c8;font-weight:800}'
+        )
         row = _ShellHBox(nav)
         row.setContentsMargins(14, 8, 14, 8)
         row.setSpacing(8)
@@ -101,16 +90,8 @@ QLabel{color:#9fb0c8;font-weight:800}
         brand.setStyleSheet('color:#e9d5ff;font-size:14px;font-weight:900;letter-spacing:1px')
         row.addWidget(brand)
         row.addSpacing(10)
-
         self._mechos_shell_nav_buttons_v16 = {}
-        for key, label in [
-            ('gaming', 'Gaming'),
-            ('store', 'Unified Store'),
-            ('creator', 'Creator Mode'),
-            ('performance', 'Performance'),
-            ('updates', 'Updates'),
-            ('recovery', 'Recovery'),
-        ]:
+        for key, label in [('gaming','Gaming'),('store','Unified Store'),('creator','Creator Mode'),('performance','Performance'),('updates','Updates'),('recovery','Recovery')]:
             button = _ShellButton(label)
             button.setCheckable(True)
             button.clicked.connect(lambda _=False, k=key: self._mechos_shell_route_v16(k))
@@ -121,19 +102,16 @@ QLabel{color:#9fb0c8;font-weight:800}
         back.clicked.connect(self._mechos_shell_back_v16)
         row.addWidget(back)
         layout.addWidget(nav)
-
         stack = _ShellStack(wrapper)
         stack.setObjectName('mechosUnifiedStackV16')
         layout.addWidget(stack, 1)
         stack.addWidget(home)
-
         self._mechos_shell_stack_v16 = stack
         self._mechos_shell_pages_v16 = {'gaming': home}
         self._mechos_shell_current_v16 = 'gaming'
         self._mechos_shell_history_v16 = []
         self.setCentralWidget(wrapper)
         self._mechos_shell_nav_buttons_v16['gaming'].setChecked(True)
-
         runtime = _shell_os.environ.get('XDG_RUNTIME_DIR') or f'/tmp/mechos-{_shell_os.getuid()}'
         self._mechos_shell_route_file_v16 = _ShellPath(runtime) / 'mechos-shell-route-v16'
         try:
@@ -153,48 +131,13 @@ QLabel{color:#9fb0c8;font-weight:800}
             route_file.unlink(missing_ok=True)
         except Exception:
             return
-        aliases = {'mechscope': 'gaming', 'update': 'updates', 'performance-center': 'performance', 'recovery-center': 'recovery'}
+        aliases = {'mechscope':'gaming','update':'updates','performance-center':'performance','recovery-center':'recovery'}
         value = aliases.get(value, value)
-        if value in {'gaming', 'store', 'creator', 'performance', 'updates', 'recovery'}:
+        if value in {'gaming','store','creator','performance','updates','recovery'}:
             self._mechos_shell_route_v16(value)
 
-    def _mechos_shell_load_external_v16(self, key):
-        from importlib.machinery import SourceFileLoader as _ShellLoader
-        from importlib.util import module_from_spec as _shell_module_from_spec, spec_from_loader as _shell_spec_from_loader
-        from pathlib import Path as _ShellPath
+    def _mechos_shell_embed_class_v16(self, cls, parent_arg=False):
         from PyQt6.QtCore import Qt as _ShellQt
-
-        mapping = {
-            'creator': ([
-                '/usr/local/bin/mechos-creator-mode.real',
-                '/usr/local/bin/mechos-creator-mode',
-            ], 'Creator'),
-            'performance': ([
-                '/usr/local/bin/mechos-performance-center.real',
-                '/usr/local/bin/mechos-performance-center',
-            ], 'PerformanceCenter'),
-            'updates': ([
-                '/usr/local/libexec/mechos-update-center-v8.py',
-                '/usr/local/libexec/mechos-update-center-v7.py',
-                '/usr/local/bin/mechos-update-center.real',
-            ], 'UpdateCenter'),
-            'recovery': ([
-                '/usr/local/bin/mechos-recovery-center.real',
-                '/usr/local/bin/mechos-recovery-center',
-            ], 'Recovery'),
-        }
-        paths, class_name = mapping[key]
-        source = next((_ShellPath(p) for p in paths if _ShellPath(p).is_file()), None)
-        if source is None:
-            raise RuntimeError(f'{key} surface is not installed')
-
-        module_name = f'_mechos_shell_v16_{key}_{abs(hash(str(source)))}'
-        loader = _ShellLoader(module_name, str(source))
-        spec = _shell_spec_from_loader(module_name, loader)
-        module = _shell_module_from_spec(spec)
-        loader.exec_module(module)
-        cls = getattr(module, class_name)
-
         host = self
         cls.showFullScreen = lambda _page: None
         cls.showMaximized = lambda _page: None
@@ -204,8 +147,7 @@ QLabel{color:#9fb0c8;font-weight:800}
             cls.accept = lambda _page: host._mechos_shell_back_v16()
         if hasattr(cls, 'reject'):
             cls.reject = lambda _page: host._mechos_shell_back_v16()
-
-        page = cls()
+        page = cls(self) if parent_arg else cls()
         try:
             page.setWindowFlags(_ShellQt.WindowType.Widget)
         except Exception:
@@ -214,22 +156,30 @@ QLabel{color:#9fb0c8;font-weight:800}
         self._mechos_shell_rewire_page_v16(page)
         return page
 
+    def _mechos_shell_load_external_v16(self, key):
+        from importlib.machinery import SourceFileLoader as _ShellLoader
+        from importlib.util import module_from_spec as _module_from_spec, spec_from_loader as _spec_from_loader
+        from pathlib import Path as _ShellPath
+        mapping = {
+            'creator': (['/usr/local/bin/mechos-creator-mode.real','/usr/local/bin/mechos-creator-mode'], 'Creator'),
+            'performance': (['/usr/local/bin/mechos-performance-center.real','/usr/local/bin/mechos-performance-center'], 'PerformanceCenter'),
+            'updates': (['/usr/local/libexec/mechos-update-center-v8.py','/usr/local/libexec/mechos-update-center-v7.py','/usr/local/bin/mechos-update-center.real'], 'UpdateCenter'),
+            'recovery': (['/usr/local/bin/mechos-recovery-center.real','/usr/local/bin/mechos-recovery-center'], 'Recovery'),
+        }
+        paths, class_name = mapping[key]
+        source = next((_ShellPath(p) for p in paths if _ShellPath(p).is_file()), None)
+        if source is None:
+            raise RuntimeError(f'{key} surface is not installed')
+        name = f'_mechos_shell_v16_{key}_{abs(hash(str(source)))}'
+        loader = _ShellLoader(name, str(source))
+        spec = _spec_from_loader(name, loader)
+        module = _module_from_spec(spec)
+        loader.exec_module(module)
+        return self._mechos_shell_embed_class_v16(getattr(module, class_name), False)
+
     def _mechos_shell_rewire_page_v16(self, page):
         from PyQt6.QtWidgets import QPushButton as _ShellButton
-        nav = {
-            'performance center': 'performance',
-            'performance': 'performance',
-            'update center': 'updates',
-            'updates': 'updates',
-            'recovery center': 'recovery',
-            'recovery': 'recovery',
-            'creator mode': 'creator',
-            'unified store': 'store',
-            'return to mechscope': 'gaming',
-            'back to mechscope': 'gaming',
-            'gaming mode': 'gaming',
-            'close': 'gaming',
-        }
+        nav = {'performance center':'performance','performance':'performance','update center':'updates','updates':'updates','recovery center':'recovery','recovery':'recovery','creator mode':'creator','unified store':'store','return to mechscope':'gaming','back to mechscope':'gaming','gaming mode':'gaming','close':'gaming'}
         for button in page.findChildren(_ShellButton):
             label = (button.text() or '').split('\n', 1)[0].strip().lower()
             key = nav.get(label)
@@ -242,55 +192,35 @@ QLabel{color:#9fb0c8;font-weight:800}
             button.clicked.connect(lambda _=False, k=key: self._mechos_shell_route_v16(k))
 
     def _mechos_shell_route_v16(self, key):
-        from PyQt6.QtCore import Qt as _ShellQt
         from PyQt6.QtWidgets import QMessageBox as _ShellMessageBox
         key = str(key).strip().lower()
-        aliases = {'mechscope': 'gaming', 'update': 'updates', 'performance-center': 'performance', 'recovery-center': 'recovery'}
+        aliases = {'mechscope':'gaming','update':'updates','performance-center':'performance','recovery-center':'recovery'}
         key = aliases.get(key, key)
-        if key not in {'gaming', 'store', 'creator', 'performance', 'updates', 'recovery'}:
+        if key not in {'gaming','store','creator','performance','updates','recovery'}:
             return False
-
         current = getattr(self, '_mechos_shell_current_v16', 'gaming')
         if key == current:
             return True
-        pages = self._mechos_shell_pages_v16
-        page = pages.get(key)
+        page = self._mechos_shell_pages_v16.get(key)
         if page is None:
             try:
                 if key == 'store':
                     cls = globals().get('UnifiedStore')
                     if cls is None:
                         raise RuntimeError('Unified Store class is unavailable')
-                    host = self
-                    cls.showFullScreen = lambda _page: None
-                    cls.showMaximized = lambda _page: None
-                    cls.setWindowState = lambda _page, *_args: None
-                    cls.close = lambda _page: host._mechos_shell_back_v16()
-                    if hasattr(cls, 'accept'):
-                        cls.accept = lambda _page: host._mechos_shell_back_v16()
-                    if hasattr(cls, 'reject'):
-                        cls.reject = lambda _page: host._mechos_shell_back_v16()
-                    page = cls(self)
-                    try:
-                        page.setWindowFlags(_ShellQt.WindowType.Widget)
-                    except Exception:
-                        pass
-                    page.setParent(self._mechos_shell_stack_v16)
-                    self._mechos_shell_rewire_page_v16(page)
+                    page = self._mechos_shell_embed_class_v16(cls, True)
                 else:
                     page = self._mechos_shell_load_external_v16(key)
-                pages[key] = page
+                self._mechos_shell_pages_v16[key] = page
                 self._mechos_shell_stack_v16.addWidget(page)
             except Exception as exc:
                 _ShellMessageBox.warning(self, 'MechOS Unified Shell', f'Could not load {key.title()} inside the MechOS shell.\n\n{exc}')
                 return False
-
-        if current != key:
-            history = self._mechos_shell_history_v16
-            if not history or history[-1] != current:
-                history.append(current)
-                if len(history) > 16:
-                    del history[:-16]
+        history = self._mechos_shell_history_v16
+        if current != key and (not history or history[-1] != current):
+            history.append(current)
+            if len(history) > 16:
+                del history[:-16]
         self._mechos_shell_current_v16 = key
         self._mechos_shell_stack_v16.setCurrentWidget(page)
         for name, button in self._mechos_shell_nav_buttons_v16.items():
@@ -305,10 +235,6 @@ QLabel{color:#9fb0c8;font-weight:800}
     def _mechos_shell_back_v16(self):
         history = getattr(self, '_mechos_shell_history_v16', [])
         target = history.pop() if history else 'gaming'
-        current = getattr(self, '_mechos_shell_current_v16', 'gaming')
-        if current == target:
-            target = 'gaming'
-        # Do not add a back-navigation hop back into history.
         page = self._mechos_shell_pages_v16.get(target)
         if page is None:
             return self._mechos_shell_route_v16(target)
@@ -325,12 +251,7 @@ QLabel{color:#9fb0c8;font-weight:800}
             program = str(command[0])
         except Exception:
             return False
-        routes = {
-            '/usr/local/bin/mechos-performance-center': 'performance',
-            '/usr/local/bin/mechos-update-center': 'updates',
-            '/usr/local/bin/mechos-recovery-center': 'recovery',
-            '/usr/local/bin/mechos-creator-mode': 'creator',
-        }
+        routes = {'/usr/local/bin/mechos-performance-center':'performance','/usr/local/bin/mechos-update-center':'updates','/usr/local/bin/mechos-recovery-center':'recovery','/usr/local/bin/mechos-creator-mode':'creator'}
         route = routes.get(program)
         if route:
             return self._mechos_shell_route_v16(route)
@@ -339,9 +260,6 @@ QLabel{color:#9fb0c8;font-weight:800}
 '''
     text = inject_method(text, 'MechScope', marker, helper)
 
-    # Install the shared shell after the normal MechScope home composition has
-    # been built. The old central widget becomes page 0 instead of being thrown
-    # away, so the existing gaming dashboard remains authoritative.
     bounds = method_bounds(text, 'MechScope', 'build_ui')
     if not bounds:
         raise SystemExit('MechScope.build_ui missing')
@@ -355,7 +273,6 @@ QLabel{color:#9fb0c8;font-weight:800}
         text = replace_method(text, 'MechScope', 'open_store', r'''    def open_store(self):
         return self._mechos_shell_route_v16('store')
 ''')
-
     if method_bounds(text, 'MechScope', 'switch_mode'):
         text = replace_method(text, 'MechScope', 'switch_mode', r'''    def switch_mode(self, mode):
         mode = str(mode).strip().lower()
@@ -369,8 +286,6 @@ QLabel{color:#9fb0c8;font-weight:800}
         return False
 ''')
 
-    # Convert hard-coded internal center launches in the gaming dashboard into
-    # router calls. External applications such as Steam remain external.
     text = text.replace("lambda:spawn(['/usr/local/bin/mechos-performance-center'])", "lambda:self._mechos_shell_route_v16('performance')")
     text = text.replace("lambda:spawn(['/usr/local/bin/mechos-update-center'])", "lambda:self._mechos_shell_route_v16('updates')")
     text = text.replace("lambda:spawn(['/usr/local/bin/mechos-recovery-center'])", "lambda:self._mechos_shell_route_v16('recovery')")
