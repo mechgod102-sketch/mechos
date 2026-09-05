@@ -46,8 +46,10 @@ jobs:
           bash scripts/build-hotfix-0.3.0-14.sh
           BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst
           (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
-          tar --zstd -tf "$BUNDLE" | grep -Fq './usr/local/bin/mechos-update-helper'
-          tar --zstd -tf "$BUNDLE" | grep -Fq './usr/local/libexec/mechos-update-guard-v14'
+          CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+          grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-update-guard-v14' <<< "$CONTENTS"
+          echo 'Hotfix 14 bundle validation passed.'
       - name: Publish Hotfix 14 to Update Center stable channel
         run: |
           set -euo pipefail
