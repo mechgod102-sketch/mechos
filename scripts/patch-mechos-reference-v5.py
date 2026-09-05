@@ -85,6 +85,10 @@ bash /workspace/scripts/mechos-preoobe-update-auth-final.sh
 # BUILD 113 LIVE-BOOT AUTHORITY. Reassert the visible Live/installed splash
 # split and the Live Plasma/installer handoff after every older patch stage.
 bash /workspace/scripts/mechos-build113-live-boot-splash-fix.sh
+# BUILD 118 COMPATIBILITY. Build 118 originally targeted the pre-Hotfix-5
+# launcher shape. Migrate its embedded fallback patcher to understand the current
+# case-based VM-aware launcher before executing the legacy regression authority.
+python3 /workspace/scripts/mechos-build125-build118-anchor-compat.py
 # BUILD 118 SIX-REGRESSION AUTHORITY. Runs after older generated integrations so
 # responsive VM geometry, deterministic OOBE/tutorial, reboot and MechScope
 # runtime fixes cannot be overwritten.
