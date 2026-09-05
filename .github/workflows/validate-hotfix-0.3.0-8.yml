@@ -1,0 +1,48 @@
+name: Validate MechOS v0.3.0 Hotfix 8
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-8-apply.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - 'scripts/mechos-final-surface-owner-v8-patch.py'
+      - 'scripts/mechos-creator-settings-v8-patch.py'
+      - 'scripts/mechos-apply-current-store-v8.sh'
+      - 'scripts/mechos-reference-v5-store-layout.sh'
+      - 'scripts/mechos-store-qlineedit-patch.py'
+      - 'scripts/mechos-build125-final-surfaces.sh'
+      - 'scripts/build-hotfix-0.3.0-8.sh'
+      - 'scripts/validate-hotfix-0.3.0-8.sh'
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/update_shell.py'
+      - 'src/mechos_ui/recovery_shell.py'
+      - 'src/mechos_ui/quick_actions_shell.py'
+      - 'src/mechos_ui/creator_shell.py'
+      - '.github/workflows/validate-hotfix-0.3.0-8.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Install validation tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Build and validate Hotfix 8 without publishing
+        run: |
+          set -euo pipefail
+          bash -n scripts/mechos-build125-final-surfaces.sh
+          python3 -m py_compile \
+            scripts/mechos-update-center-reference-v8.py \
+            scripts/mechos-final-surface-owner-v8-patch.py \
+            scripts/mechos-creator-settings-v8-patch.py
+          bash scripts/build-hotfix-0.3.0-8.sh
+          bash scripts/validate-hotfix-0.3.0-8.sh
