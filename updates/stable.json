@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.4",
-  "release_name": "MechOS v0.3.0 Hotfix 4",
+  "version": "0.3.0-hotfix.5",
+  "release_name": "MechOS v0.3.0 Hotfix 5",
   "published_at": "2026-09-05",
-  "notes": "Repairs the post-install first-run account/tutorial handoff, prevents incorrect-user OOBE/Python launch failures, restores MechScope VM fallback and the Update Center restart action, and fixes responsive Creator/installer control geometry seen at VirtualBox resolutions. Live-installer geometry is included in the next ISO source; installed Creator/runtime repairs are delivered by this hotfix.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.4-update.tar.zst",
-  "bundle_sha256": "f167132c786bdaa790ba013f82b636c13132eea7b2b5ede299c5d772f0271653",
+  "notes": "Repairs MechScope launching on upgraded VirtualBox/VMware/QEMU installs by shipping the complete VM launcher/runtime pair and routing VM mode switches directly to the Plasma-hosted MechScope runtime instead of depending on a stale gaming-layer controller. The runtime preserves the first-run OOBE gate, prefers the real MechScope UI backend when a tutorial wrapper is present, performs a Python health check, records a dedicated launch log, and leaves physical-hardware Gamescope routing unchanged.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.5-update.tar.zst",
+  "bundle_sha256": "a47ed3c879fa3dbf05eca3bde6f534cccdcdd28a605b67b66ff400304a59cf36",
   "requires_reboot": true
 }
