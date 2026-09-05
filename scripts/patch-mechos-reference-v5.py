@@ -76,10 +76,13 @@ bash /workspace/scripts/mechos-new-build-final-gate.sh
 # systemd-user launch paths, the temporary setup account is usable but non-admin,
 # and Plasma's stock KDE splash is suppressed.
 bash /workspace/scripts/mechos-build111-firstboot-splash-hotfix.sh
-# UPDATE DISCOVERY AUTHORITY. Run last so every final helper copy uses a
-# cache-busting stable-manifest request instead of silently accepting stale
-# raw.githubusercontent.com metadata immediately after a hotfix publish.
+# UPDATE DISCOVERY AUTHORITY. Keep stable-manifest discovery fresh.
 bash /workspace/scripts/mechos-update-manifest-refresh-final.sh
+# PRE-OOBE UPDATE AUTHORITY. This must be the last installed-payload patch so a
+# temporary mechos-setup session can apply a verified update without being asked
+# for a password that cannot exist before account creation. The PolicyKit grant
+# is restricted to one guarded wrapper and the wrapper stops after OOBE completes.
+bash /workspace/scripts/mechos-preoobe-update-auth-final.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
