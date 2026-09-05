@@ -8,7 +8,6 @@ if not path.is_file() and path.with_name(path.name+'.real').is_file(): path=path
 if not path.is_file(): raise SystemExit(f'MechScope implementation missing: {path}')
 text=path.read_text(encoding='utf-8')
 marker='# MECHOS_HOTFIX13_FULLSCREEN_STORE_V1'
-if marker in text: raise SystemExit(0)
 
 cls=text.find('class MechScope(QMainWindow):')
 if cls<0: raise SystemExit('MechScope class missing')
@@ -39,6 +38,7 @@ if marker not in body:
 # Open the store in a separate MechScope process. A broken modal child used to
 # look like the button did nothing. Separate-process launch gives it its own
 # window and log while keeping the main MechScope alive.
+cls=text.find('class MechScope(QMainWindow):')
 b=method_bounds(text,'open_store')
 if b:
     s,e=b
@@ -61,6 +61,72 @@ if b:
     text=text[:s]+replacement+text[e:]
 else:
     raise SystemExit('MechScope.open_store missing')
+
+# Add a real provider-install handoff to Unified Store. MechOS routes the job
+# to Steam, Lutris, Legendary/Nile when available, or Heroic for Epic/GOG/Amazon.
+# Provider authentication, ownership and download bytes remain provider-owned.
+store=text.find('class UnifiedStore(')
+mech=text.find('\nclass MechScope(QMainWindow):',store)
+if store < 0 or mech < 0: raise SystemExit('UnifiedStore class missing')
+store_text=text[store:mech]
+if 'MECHOS_HOTFIX13_PROVIDER_INSTALL_V1' not in store_text:
+    store_text=store_text.replace(
+        "ll.addWidget(self.info_button('Install Queue','Managed by Steam / Heroic / Lutris',self.open_selected_launcher))",
+        "ll.addWidget(self.info_button('Install Queue','MechOS provider handoffs',self.open_install_queue))"
+    )
+    store_text=store_text.replace(
+        "ll.addWidget(self.info_button('Downloads','Open selected launcher',self.open_selected_launcher))",
+        "ll.addWidget(self.info_button('Install / Manage','Route install to selected provider',self.install_selected))"
+    )
+    methods=r'''
+    # MECHOS_HOTFIX13_PROVIDER_INSTALL_V1
+    def provider_key(self):
+        name=self.STORES[self.selected_store][0].strip().lower()
+        return {
+            'steam':'steam','epic games':'epic','gog.com':'gog',
+            'amazon games':'amazon','heroic':'heroic','lutris':'lutris'
+        }.get(name,name.replace(' ',''))
+
+    def install_selected(self):
+        controller='/usr/local/bin/mechos-game-install'
+        if not Path(controller).is_file():
+            QMessageBox.critical(self,'MechOS Unified Store','Provider install controller is missing.\n\nExpected: '+controller)
+            return
+        provider=self.provider_key()
+        value=self.search.text().strip()
+        if not value:
+            QMessageBox.information(
+                self,'Install / Manage',
+                'Enter a provider game ID, supported store URL, or game identifier in the search field first.\n\n'
+                'Steam accepts an AppID or Steam /app/ URL. Lutris accepts an installer slug. Epic can use an Epic app name when Legendary is available. GOG/Amazon are handed to Heroic when their provider backend is not directly exposed.'
+            )
+            self.search.setFocus(); return
+        try:
+            result=subprocess.run([controller,'install',provider,value],text=True,capture_output=True,timeout=8)
+        except Exception as exc:
+            QMessageBox.critical(self,'Install / Manage',f'Install handoff failed.\n\n{exc}')
+            return
+        detail=(result.stdout or result.stderr or '').strip()
+        if result.returncode==0:
+            QMessageBox.information(
+                self,'Install / Manage',
+                f'Install request handed to {self.STORES[self.selected_store][0]}.\n\n'
+                'The official provider client owns authentication, licenses, download location and game files.' +
+                (f'\n\n{detail}' if detail else '')
+            )
+        else:
+            QMessageBox.warning(self,'Install / Manage',detail or f'Provider handoff failed with code {result.returncode}.')
+
+    def open_install_queue(self):
+        controller='/usr/local/bin/mechos-game-install'
+        try:
+            out=subprocess.check_output([controller,'status'],text=True,stderr=subprocess.STDOUT,timeout=5)
+        except Exception as exc:
+            out=f'Install queue unavailable: {exc}'
+        QMessageBox.information(self,'MechOS Install Queue',out[-6000:])
+'''
+    store_text=store_text.rstrip()+methods+'\n'
+    text=text[:store]+store_text+text[mech:]
 
 # The direct --store route must itself be true fullscreen, not just maximized.
 text=text.replace("dialog=UnifiedStore(); dialog.showMaximized(); sys.exit(app.exec())","dialog=UnifiedStore(); dialog.showFullScreen(); QTimer.singleShot(250,dialog.showFullScreen); sys.exit(app.exec())")
