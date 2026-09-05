@@ -65,6 +65,8 @@ jobs:
         run: |
           ./scripts/validate-project.sh
           python3 scripts/validate-gui-button-wiring.py
+          python3 scripts/validate-vm-lifecycle-workflow.py
+          python3 -m py_compile scripts/vm_lifecycle_runner.py
           python3 scripts/validate-visual-surfaces-v9.py
           bash scripts/validate-gamescope-universal.sh
           bash scripts/validate-native-installer.sh
