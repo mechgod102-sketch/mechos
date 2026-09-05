@@ -42,6 +42,7 @@ jobs:
           bash scripts/validate-reference-splash.sh
           bash scripts/validate-plymouth-native-final.sh
           bash scripts/validate-live-installer-runtime-guard.sh
+          bash scripts/validate-build113-live-autostart.sh
           bash scripts/validate-live-update-pacman-sandbox.sh
           bash scripts/validate-aur-helper.sh
           bash scripts/validate-vm-ui-runtime-guard.sh
