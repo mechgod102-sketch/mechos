@@ -96,8 +96,6 @@ def patch_store(path: Path):
             if not _store_shutil.which('steam'):
                 QMessageBox.warning(self, 'Steam setup failed', 'Steam installation completed but the Steam executable is still unavailable.')
                 return False
-            # Keep browsing inside the Steam client instead of handing a store
-            # URL to the desktop browser. Search uses Steam's own protocol.
             if search and q:
                 target = 'steam://openurl/https://store.steampowered.com/search/?term=' + q
             else:
@@ -105,8 +103,6 @@ def patch_store(path: Path):
             spawn(['steam', target])
             return True
 
-        # Epic, GOG and Amazon entries are owned by Heroic on MechOS. If Heroic
-        # is missing, install it automatically as a user Flatpak, then continue.
         if not _store_shutil.which('flatpak'):
             QMessageBox.warning(self, 'Heroic setup failed', 'Flatpak is unavailable, so MechOS cannot install Heroic Games Launcher automatically.')
             return False
@@ -139,10 +135,13 @@ def patch_store(path: Path):
     text = replace_method(text, 'UnifiedStore', 'select_store', r'''    def select_store(self, index):
         self.selected_store = index
         name, desc, _url, _launcher = self.STORES[index]
-        self.feature_name.setText(name)
-        self.feature_desc.setText(desc)
-        self.open_source.setText('Open ' + name + ' Store')
-        for i, button in enumerate(self.source_buttons):
+        if hasattr(self, 'feature_name'):
+            self.feature_name.setText(name)
+        if hasattr(self, 'feature_desc'):
+            self.feature_desc.setText(desc)
+        if hasattr(self, 'open_source'):
+            self.open_source.setText('Open ' + name + ' Store')
+        for i, button in enumerate(getattr(self, 'source_buttons', [])):
             button.setChecked(i == index)
 ''')
     text = replace_method(text, 'UnifiedStore', 'browse_selected', r'''    def browse_selected(self):
@@ -152,8 +151,6 @@ def patch_store(path: Path):
         self._mechos_open_native_store_v15(search=True)
 ''')
     text = replace_method(text, 'UnifiedStore', 'search_all', r'''    def search_all(self):
-        # Open the native provider clients used by MechOS instead of browser
-        # tabs. Missing providers are installed automatically before launch.
         original = self.selected_store
         self.selected_store = 0
         self._mechos_open_native_store_v15(search=True)
@@ -165,13 +162,191 @@ def patch_store(path: Path):
         self._mechos_open_native_store_v15(search=False)
 ''')
 
+    visual = r"""    def build_reference_store(self):
+        # MECHOS_HOTFIX15_UNIFIED_STORE_VISUAL
+        self.setStyleSheet(r'''
+QDialog { background:#050913; color:#f7f8ff; }
+QFrame#storeSidebar { background:#070d18; border:1px solid #18243b; border-radius:16px; }
+QFrame#storeHero { background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #0b1122,stop:.52 #171038,stop:1 #08243a); border:1px solid #6d3cff; border-radius:18px; }
+QFrame#storePanel { background:#09111f; border:1px solid #223452; border-radius:15px; }
+QFrame#sourceCard { background:#0d1627; border:1px solid #303f62; border-radius:14px; }
+QFrame#gameCard { background:#0b1424; border:1px solid #283957; border-radius:14px; }
+QLabel#storeTitle { color:white; font-size:34px; font-weight:900; }
+QLabel#storeEyebrow { color:#c084fc; font-size:13px; font-weight:900; }
+QLabel#storeSection { color:#67e8f9; font-size:13px; font-weight:900; }
+QLabel#storeMuted { color:#9fb0c8; }
+QPushButton { background:#101b2e; border:1px solid #334766; border-radius:10px; padding:10px 13px; font-weight:800; color:#f8fafc; }
+QPushButton:hover { border:1px solid #8b5cf6; background:#15213a; }
+QPushButton:checked, QPushButton#primary { background:#6d35e8; border:1px solid #a78bfa; }
+QLineEdit { background:#080f1d; border:1px solid #314766; border-radius:12px; padding:12px 15px; font-size:15px; color:white; }
+QLineEdit:focus { border:2px solid #8b5cf6; }
+''')
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(18, 16, 18, 16)
+        outer.setSpacing(12)
+
+        top = QHBoxLayout()
+        brand = QLabel('MECHOS')
+        brand.setStyleSheet('font-size:22px;font-weight:900;color:#e9d5ff')
+        top.addWidget(brand)
+        top.addSpacing(20)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText('Search for games across all stores…')
+        self.search.returnPressed.connect(self.search_all)
+        top.addWidget(self.search, 1)
+        search_all = QPushButton('Search All Stores')
+        search_all.setObjectName('primary')
+        search_all.clicked.connect(self.search_all)
+        top.addWidget(search_all)
+        back = QPushButton('Back to MechScope')
+        back.clicked.connect(self.accept)
+        top.addWidget(back)
+        outer.addLayout(top)
+
+        body = QHBoxLayout()
+        body.setSpacing(12)
+        sidebar = QFrame()
+        sidebar.setObjectName('storeSidebar')
+        sidebar.setFixedWidth(185)
+        sl = QVBoxLayout(sidebar)
+        sl.setContentsMargins(12, 14, 12, 14)
+        nav_title = QLabel('UNIFIED STORE')
+        nav_title.setObjectName('storeEyebrow')
+        sl.addWidget(nav_title)
+        for label, action in [
+            ('Home', lambda: self.search.setFocus()),
+            ('Games', lambda: self.search.setFocus()),
+            ('My Library', self.refresh_library),
+            ('Downloads', self.open_selected_launcher),
+            ('Creator Mode', lambda: spawn(['mechos-mode-launch','creator'])),
+        ]:
+            b = QPushButton(label)
+            if label == 'Games':
+                b.setObjectName('primary')
+            b.clicked.connect(action)
+            sl.addWidget(b)
+        sl.addStretch()
+        status = QLabel('●  MECHOS ONLINE')
+        status.setStyleSheet('color:#31e981;font-weight:900')
+        sl.addWidget(status)
+        body.addWidget(sidebar)
+
+        main = QVBoxLayout()
+        main.setSpacing(12)
+        hero = QFrame()
+        hero.setObjectName('storeHero')
+        hl = QHBoxLayout(hero)
+        hl.setContentsMargins(24, 20, 24, 20)
+        copy = QVBoxLayout()
+        eye = QLabel('ONE STORE • ALL YOUR GAMES')
+        eye.setObjectName('storeEyebrow')
+        copy.addWidget(eye)
+        title = QLabel('PLAY ANYWHERE')
+        title.setObjectName('storeTitle')
+        copy.addWidget(title)
+        sub = QLabel('Search games inside MechOS, compare available providers, and only open Steam or Heroic when you choose an install or provider action.')
+        sub.setObjectName('storeMuted')
+        sub.setWordWrap(True)
+        copy.addWidget(sub)
+        chips = QHBoxLayout()
+        self.source_buttons = []
+        for i, (name, _desc, _url, _launcher) in enumerate(self.STORES):
+            b = QPushButton(name)
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=False, x=i: self.select_store(x))
+            chips.addWidget(b)
+            self.source_buttons.append(b)
+        copy.addLayout(chips)
+        actions = QHBoxLayout()
+        selected_search = QPushButton('Search Selected Store')
+        selected_search.clicked.connect(self.search_selected)
+        actions.addWidget(selected_search)
+        self.open_source = QPushButton('Open Steam Store')
+        self.open_source.setObjectName('primary')
+        self.open_source.clicked.connect(self.browse_selected)
+        actions.addWidget(self.open_source)
+        copy.addLayout(actions)
+        hl.addLayout(copy, 3)
+
+        selected = QFrame()
+        selected.setObjectName('sourceCard')
+        sel = QVBoxLayout(selected)
+        st = QLabel('SELECTED PROVIDER')
+        st.setObjectName('storeSection')
+        sel.addWidget(st)
+        self.feature_name = QLabel('Steam')
+        self.feature_name.setStyleSheet('font-size:24px;font-weight:900')
+        sel.addWidget(self.feature_name)
+        self.feature_desc = QLabel(self.STORES[0][1])
+        self.feature_desc.setObjectName('storeMuted')
+        self.feature_desc.setWordWrap(True)
+        sel.addWidget(self.feature_desc)
+        sel.addStretch()
+        hl.addWidget(selected, 1)
+        main.addWidget(hero)
+
+        section_row = QHBoxLayout()
+        heading = QLabel('FEATURED / INSTALLED GAMES')
+        heading.setObjectName('storeSection')
+        section_row.addWidget(heading)
+        section_row.addStretch()
+        view = QPushButton('Refresh Library')
+        view.clicked.connect(self.refresh_library)
+        section_row.addWidget(view)
+        main.addLayout(section_row)
+
+        games_panel = QFrame()
+        games_panel.setObjectName('storePanel')
+        gl = QHBoxLayout(games_panel)
+        gl.setContentsMargins(12, 12, 12, 12)
+        games = steam_games()[:6]
+        if games:
+            for game in games:
+                card = QFrame()
+                card.setObjectName('gameCard')
+                card.setMinimumWidth(150)
+                cl = QVBoxLayout(card)
+                name = QLabel(game.get('name','Game'))
+                name.setWordWrap(True)
+                name.setStyleSheet('font-size:16px;font-weight:900')
+                cl.addWidget(name)
+                appid = str(game.get('appid','')).strip()
+                meta = QLabel('Steam App ' + appid if appid else 'Installed')
+                meta.setObjectName('storeMuted')
+                cl.addWidget(meta)
+                cl.addStretch()
+                play = QPushButton('Play')
+                play.setObjectName('primary')
+                play.clicked.connect(lambda _=False, a=appid: spawn(['steam','steam://rungameid/' + a]) if a else None)
+                cl.addWidget(play)
+                gl.addWidget(card, 1)
+        else:
+            empty = QLabel('No installed games detected yet. Search above to browse the unified catalog.')
+            empty.setObjectName('storeMuted')
+            empty.setWordWrap(True)
+            gl.addWidget(empty)
+        main.addWidget(games_panel)
+
+        footer_panel = QFrame()
+        footer_panel.setObjectName('storePanel')
+        fl = QHBoxLayout(footer_panel)
+        info = QLabel('SEARCH  →  VIEW DETAILS  →  AUTO-INSTALL PROVIDER IF NEEDED  →  INSTALL / PLAY')
+        info.setObjectName('storeMuted')
+        info.setWordWrap(True)
+        fl.addWidget(info)
+        main.addWidget(footer_panel)
+        body.addLayout(main, 1)
+        outer.addLayout(body, 1)
+        self.select_store(0)
+"""
+    if method_bounds(text, 'UnifiedStore', 'build_reference_store'):
+        text = replace_method(text, 'UnifiedStore', 'build_reference_store', visual)
+
     text = text.replace(
         'Search official PC stores, open the authorized launcher, then return to MechScope. Purchases, accounts, licenses, downloads and anti-cheat remain with each official provider.',
-        'Open official PC store clients without leaving MechOS for the desktop browser. Missing store clients are installed automatically when selected. Purchases, accounts, licenses, downloads and anti-cheat remain with each official provider.',
+        'Search games inside the MechOS Game Browser, compare providers, and open the official provider only when you choose a game or store action. Missing provider clients are installed automatically.',
         1,
     )
-    text = text.replace('Search Selected Store', 'Open Selected Store', 1)
-    text = text.replace('Search All Stores', 'Open Store Launchers', 1)
 
     compile(text, str(path), 'exec')
     path.write_text(text, encoding='utf-8')
