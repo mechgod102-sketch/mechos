@@ -1,0 +1,43 @@
+name: Validate MechOS v0.3.0 Hotfix 15
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/mechos-mode-launch-v15.sh'
+      - 'scripts/mechos-provider-bootstrap-v15.sh'
+      - 'scripts/mechos-game-catalog-v15.py'
+      - 'scripts/mechos-hotfix15-runtime-patch.py'
+      - 'scripts/mechos-hotfix15-game-browser-patch.py'
+      - 'scripts/mechos-hotfix-0.3.0-15-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-15.sh'
+      - 'scripts/validate-hotfix-0.3.0-15.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-15.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-15.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 15 source
+        run: bash scripts/validate-hotfix-0.3.0-15.sh
+      - name: Build Hotfix 15 bundle
+        run: bash scripts/build-hotfix-0.3.0-15.sh
+      - name: Verify Hotfix 15 bundle contents
+        run: |
+          set -euo pipefail
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst
+          (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+          CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+          grep -Fxq './usr/local/bin/mechos-mode-launch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-provider-bootstrap-v15' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-game-catalog-v15' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-hotfix15-game-browser-patch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-15-apply' <<< "$CONTENTS"
+          echo 'Hotfix 15 bundle validation passed.'
