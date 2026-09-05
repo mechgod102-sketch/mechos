@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.13",
-  "release_name": "MechOS v0.3.0 Hotfix 13",
+  "version": "0.3.0-hotfix.14",
+  "release_name": "MechOS v0.3.0 Hotfix 14",
   "published_at": "2026-09-05",
-  "notes": "Stability, fullscreen and Unified Store install-controller hotfix. Restores Update Center to the proven backend; replaces the no-op Performance/Optimization Center with the canonical responsive UI; makes MechScope and the separate Unified Store true scalable fullscreen surfaces; adds a provider install controller so Steam AppIDs route to the Steam install protocol, Lutris slugs route to the Lutris installer URI, Epic uses Legendary when available, Amazon uses Nile when available, and Epic/GOG/Amazon/Heroic otherwise hand off to Heroic without bypassing provider authentication, ownership or DRM. Install handoffs and queue state are logged in the MechOS store state directory. Also installs transactional future-update protection with staged validation, rollback, updater-last replacement and no automatic reboot/logout/poweroff.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.13-update.tar.zst",
-  "bundle_sha256": "d834d279042dcc1a7bb588e5034d1e6d42e7ec4edb2d15ba23c9a09ce786ee5d",
+  "notes": "Visual, navigation, updater-resilience and session-stability hotfix. Redesigns and widens Quick Actions; refreshes Recovery Center; replaces the small desktop Stream Center with a responsive fullscreen MechOS surface; paints dark backing pixels to eliminate white GUI margins; replaces the manual Restart backend with a direct logind-first path; makes MechScope check for updates once per gaming session and notify only when updates are available; keeps MechScope behind Creator Mode; adds Escape/back navigation across major surfaces; and uses real installed program/theme icons in Creator Mode and store surfaces. Hotfix 14 also installs a canonical verified Update Helper, protected rescue copies and a boot-time self-healing updater guard so a missing Update Center helper/launcher/backend is restored before login. Update installation remains transactional and never automatically reboots, logs out or powers off.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst",
+  "bundle_sha256": "7eea46926681756b76f935073614383828c8b943219bda50054fdca690932b78",
   "requires_reboot": true
 }
