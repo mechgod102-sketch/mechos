@@ -10,7 +10,10 @@ fail(){ echo "[Hotfix 7 Validation] ERROR: $*" >&2; exit 1; }
 [ -s "$BUNDLE" ] || fail "bundle missing"
 [ -s "$SUM" ] || fail "checksum missing"
 [ -s "$MANIFEST" ] || fail "stable manifest missing"
-sha256sum -c "$SUM"
+(
+  cd "$(dirname "$BUNDLE")"
+  sha256sum -c "$(basename "$SUM")"
+)
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 tar --zstd -xpf "$BUNDLE" -C "$TMP"
@@ -44,9 +47,6 @@ grep -Fq 'mechos-update-center.pre-hotfix7' "$APPLY" || fail "old Update Center 
 grep -Fq 'Exec=/usr/local/bin/mechos-update-center' "$TMP/usr/share/applications/mechos-update-center.desktop" || fail "Update Center desktop launcher broken"
 grep -Fq 'Exec=/usr/local/bin/mechos-mode-launch gaming' "$TMP/usr/share/applications/mechos-return-gaming.desktop" || fail "VM MechScope desktop launcher broken"
 
-# Reproduce the Creator Store regression in isolation: a Python owner uses
-# QLineEdit but forgets to import it. The shipped patcher must install the import
-# and leave syntactically valid Python behind.
 cat > "$TMP/qlineedit-sample.py" <<'PY'
 #!/usr/bin/env python3
 from PyQt6.QtWidgets import QWidget
@@ -72,7 +72,7 @@ assert not missing, f'missing Update Center methods: {sorted(missing)}'
 PY
 
 python3 - "$MANIFEST" "$SUM" <<'PY'
-import hashlib,json,pathlib,sys
+import json,pathlib,sys
 manifest=json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert manifest['schema']==1
 assert manifest['channel']=='stable'
