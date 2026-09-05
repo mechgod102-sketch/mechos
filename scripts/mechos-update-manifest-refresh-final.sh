@@ -8,7 +8,13 @@ PATCHER="/workspace/scripts/mechos-update-manifest-refresh-runtime.sh"
 log(){ printf '[MechOS Update Manifest Final] %s\n' "$*"; }
 fail(){ printf '[MechOS Update Manifest Final] ERROR: %s\n' "$*" >&2; exit 1; }
 
-[ -x "$PATCHER" ] || fail "runtime manifest refresh patcher missing"
+# This helper is intentionally invoked through `bash "$PATCHER"`, so it only
+# needs to exist as a readable shell source file. GitHub content writes keep
+# these integration helpers at mode 100644; requiring -x caused Build #114 to
+# fail even though the patcher was present and valid.
+[ -f "$PATCHER" ] || fail "runtime manifest refresh patcher missing"
+[ -r "$PATCHER" ] || fail "runtime manifest refresh patcher unreadable"
+bash -n "$PATCHER" || fail "runtime manifest refresh patcher syntax invalid"
 [ -d "$ROOT" ] || fail "ArchISO rootfs missing"
 [ -s "$ARCHIVE" ] || fail "installed-system payload missing"
 
