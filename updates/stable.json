@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.3",
-  "release_name": "MechOS v0.3.0 Hotfix 3",
+  "version": "0.3.0-hotfix.4",
+  "release_name": "MechOS v0.3.0 Hotfix 4",
   "published_at": "2026-09-05",
-  "notes": "Repairs post-install account creation on affected VM and hardware installs, disables the stock KDE/Plasma session splash, refreshes stable update metadata without stale-cache reuse, and adds a narrowly scoped first-run PolicyKit updater path so the temporary setup account is never asked for a nonexistent password when applying a verified MechOS update.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.3-update.tar.zst",
-  "bundle_sha256": "a4e94be70cdccf5fb96da74df05ed3da2759193297752c61592281203582e594",
+  "notes": "Repairs the post-install first-run account/tutorial handoff, prevents incorrect-user OOBE/Python launch failures, restores MechScope VM fallback and the Update Center restart action, and fixes responsive Creator/installer control geometry seen at VirtualBox resolutions. Live-installer geometry is included in the next ISO source; installed Creator/runtime repairs are delivered by this hotfix.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.4-update.tar.zst",
+  "bundle_sha256": "f167132c786bdaa790ba013f82b636c13132eea7b2b5ede299c5d772f0271653",
   "requires_reboot": true
 }
