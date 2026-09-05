@@ -16,6 +16,10 @@ mkdir -p \
 
 install -m 0755 "$ROOT/scripts/mechos-hotfix-0.3.0-3-apply.sh" \
   "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-3-apply"
+install -m 0755 "$ROOT/scripts/mechos-update-manifest-refresh-runtime.sh" \
+  "$STAGE/usr/local/libexec/mechos-update-manifest-refresh-runtime"
+install -m 0755 "$ROOT/scripts/mechos-preoobe-update-auth-runtime.sh" \
+  "$STAGE/usr/local/libexec/mechos-preoobe-update-auth-runtime"
 
 # Carry the canonical OOBE UI and privileged apply/cleanup helpers so Hotfix 3
 # can repair machines where the first-run runtime was incomplete in the ISO.
@@ -43,7 +47,7 @@ PY
 
 cat > "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-3.service" <<'EOF'
 [Unit]
-Description=Apply MechOS v0.3.0 Hotfix 3 firstboot and splash repairs
+Description=Apply MechOS v0.3.0 Hotfix 3 firstboot, splash and Update Center repairs
 After=local-fs.target
 Before=sddm.service display-manager.service
 ConditionPathExists=/var/lib/mechos/installed
@@ -52,6 +56,8 @@ ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-3-applied
 [Service]
 Type=oneshot
 ExecStart=/usr/local/libexec/mechos-hotfix-0.3.0-3-apply
+ExecStartPost=/usr/local/libexec/mechos-update-manifest-refresh-runtime
+ExecStartPost=/usr/local/libexec/mechos-preoobe-update-auth-runtime
 
 [Install]
 WantedBy=multi-user.target
@@ -60,6 +66,8 @@ ln -s /usr/lib/systemd/system/mechos-hotfix-0.3.0-3.service \
   "$STAGE/etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-3.service"
 
 bash -n "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-3-apply"
+bash -n "$STAGE/usr/local/libexec/mechos-update-manifest-refresh-runtime"
+bash -n "$STAGE/usr/local/libexec/mechos-preoobe-update-auth-runtime"
 PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$STAGE/usr/local/bin/mechos-oobe"
 PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$STAGE/usr/local/libexec/mechos-oobe-apply"
 bash -n "$STAGE/usr/local/libexec/mechos-oobe-cleanup"
@@ -79,7 +87,7 @@ data={
   'version':'0.3.0-hotfix.3',
   'release_name':'MechOS v0.3.0 Hotfix 3',
   'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-  'notes':'Repairs post-install account creation on affected VM and hardware installs by restoring the temporary first-run login, adding both KDE/XDG and systemd-user OOBE launch paths, and keeping that setup account non-admin. Also disables the stock KDE/Plasma session splash so the MechOS Plymouth splash remains the visible boot branding.',
+  'notes':'Repairs post-install account creation on affected VM and hardware installs, disables the stock KDE/Plasma session splash, refreshes stable update metadata without stale-cache reuse, and adds a narrowly scoped first-run PolicyKit updater path so the temporary setup account is never asked for a nonexistent password when applying a verified MechOS update.',
   'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.3-update.tar.zst',
   'bundle_sha256':sha,
   'requires_reboot':True,

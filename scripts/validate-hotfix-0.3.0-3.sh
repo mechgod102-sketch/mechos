@@ -2,6 +2,8 @@
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APPLY="$ROOT/scripts/mechos-hotfix-0.3.0-3-apply.sh"
+REFRESH="$ROOT/scripts/mechos-update-manifest-refresh-runtime.sh"
+PREOOBE="$ROOT/scripts/mechos-preoobe-update-auth-runtime.sh"
 BUNDLE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.3-update.tar.zst"
 SUM="$BUNDLE.sha256"
 MANIFEST="$ROOT/updates/stable.json"
@@ -9,6 +11,10 @@ fail(){ echo "[validate-hotfix-0.3.0-3] ERROR: $*" >&2; exit 1; }
 
 [ -f "$APPLY" ] || fail "Hotfix 3 apply helper missing"
 bash -n "$APPLY" || fail "Hotfix 3 apply helper shell syntax failed"
+[ -f "$REFRESH" ] || fail "Update Center manifest refresh helper missing"
+bash -n "$REFRESH" || fail "Update Center manifest refresh helper shell syntax failed"
+[ -f "$PREOOBE" ] || fail "pre-OOBE updater auth helper missing"
+bash -n "$PREOOBE" || fail "pre-OOBE updater auth helper shell syntax failed"
 grep -Fq 'passwd -d mechos-setup' "$APPLY" || fail "temporary firstboot account is not unlocked"
 grep -Fq 'gpasswd -d mechos-setup wheel' "$APPLY" || fail "temporary setup account is not removed from wheel"
 grep -Fq 'mechos-oobe-autostart.service' "$APPLY" || fail "systemd-user OOBE fallback missing"
@@ -17,6 +23,14 @@ grep -Fq 'Engine=none' "$APPLY" || fail "KDE/Plasma splash suppression missing"
 grep -Fq 'User=mechos-setup' "$APPLY" || fail "SDDM firstboot handoff missing"
 grep -Fq 'Relogin=false' "$APPLY" || fail "firstboot SDDM relogin loop guard missing"
 grep -Fq "printf '0.3.0-hotfix.3" "$APPLY" || fail "Hotfix 3 release metadata missing"
+grep -Fq 'MECHOS_MANIFEST_REFRESH_V1' "$REFRESH" || fail "manifest cache-busting patch marker missing"
+grep -Fq '_mechos_refresh=' "$REFRESH" || fail "manifest cache-busting query missing"
+grep -Fq 'Cache-Control: no-cache' "$REFRESH" || fail "manifest no-cache header missing"
+grep -Fq 'subject.user == "mechos-setup"' "$PREOOBE" || fail "pre-OOBE PolicyKit rule is not restricted to setup account"
+grep -Fq 'mechos-firstboot-update-apply' "$PREOOBE" || fail "guarded firstboot update wrapper missing"
+grep -Fq '[ ! -e "$STATE/oobe-complete" ]' "$PREOOBE" || fail "firstboot updater does not stop after OOBE"
+grep -Fq 'PKEXEC_UID' "$PREOOBE" || fail "firstboot updater does not validate PolicyKit caller"
+grep -Fq 'MECHOS_PREOOBE_UPDATE_AUTH_V1' "$PREOOBE" || fail "Update Center firstboot routing patch missing"
 
 [ -s "$BUNDLE" ] || fail "Hotfix 3 bundle missing"
 [ -s "$SUM" ] || fail "Hotfix 3 checksum missing"
@@ -46,6 +60,8 @@ required={
  'usr/local/libexec/mechos-oobe-apply',
  'usr/local/libexec/mechos-oobe-cleanup',
  'usr/local/libexec/mechos-hotfix-0.3.0-3-apply',
+ 'usr/local/libexec/mechos-update-manifest-refresh-runtime',
+ 'usr/local/libexec/mechos-preoobe-update-auth-runtime',
  'usr/lib/systemd/system/mechos-hotfix-0.3.0-3.service',
  'etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-3.service',
 }
@@ -76,4 +92,4 @@ if data.get('bundle_url') != 'https://raw.githubusercontent.com/mechgod102-sketc
 if data.get('requires_reboot') is not True: raise SystemExit('Hotfix 3 must require reboot')
 PY
 
-echo '[validate-hotfix-0.3.0-3] OK: firstboot account repair, redundant OOBE launch, KDE splash suppression, bundle and stable manifest verify'
+echo '[validate-hotfix-0.3.0-3] OK: firstboot repair, KDE splash suppression, fresh update discovery, guarded passwordless pre-OOBE update apply, bundle and stable manifest verify'

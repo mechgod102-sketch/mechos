@@ -64,13 +64,27 @@ missing=sorted(required-seen)
 if missing: raise SystemExit('bundle missing required files: '+', '.join(missing))
 PY
 
-python3 - "$MANIFEST" "$SHA" <<'PY'
+# Hotfix 2 is now an archived stable bundle. Once stable.json advances to a
+# newer hotfix it must not make historical validation fail. If stable still
+# points at Hotfix 2, verify the published metadata exactly; otherwise require
+# only that the stable channel has advanced beyond it.
+LATEST="$(python3 - "$MANIFEST" <<'PY'
+import json,sys
+with open(sys.argv[1],encoding='utf-8') as f: print(json.load(f).get('version',''))
+PY
+)"
+[ -n "$LATEST" ] || fail "stable manifest version missing"
+if [ "$LATEST" = "0.3.0-hotfix.2" ]; then
+  python3 - "$MANIFEST" "$SHA" <<'PY'
 import json,sys
 with open(sys.argv[1],encoding='utf-8') as f: data=json.load(f)
-if data.get('version') != '0.3.0-hotfix.2': raise SystemExit('stable manifest is not Hotfix 2')
-if data.get('bundle_sha256') != sys.argv[2]: raise SystemExit('manifest SHA does not match bundle')
+if data.get('bundle_sha256') != sys.argv[2]: raise SystemExit('Hotfix 2 manifest SHA does not match bundle')
 if data.get('bundle_url') != 'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.2-update.tar.zst': raise SystemExit('Hotfix 2 URL is wrong')
 if data.get('requires_reboot') is not True: raise SystemExit('Hotfix 2 must require reboot')
 PY
+else
+  top="$(printf '%s\n%s\n' '0.3.0-hotfix.2' "$LATEST" | sort -V | tail -n1)"
+  [ "$top" = "$LATEST" ] || fail "stable channel regressed behind Hotfix 2"
+fi
 
-echo '[validate-hotfix-0.3.0-2] OK: OOBE trigger, universal desktop launchers, Creator alignment, bundle and manifest verify'
+echo '[validate-hotfix-0.3.0-2] OK: archived Hotfix 2 OOBE, launchers, Creator alignment and bundle verify; stable may point at a newer release'
