@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Attach current source-owned MechOS shells to installed GUI owners.
 
-Used by Hotfix 8 and the absolute-last ISO stage. The injected assignment is
+Used by Hotfix 8+ and the absolute-last ISO stage. The injected assignment is
 intentionally late in each Python owner so older generated UI methods cannot
 win after this patch.
 """
@@ -75,6 +75,7 @@ Recovery.build_ui = _mechos_surface_v8_recovery_build
 ''',
     "quick": r'''
 # MECHOS_HOTFIX8_SURFACE_OWNER_QUICK
+# MECHOS_VISUAL_SURFACES_V9_QUICK_ACTIONS_WIRING
 '''+LOADER+r'''
 def _mechos_surface_v8_quick_build(self):
     shell = _mechos_surface_v8_module('quick_actions_shell.py', 'mechos_quick_shell_v8')
@@ -89,17 +90,24 @@ def _mechos_surface_v8_quick_build(self):
       'performance-center': lambda: _spawn(['/usr/local/bin/mechos-performance-center']),
       'wifi': self.toggle_wifi,
       'bluetooth': self.toggle_bt,
-      'display': lambda: _spawn(['systemsettings']),
+      'display': lambda: _spawn(['systemsettings','kcm_kscreen']),
+      'system-settings': lambda: _spawn(['systemsettings']),
+      'system-info': lambda: _spawn(['systemsettings','kcm_about-distro']),
+      'brightness-down': lambda: self.brightness('5%-'),
+      'brightness-up': lambda: self.brightness('+5%'),
+      'audio-settings': lambda: _spawn(['systemsettings','kcm_pulseaudio']),
       'vol-down': lambda: self.wpctl('5%-'),
       'mute': self.mute,
       'vol-up': lambda: self.wpctl('5%+'),
+      'rgb-picker': lambda: _spawn(['/usr/local/bin/mechos-rgb-keyboard','picker']),
+      'rgb-restore': lambda: _spawn(['/usr/local/bin/mechos-rgb-keyboard','restore']),
+      'rgb-advanced': lambda: _spawn(['/usr/local/bin/mechos-rgb-keyboard','advanced']),
       'go-live': lambda: _spawn(['/usr/local/bin/mechos-stream-control','start-stream']),
       'end-stream': lambda: _spawn(['/usr/local/bin/mechos-stream-control','stop-stream']),
       'record': lambda: _spawn(['/usr/local/bin/mechos-stream-control','toggle-record']),
       'stream-center': lambda: _spawn(['/usr/local/bin/mechos-stream-center']),
       'updates': lambda: _spawn(['/usr/local/bin/mechos-update-center']),
       'creator': lambda: _spawn(['/usr/local/bin/mechos-mode-launch','creator']),
-      'system-info': lambda: _spawn(['systemsettings','kcm_about-distro']),
       'recovery': lambda: _spawn(['/usr/local/bin/mechos-recovery-center']),
     }
     ui = shell.QuickActionsShell(self, actions, self)
@@ -134,7 +142,17 @@ def main() -> int:
     text = path.read_text(encoding="utf-8")
     marker = f"MECHOS_HOTFIX8_SURFACE_OWNER_{kind.upper()}"
     if marker in text:
-        return 0
+        # Hotfix 9 needs to refresh the Quick Actions override even if the v8
+        # marker already exists on an upgraded system. Replace the injected
+        # block by stripping the old one only for quick actions.
+        if kind != 'quick' or 'MECHOS_VISUAL_SURFACES_V9_QUICK_ACTIONS_WIRING' in text:
+            return 0
+        start = text.find('# MECHOS_HOTFIX8_SURFACE_OWNER_QUICK')
+        end = text.find('\nQuickActions.build = _mechos_surface_v8_quick_build', start)
+        if start >= 0 and end >= 0:
+            end = text.find('\n', end + 1)
+            if end < 0: end = len(text)
+            text = text[:start] + text[end+1:]
     class_pos = text.find(f"class {CLASSES[kind]}(")
     if class_pos < 0:
         fail(f"class {CLASSES[kind]} not found in {path}")
