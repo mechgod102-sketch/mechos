@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX14_APPLY_V2
+# MECHOS_HOTFIX14_APPLY_V3
 STATE=/var/lib/mechos
 MARKER="$STATE/hotfix-0.3.0-14-applied"
 LOG=/var/log/mechos-hotfix-0.3.0-14.log
@@ -11,6 +11,25 @@ echo "[$(date -Is)] MechOS v0.3.0 Hotfix 14 apply start"
 [ -e "$MARKER" ] && exit 0
 is_live(){ [ -e /run/archiso/bootmnt ] || grep -q archiso /proc/cmdline 2>/dev/null; }
 is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; }
+
+# Repair/verify the updater first. This is deliberately non-updating: the guard
+# only restores protected helper/launcher/backend copies if a component is
+# missing or syntactically invalid.
+GUARD=/usr/local/libexec/mechos-update-guard-v14
+[ -x "$GUARD" ] || { echo 'ERROR: Hotfix14 update guard missing'; exit 80; }
+"$GUARD"
+for f in \
+  /usr/local/bin/mechos-update-helper \
+  /usr/local/bin/mechos-update-center \
+  /usr/local/bin/mechos-reboot \
+  /usr/local/libexec/mechos-update-helper-v14 \
+  /usr/local/libexec/mechos-update-center-launcher-v14 \
+  /usr/local/libexec/mechos-update-center-v8.py; do
+  [ -e "$f" ] || { echo "ERROR: protected updater component missing: $f"; exit 80; }
+done
+bash -n /usr/local/bin/mechos-update-helper
+bash -n /usr/local/bin/mechos-update-center
+bash -n /usr/local/bin/mechos-reboot
 
 PATCH=/usr/local/libexec/mechos-hotfix14-runtime-patch
 [ -x "$PATCH" ] || { echo 'ERROR: Hotfix14 runtime patch missing'; exit 81; }
@@ -54,7 +73,6 @@ grep -Fq 'MECHOS_HOTFIX14_CREATOR_DIRECT_V1' /usr/local/bin/mechos-mode-launch
 
 # Validate the immediately replaced visual/session surfaces.
 for f in \
-  /usr/local/bin/mechos-reboot \
   /usr/local/bin/mechos-stream-center \
   /usr/local/bin/mechos-mechscope-update-check \
   /usr/local/share/mechos/ui/fixed_canvas.py \
@@ -62,7 +80,6 @@ for f in \
   /usr/local/share/mechos/ui/recovery_shell.py; do
   [ -e "$f" ] || { echo "ERROR: missing Hotfix14 surface $f"; exit 85; }
 done
-bash -n /usr/local/bin/mechos-reboot
 bash -n /usr/local/bin/mechos-mechscope-update-check
 python3 - <<'PY'
 from pathlib import Path
@@ -78,11 +95,15 @@ for name in [
  if p.is_file(): compile(p.read_text(encoding='utf-8'),str(p),'exec')
 PY
 
-# Updates themselves must never reboot/log out/power off. Hotfix14 repairs only
-# the user-invoked Restart button via /usr/local/bin/mechos-reboot.
-for bad in 'shutdown -r' 'reboot -f' '/sbin/reboot'; do
+# Updates themselves must never reboot/log out/power off. The separate explicit
+# /usr/local/bin/mechos-reboot helper is the only permitted reboot authority.
+for bad in 'systemctl reboot' 'shutdown -r' 'reboot -f' '/sbin/reboot' 'loginctl terminate-session'; do
   ! grep -Fq "$bad" /usr/local/bin/mechos-update-helper || { echo "ERROR: automatic reboot command in updater: $bad"; exit 86; }
+  ! grep -Fq "$bad" /usr/local/libexec/mechos-update-guard-v14 || { echo "ERROR: automatic session action in updater guard: $bad"; exit 86; }
 done
+status="$(timeout 10 /usr/local/bin/mechos-update-helper status 2>&1)"
+printf '%s\n' "$status" | grep -q '^CURRENT_MECHOS_VERSION='
+printf '%s\n' "$status" | grep -q '^REBOOT_REQUIRED='
 
 mkdir -p /etc/mechos
 printf '0.3.0-hotfix.14\n' >/etc/mechos/release
@@ -91,4 +112,4 @@ if [ -f /etc/mechos/mechos.conf ]; then
 fi
 printf 'MechOS v0.3.0 Hotfix 14\n' >/etc/system-release
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix14 applied: dark restart path, responsive Quick Actions, Recovery v14, fullscreen Stream Center, MechScope boot update notification, safe Creator transition, and Escape back navigation active."
+echo "[$(date -Is)] Hotfix14 applied: updater self-healing guard verified; dark responsive surfaces, fullscreen Stream Center, MechScope update notification, safe Creator transition, real program icons and Escape back navigation active."
