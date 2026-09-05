@@ -6,6 +6,6 @@
   "published_at": "2026-09-05",
   "notes": "Visual, navigation, updater-resilience and session-stability hotfix. Redesigns and widens Quick Actions; refreshes Recovery Center; replaces the small desktop Stream Center with a responsive fullscreen MechOS surface; paints dark backing pixels to eliminate white GUI margins; replaces the manual Restart backend with a direct logind-first path; makes MechScope check for updates once per gaming session and notify only when updates are available; keeps MechScope behind Creator Mode; adds Escape/back navigation across major surfaces; and uses real installed program/theme icons in Creator Mode and store surfaces. Hotfix 14 also installs a canonical verified Update Helper, protected rescue copies and a boot-time self-healing updater guard so a missing Update Center helper/launcher/backend is restored before login. Update installation remains transactional and never automatically reboots, logs out or powers off.",
   "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst",
-  "bundle_sha256": "7eea46926681756b76f935073614383828c8b943219bda50054fdca690932b78",
+  "bundle_sha256": "dad909e48f11720346c2606690aee2f67c8f773bfa26756aff93b75ba5dd2b54",
   "requires_reboot": true
 }
