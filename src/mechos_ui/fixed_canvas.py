@@ -27,7 +27,7 @@ QLabel[role="muted"]{color:#8da1bd}
 QLabel[role="accent"]{color:#a176ff}
 QLabel[role="section"]{color:#66dbff;letter-spacing:2px}
 QPushButton[role="action"],QPushButton[role="primary"],QPushButton[role="danger"]{
- color:#f5f8ff;text-align:left;padding:11px 14px;border-radius:14px;
+ color:#f5f8ff;text-align:left;padding:6px 10px;border-radius:14px;
  background:#0c1422;border:1px solid #273a59;font-weight:750
 }
 QPushButton[role="action"]:hover,QPushButton[role="action"]:focus{border:2px solid #66dcff;background:#111d30}
@@ -93,14 +93,23 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
         )
 
     def resizeEvent(self, event):
+        # MECHOS_VM_RESPONSIVE_GEOMETRY_V2
+        # Geometry used to scale while Qt stylesheet padding stayed at its
+        # full-size pixel value. On 1024/1100px VM desktops that left too little
+        # room for two-line button text, producing clipped labels and hit boxes.
+        # Scale typography and per-button padding with the same canvas factor.
         s = self.scale_factor()
         for widget, rect in self._rects.items():
             widget.setGeometry(self.scale_rect(rect))
             base = self._font_sizes.get(widget)
             if base is not None:
                 f = widget.font()
-                f.setPointSize(max(7, int(round(base * s))))
+                f.setPointSize(max(5, int(round(base * s))))
                 widget.setFont(f)
+            if isinstance(widget, QPushButton) and widget.property('role') != 'hotspot':
+                vpad = max(2, int(round(6 * s)))
+                hpad = max(4, int(round(10 * s)))
+                widget.setStyleSheet(f'padding:{vpad}px {hpad}px;')
         super().resizeEvent(event)
 
     def panel(self, painter, rect, fill='#08111e', border='#263a59', radius=20, width=1):
