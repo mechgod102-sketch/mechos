@@ -13,6 +13,9 @@ on:
       - 'scripts/mechos-build119-vm-mechscope-final.sh'
       - 'scripts/mechos-build125-final-surfaces.sh'
       - 'scripts/validate-build125-final-surface-scope.sh'
+      - 'scripts/mechos-visual-surfaces-v9-patch.py'
+      - 'scripts/validate-visual-surfaces-v9.py'
+      - 'scripts/mechos-final-surface-owner-v8-patch.py'
       - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
       - 'scripts/mechos-mode-launch-hotfix5.sh'
       - 'scripts/mechos-update-center-recovery-v7.py'
@@ -21,7 +24,11 @@ on:
       - 'scripts/validate-new-build-final-gate.sh'
       - 'src/mechos_ui/fixed_canvas.py'
       - 'src/mechos_ui/installer_shell.py'
+      - 'src/mechos_ui/update_shell.py'
+      - 'src/mechos_ui/recovery_shell.py'
+      - 'src/mechos_ui/quick_actions_shell.py'
       - 'src/mechos_ui/creator_shell.py'
+      - 'src/mechos_ui/reference-v9.qss'
       - 'src/mechscope/mechscope_shell.py'
       - 'overlay/rootfs/etc/mechos/release'
       - 'overlay/rootfs/etc/mechos/mechos.conf'
@@ -58,6 +65,7 @@ jobs:
         run: |
           ./scripts/validate-project.sh
           python3 scripts/validate-gui-button-wiring.py
+          python3 scripts/validate-visual-surfaces-v9.py
           bash scripts/validate-gamescope-universal.sh
           bash scripts/validate-native-installer.sh
           bash scripts/validate-reference-ui.sh
@@ -162,6 +170,7 @@ jobs:
           grep -Fq 'mechos-build113-live-boot-splash-fix.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-build118-six-regression-final.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-build119-vm-mechscope-final.sh' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-build125-final-surfaces.sh' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh
           grep -Fq 'Session=plasma' scripts/build-mechos-archiso.sh
@@ -183,7 +192,7 @@ jobs:
       - name: Upload MechOS ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MechOS-v0.3.0-hotfix.7-x86_64
+          name: MechOS-v0.3.0-hotfix.9-x86_64
           path: |
             out/**/*.iso
             out/**/*.iso.sha256

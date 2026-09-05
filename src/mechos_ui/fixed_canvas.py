@@ -16,23 +16,24 @@ BASE_H = 1080
 
 
 class FixedCanvas(QWidget):
+    # MECHOS_VISUAL_SURFACES_V9_FIXED_CANVAS
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rects = {}
         self._font_sizes = {}
         self.setObjectName('mechosFixedCanvas')
         self.setStyleSheet('''
-QWidget#mechosFixedCanvas{background:#050912;color:#eef5ff}
-QLabel[role="muted"]{color:#8da1bd}
-QLabel[role="accent"]{color:#a176ff}
-QLabel[role="section"]{color:#66dbff;letter-spacing:2px}
+QWidget#mechosFixedCanvas{background:#040713;color:#f4f7ff}
+QLabel[role="muted"]{color:#91a5c1}
+QLabel[role="accent"]{color:#b96cff}
+QLabel[role="section"]{color:#5ee7ff;letter-spacing:2px}
 QPushButton[role="action"],QPushButton[role="primary"],QPushButton[role="danger"]{
- color:#f5f8ff;text-align:left;padding:6px 10px;border-radius:14px;
- background:#0c1422;border:1px solid #273a59;font-weight:750
+ color:#f6f8ff;text-align:left;padding:6px 10px;border-radius:14px;
+ background:#0d1a2d;border:1px solid #355176;font-weight:750
 }
-QPushButton[role="action"]:hover,QPushButton[role="action"]:focus{border:2px solid #66dcff;background:#111d30}
-QPushButton[role="primary"]{border:2px solid #936cff;background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #382164,stop:1 #10294a)}
-QPushButton[role="primary"]:hover,QPushButton[role="primary"]:focus{border:3px solid #c3a7ff}
+QPushButton[role="action"]:hover,QPushButton[role="action"]:focus{border:2px solid #5ee7ff;background:#182748}
+QPushButton[role="primary"]{border:2px solid #9a74ef;background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #4b267e,stop:1 #12314d)}
+QPushButton[role="primary"]:hover,QPushButton[role="primary"]:focus{border:3px solid #d0a6ff}
 QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
 ''')
 
@@ -130,16 +131,13 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
                     title = str(title_prop)
                     subtitle_prop = widget.property('mechosSubtitle')
                     subtitle = '' if subtitle_prop is None else str(subtitle_prop)
-                    # A two-line label needs roughly 42 rendered pixels after
-                    # borders/padding. Compact only short controls; larger cards
-                    # retain their explanatory subtitle even at VM resolutions.
                     compact = bool(subtitle) and s < 0.72 and scaled.height() < 42
                     wanted = title if compact else title + (('\n' + subtitle) if subtitle else '')
                     if widget.text() != wanted:
                         widget.setText(wanted)
         super().resizeEvent(event)
 
-    def panel(self, painter, rect, fill='#08111e', border='#263a59', radius=20, width=1):
+    def panel(self, painter, rect, fill='#08111e', border='#294566', radius=20, width=1):
         rr = self.scale_rect(rect)
         s = self.scale_factor()
         painter.setBrush(QColor(fill))

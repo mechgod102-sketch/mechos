@@ -2,27 +2,6 @@ name: Publish MechOS v0.3.0 Hotfix 8
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-hotfix-0.3.0-8-apply.sh'
-      - 'scripts/mechos-update-center-reference-v8.py'
-      - 'scripts/mechos-final-surface-owner-v8-patch.py'
-      - 'scripts/mechos-creator-settings-v8-patch.py'
-      - 'scripts/mechos-apply-current-store-v8.sh'
-      - 'scripts/mechos-reference-v5-store-layout.sh'
-      - 'scripts/mechos-store-qlineedit-patch.py'
-      - 'scripts/mechos-reboot-hotfix6.sh'
-      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
-      - 'scripts/mechos-mode-launch-hotfix5.sh'
-      - 'src/mechos_ui/fixed_canvas.py'
-      - 'src/mechos_ui/update_shell.py'
-      - 'src/mechos_ui/recovery_shell.py'
-      - 'src/mechos_ui/quick_actions_shell.py'
-      - 'src/mechos_ui/creator_shell.py'
-      - 'scripts/build-hotfix-0.3.0-8.sh'
-      - 'scripts/validate-hotfix-0.3.0-8.sh'
-      - '.github/workflows/publish-hotfix-0.3.0-8.yml'
 
 permissions:
   contents: write
