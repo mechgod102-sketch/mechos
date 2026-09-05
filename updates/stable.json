@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.12",
-  "release_name": "MechOS v0.3.0 Hotfix 12",
+  "version": "0.3.0-hotfix.13",
+  "release_name": "MechOS v0.3.0 Hotfix 13",
   "published_at": "2026-09-05",
-  "notes": "MechScope permission hotfix. Fixes the Oracle VirtualBox runtime rc=1 failure caused by the launcher health check attempting to write Python bytecode into root-owned /usr/local/bin/__pycache__. Runtime validation now compiles MechScope source entirely in memory with no filesystem writes, while retaining Hotfix 11 Qt backend fallbacks and VM diagnostics.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.12-update.tar.zst",
-  "bundle_sha256": "29439cacecd528cf5b59f0e35d22f6837d910f74351f2d9396bfad15f3b62ca0",
+  "notes": "Stability, fullscreen and Unified Store install-controller hotfix. Restores Update Center to the proven backend; replaces the no-op Performance/Optimization Center with the canonical responsive UI; makes MechScope and the separate Unified Store true scalable fullscreen surfaces; adds a provider install controller so Steam AppIDs route to the Steam install protocol, Lutris slugs route to the Lutris installer URI, Epic uses Legendary when available, Amazon uses Nile when available, and Epic/GOG/Amazon/Heroic otherwise hand off to Heroic without bypassing provider authentication, ownership or DRM. Install handoffs and queue state are logged in the MechOS store state directory. Also installs transactional future-update protection with staged validation, rollback, updater-last replacement and no automatic reboot/logout/poweroff.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.13-update.tar.zst",
+  "bundle_sha256": "bf95b0d0a6dacf027cbfdff509bc1c3d0a7f599df34df0b4849cfaa3c64396d1",
   "requires_reboot": true
 }
