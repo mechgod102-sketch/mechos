@@ -32,6 +32,9 @@ def inject_method(text, cls, marker, method):
 def escape_close_method(marker):
     return f'''    # {marker}\n    def keyPressEvent(self, event):\n        from PyQt6.QtCore import Qt as _MechBackQt\n        if event.key() == _MechBackQt.Key.Key_Escape:\n            self.close()\n            return\n        super().keyPressEvent(event)\n'''
 
+def icon_helper_method(marker):
+    return f'''    # {marker}\n    def _mechos_apply_program_icons_v14(self):\n        # Use the actual icons installed by each program/Flatpak. No copied or\n        # baked-in imitation logos are shipped by MechOS. If a program is not\n        # installed and has no local icon yet, the button remains text-only.\n        from pathlib import Path as _IconPath\n        from PyQt6.QtCore import QSize as _IconSize\n        from PyQt6.QtGui import QIcon as _QIcon\n        from PyQt6.QtWidgets import QPushButton as _QPushButton\n        _map={{\n          'blender':('blender','org.blender.Blender'),\n          'unity hub':('unityhub','com.unity.UnityHub'),\n          'unreal engine':('unreal-editor','UnrealEditor','unrealengine'),\n          'vs code':('visual-studio-code','com.visualstudio.code','code'),\n          'visual studio code':('visual-studio-code','com.visualstudio.code','code'),\n          'gitkraken':('gitkraken','com.axosoft.GitKraken'),\n          'krita':('krita','org.kde.krita'),\n          'obs studio':('obs','com.obsproject.Studio'),\n          'obs':('obs','com.obsproject.Studio'),\n          'godot':('godot','org.godotengine.Godot'),\n          'kdenlive':('kdenlive','org.kde.kdenlive'),\n          'audacity':('audacity','org.audacityteam.Audacity'),\n          'lmms':('lmms','io.lmms.LMMS'),\n          'steam':('steam','com.valvesoftware.Steam'),\n          'lutris':('lutris','net.lutris.Lutris'),\n          'heroic':('com.heroicgameslauncher.hgl','heroic'),\n          'heroic games launcher':('com.heroicgameslauncher.hgl','heroic'),\n          'bottles':('com.usebottles.bottles','bottles'),\n          'discord':('discord','com.discordapp.Discord'),\n          'protonup-qt':('net.davidotek.pupgui2','protonup-qt'),\n        }}\n        def _from_desktop(label):\n            low=label.lower()\n            roots=[_IconPath('/usr/share/applications'),_IconPath.home()/'.local/share/applications']\n            for root in roots:\n                if not root.is_dir(): continue\n                try: files=list(root.glob('*.desktop'))\n                except Exception: continue\n                for desktop in files:\n                    try: raw=desktop.read_text(encoding='utf-8',errors='ignore')\n                    except Exception: continue\n                    name=''; icon=''\n                    for line in raw.splitlines():\n                        if line.startswith('Name=') and not name:name=line[5:].strip()\n                        elif line.startswith('Icon=') and not icon:icon=line[5:].strip()\n                    if name and (low in name.lower() or name.lower() in low) and icon:\n                        q=_QIcon(icon) if '/' in icon else _QIcon.fromTheme(icon)\n                        if not q.isNull(): return q\n            return _QIcon()\n        for button in self.findChildren(_QPushButton):\n            label=(button.text() or '').split('\\n',1)[0].strip()\n            cleaned=label.lower()\n            # Strip simple glyph prefixes used by the MechOS visual language.\n            cleaned=cleaned.lstrip('◉◈✦⚙▣▤●■↶←⇩⌂⌁♫☀🔉🔇🔊⚡☾ ').strip()\n            candidates=()\n            for key,names in _map.items():\n                if key in cleaned or cleaned in key:\n                    candidates=names; break\n            icon=_QIcon()\n            for name in candidates:\n                icon=_QIcon.fromTheme(name)\n                if not icon.isNull(): break\n            if icon.isNull(): icon=_from_desktop(cleaned)\n            if not icon.isNull():\n                button.setIcon(icon); button.setIconSize(_IconSize(32,32))\n'''
+
 def patch_quick(path: Path):
     if not path.is_file(): raise SystemExit(f'Quick Actions missing: {path}')
     text=path.read_text(encoding='utf-8')
@@ -56,17 +59,25 @@ def patch_mechscope(path: Path):
         inject="""        # MECHOS_HOTFIX14_UPDATE_CHECK_V1\n        try:\n            from PyQt6.QtCore import QTimer as _MechUpdateTimer\n            import subprocess as _MechUpdateSubprocess\n            self.setStyleSheet((self.styleSheet() or '') + '\\nQMainWindow{background:#020611;color:#f4f7ff;}')\n            _MechUpdateTimer.singleShot(1800, lambda: _MechUpdateSubprocess.Popen(\n                ['/usr/local/bin/mechos-mechscope-update-check'],\n                stdout=_MechUpdateSubprocess.DEVNULL,\n                stderr=_MechUpdateSubprocess.DEVNULL,\n                start_new_session=True))\n        except Exception:\n            pass\n"""
         body=body[:head]+inject+body[head:]
         text=text[:s]+body+text[e:]
-    # Unified Store is a child surface launched from MechScope. Escape closes
-    # the Store process and reveals the still-running MechScope behind it.
     text=inject_method(text,'UnifiedStore','MECHOS_HOTFIX14_ESCAPE_BACK_STORE',escape_close_method('MECHOS_HOTFIX14_ESCAPE_BACK_STORE'))
+    text=inject_method(text,'UnifiedStore','MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_STORE',icon_helper_method('MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_STORE'))
+    # Apply actual locally-installed launcher/provider icons once Store widgets exist.
+    b=method_bounds(text,'UnifiedStore','__init__')
+    if b:
+        s,e=b;body=text[s:e]
+        hook="        QTimer.singleShot(0, self._mechos_apply_program_icons_v14)\n"
+        if hook not in body:
+            body=body.rstrip()+"\n"+hook
+            text=text[:s]+body+text[e:]
     compile(text,str(path),'exec');path.write_text(text,encoding='utf-8')
 
 def patch_creator(path: Path):
     if not path.is_file():raise SystemExit(f'Creator Mode missing: {path}')
     text=path.read_text(encoding='utf-8')
+    text=inject_method(text,'Creator','MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_CREATOR',icon_helper_method('MECHOS_HOTFIX14_REAL_PROGRAM_ICONS_CREATOR'))
     marker='MECHOS_HOTFIX14_ESCAPE_BACK_CREATOR'
-    if marker in text:return
-    method=r'''    # MECHOS_HOTFIX14_ESCAPE_BACK_CREATOR
+    if marker not in text:
+        method=r'''    # MECHOS_HOTFIX14_ESCAPE_BACK_CREATOR
     def keyPressEvent(self, event):
         from PyQt6.QtCore import Qt as _MechBackQt
         if event.key() == _MechBackQt.Key.Key_Escape:
@@ -80,7 +91,14 @@ def patch_creator(path: Path):
             return
         super().keyPressEvent(event)
 '''
-    text=inject_method(text,'Creator',marker,method)
+        text=inject_method(text,'Creator',marker,method)
+    b=method_bounds(text,'Creator','__init__')
+    if not b:raise SystemExit('Creator.__init__ missing')
+    s,e=b;body=text[s:e]
+    hook="        QTimer.singleShot(0, self._mechos_apply_program_icons_v14)\n        QTimer.singleShot(500, self._mechos_apply_program_icons_v14)\n"
+    if 'QTimer.singleShot(0, self._mechos_apply_program_icons_v14)' not in body:
+        body=body.rstrip()+"\n"+hook
+        text=text[:s]+body+text[e:]
     compile(text,str(path),'exec');path.write_text(text,encoding='utf-8')
 
 def patch_generic_escape(path: Path, cls: str, marker: str):
