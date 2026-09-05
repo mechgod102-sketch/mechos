@@ -49,15 +49,9 @@ install_shell_if_bad /usr/local/bin/mechos-reboot /usr/local/libexec/mechos-rebo
 install_shell_if_bad /usr/local/bin/mechos-update-center /usr/local/libexec/mechos-update-center-launcher-v14 'Update Center launcher'
 install_python_if_bad /usr/local/libexec/mechos-update-center-v8.py /usr/local/libexec/mechos-update-center-v8-rescue.py 'Update Center backend'
 
-# Keep a stable, human-readable result for diagnostics.
-if timeout 10 /usr/local/bin/mechos-update-helper status >/tmp/mechos-update-guard-status.$$ 2>&1; then
-  grep -q '^CURRENT_MECHOS_VERSION=' /tmp/mechos-update-guard-status.$$
-  grep -q '^REBOOT_REQUIRED=' /tmp/mechos-update-guard-status.$$
-  log 'updater self-check passed'
-else
-  log 'ERROR: updater status self-check failed'
-  cat /tmp/mechos-update-guard-status.$$ 2>/dev/null || true
-  rm -f /tmp/mechos-update-guard-status.$$
-  exit 1
-fi
-rm -f /tmp/mechos-update-guard-status.$$
+# Boot integrity checks are deliberately offline. Network update checks happen
+# only after MechScope is running, so an unplugged network can never delay login.
+grep -Fq "CURRENT_MECHOS_VERSION=%s" /usr/local/bin/mechos-update-helper
+grep -Fq "REBOOT_REQUIRED=%s" /usr/local/bin/mechos-update-helper
+grep -Fq 'MECHOS_UPDATE_HELPER_V14' /usr/local/bin/mechos-update-helper
+log 'updater offline self-check passed'
