@@ -1,0 +1,27 @@
+name: Validate MechOS v0.3.0 Hotfix 13
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/build-hotfix-0.3.0-13.sh'
+      - 'scripts/mechos-hotfix-0.3.0-13-apply.sh'
+      - 'scripts/mechos-hotfix13-mechscope-patch.py'
+      - 'scripts/mechos-hotfix13-stability-integration.sh'
+      - 'scripts/mechos-game-install-controller-v13.py'
+      - 'scripts/mechos-performance-center-v13.py'
+      - 'scripts/mechos-update-helper-v13-patch.py'
+      - 'scripts/mechos-update-transaction-v13.sh'
+      - 'scripts/validate-hotfix-0.3.0-13.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-13.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Hotfix 13 source and provider adapters
+        run: bash scripts/validate-hotfix-0.3.0-13.sh
