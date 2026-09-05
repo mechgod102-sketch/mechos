@@ -64,6 +64,14 @@ grep -Fq 'MECHOS_MANIFEST_REFRESH_V1' "$MANIFEST_RUNTIME" || fail "fresh manifes
 grep -Fq '_mechos_refresh=' "$MANIFEST_RUNTIME" || fail "manifest cache-busting query missing"
 grep -Fq 'Cache-Control: no-cache' "$MANIFEST_RUNTIME" || fail "manifest no-cache header missing"
 grep -Fq 'mechos-update-manifest-refresh-runtime.sh' "$MANIFEST_FINAL" || fail "final payload does not use manifest refresh runtime"
+# The runtime patcher is sourced explicitly through bash and is intentionally
+# allowed to be a normal 100644 Git file. Build #114 failed when this was tested
+# with -x despite being present and valid.
+grep -Fq '[ -f "$PATCHER" ]' "$MANIFEST_FINAL" || fail "manifest final stage does not accept a non-executable runtime patcher"
+grep -Fq 'bash -n "$PATCHER"' "$MANIFEST_FINAL" || fail "manifest runtime patcher syntax check missing"
+if grep -Fq '[ -x "$PATCHER" ]' "$MANIFEST_FINAL"; then
+  fail "manifest final stage still incorrectly requires executable source permissions"
+fi
 
 # Pre-OOBE update authentication regression. The setup account has no password,
 # so Update Center must use exactly one guarded PolicyKit wrapper before OOBE.
@@ -90,6 +98,6 @@ preoobe_line="$(grep -n 'mechos-preoobe-update-auth-final.sh' "$PATCHER" | tail 
 [ "$gate_line" -gt "$hardening_line" ] || fail "new-build gate must run after final hardening"
 [ "$build111_line" -gt "$gate_line" ] || fail "Build 111 OOBE/splash update must run after the final gate"
 [ "$manifest_line" -gt "$build111_line" ] || fail "fresh Update Center manifest patch must run after Build 111 fixes"
-[ "$preoobe_line" -gt "$manifest_line" ] || fail "pre-OOBE updater auth must be the final targeted build stage"
+[ "$preoobe_line" -gt "$manifest_line" ] || fail "pre-OOBE updater auth must run after manifest refresh"
 
 echo '[validate-new-build-final-gate] OK: OOBE, sudo separation, KDE splash suppression, fresh Update Center discovery, passwordless guarded pre-OOBE update apply and final build order are guarded'
