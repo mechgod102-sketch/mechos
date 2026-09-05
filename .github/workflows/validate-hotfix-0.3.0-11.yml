@@ -1,0 +1,38 @@
+name: Validate MechOS v0.3.0 Hotfix 11
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-11-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-11.sh'
+      - 'scripts/validate-hotfix-0.3.0-11.sh'
+      - 'scripts/mechos-mechscope-runtime-imports-v11.py'
+      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
+      - 'scripts/mechos-mode-launch-hotfix10.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-11.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 11 source and bundle
+        run: |
+          set -euo pipefail
+          bash -n scripts/mechos-vm-mode-runtime-hotfix5.sh
+          bash -n scripts/mechos-mode-launch-hotfix10.sh
+          bash -n scripts/mechos-hotfix-0.3.0-11-apply.sh
+          bash -n scripts/build-hotfix-0.3.0-11.sh
+          bash -n scripts/validate-hotfix-0.3.0-11.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/mechos-mechscope-runtime-imports-v11.py
+          bash scripts/build-hotfix-0.3.0-11.sh
+          bash scripts/validate-hotfix-0.3.0-11.sh
