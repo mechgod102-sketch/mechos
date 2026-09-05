@@ -129,10 +129,11 @@ if [ -n "$virt" ] && [ "$virt" != none ] && [ "$live" -eq 0 ]; then
   if "$runtime" "$REQUESTED_MODE" >>"$LOG" 2>&1; then
     log "VM mode=$REQUESTED_MODE launch accepted"
     exit 0
+  else
+    rc=$?
+    notify_error "$REQUESTED_MODE could not be started in the virtual machine (runtime rc=$rc)."
+    exit "$rc"
   fi
-  rc=$?
-  notify_error "$REQUESTED_MODE could not be started in the virtual machine (runtime rc=$rc)."
-  exit "$rc"
 fi
 
 CONTROL=/usr/local/bin/mechos-gaming-layer-control
@@ -174,8 +175,11 @@ case "$REQUESTED_MODE" in
     if "$CONTROL" creator >>"$LOG" 2>&1; then
       log 'Creator Mode launch request accepted'
       exit 0
+    else
+      rc=$?
+      notify_error "Creator Mode could not be started (rc=$rc)."
+      exit "$rc"
     fi
-    rc=$?; notify_error "Creator Mode could not be started (rc=$rc)."; exit "$rc"
     ;;
 
   desktop)
@@ -183,7 +187,10 @@ case "$REQUESTED_MODE" in
     if "$CONTROL" desktop >>"$LOG" 2>&1; then
       log 'Desktop Mode launch request accepted'
       exit 0
+    else
+      rc=$?
+      notify_error "Desktop Mode could not be started (rc=$rc)."
+      exit "$rc"
     fi
-    rc=$?; notify_error "Desktop Mode could not be started (rc=$rc)."; exit "$rc"
     ;;
 esac
