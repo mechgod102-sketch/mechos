@@ -11,6 +11,8 @@ on:
       - 'scripts/mechos-build113-live-boot-splash-fix.sh'
       - 'scripts/mechos-build118-six-regression-final.sh'
       - 'scripts/mechos-build119-vm-mechscope-final.sh'
+      - 'scripts/mechos-build125-final-surfaces.sh'
+      - 'scripts/validate-build125-final-surface-scope.sh'
       - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
       - 'scripts/mechos-mode-launch-hotfix5.sh'
       - 'scripts/mechos-update-center-recovery-v7.py'
@@ -84,6 +86,7 @@ jobs:
           bash scripts/validate-vm-mode-runtime-final.sh
           bash scripts/validate-firstboot-vm-runtime.sh
           bash scripts/validate-new-build-final-gate.sh
+          bash scripts/validate-build125-final-surface-scope.sh
           bash -n scripts/mechos-build113-live-boot-splash-fix.sh
           grep -Fq 'PACKAGES="/workspace/archlive/packages.x86_64"' scripts/mechos-build113-live-boot-splash-fix.sh
           grep -Fq "grep -qx 'plasma-meta' \"\$PACKAGES\"" scripts/mechos-build113-live-boot-splash-fix.sh
