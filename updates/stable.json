@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.9",
-  "release_name": "MechOS v0.3.0 Hotfix 9",
+  "version": "0.3.0-hotfix.10",
+  "release_name": "MechOS v0.3.0 Hotfix 10",
   "published_at": "2026-09-05",
-  "notes": "Visual surface authority hotfix. Unifies the actual MechOS look across MechScope/Unified Store, Creator Mode/Creator Store/Creator Settings, Update Center, Recovery Center and Quick Actions; adds real Creator Store search filtering; restores RGB, brightness, audio and system controls to the source-owned Quick Actions panel; keeps responsive geometry, VM routing and verified update/reboot backends intact.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.9-update.tar.zst",
-  "bundle_sha256": "542a8e98d92eb0f81cb13112be05a3cf65534e9fcd6e863e12ec16116068df6d",
+  "notes": "Creator graphics and MechScope launch reliability hotfix. Adds an always-available vector graphical layer to Creator Mode with app/tool/project badges and a creator hero visual while preserving live data and real backends. Repairs physical/non-virtual MechScope launches by preserving the accelerated controller path, verifying that MechScope actually appears, and falling back to the real MechScope target with hardware acceleration intact when the controller fails or produces no process. Adds detailed launcher and app startup diagnostics.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.10-update.tar.zst",
+  "bundle_sha256": "35bd6a4d3294bb6d5373bb033d0bd49b5edd3518b3fe2cc4666a41bec5331925",
   "requires_reboot": true
 }
