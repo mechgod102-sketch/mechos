@@ -6,6 +6,7 @@ ARCHIVE="$ROOT/usr/share/mechos/install-payload/mechos-rootfs.tar.zst"
 REFERENCE="/workspace/branding/mechos-splash-reference.png"
 SDDM="$ROOT/etc/sddm.conf.d/99-mechos-live.conf"
 SYSTEMD="$ROOT/etc/systemd/system"
+PACKAGES="/workspace/archlive/packages.x86_64"
 
 log(){ printf '[MechOS Build 113 Live Boot] %s\n' "$*"; }
 fail(){ printf '[MechOS Build 113 Live Boot] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -15,17 +16,20 @@ trap 'rc=$?; printf "[MechOS Build 113 Live Boot] ERROR line %s: %s (exit %s)\n"
 [ -s "$REFERENCE" ] || fail "approved MechOS splash artwork missing"
 [ -s "$ARCHIVE" ] || fail "installed payload missing"
 [ -f "$SDDM" ] || fail "final Live SDDM configuration missing"
+[ -f "$PACKAGES" ] || fail "ArchISO package manifest missing"
 
 # ---------------------------------------------------------------------------
 # Build 112 regression: the Live image could remain on a black screen forever.
-# The final Live authority had changed SDDM's session from the known-good
-# plasma.desktop entry to the bare word 'plasma'. Reassert the real desktop
-# entry that exists in the image and fail the build if it disappears.
+# The final Live authority had changed SDDM's session from plasma.desktop to the
+# bare word 'plasma'. This stage runs BEFORE mkarchiso installs package-owned
+# files into airootfs, so checking /usr/share/wayland-sessions/plasma.desktop
+# here is invalid and caused Build 115 to fail even though Plasma was selected.
+# Validate the package contract instead; mkarchiso will install plasma-meta and
+# its plasma-workspace dependency, which owns the Plasma session entry.
 # ---------------------------------------------------------------------------
-if [ ! -f "$ROOT/usr/share/wayland-sessions/plasma.desktop" ] && \
-   [ ! -f "$ROOT/usr/share/xsessions/plasma.desktop" ]; then
-  fail "plasma.desktop session file is missing from the Live image"
-fi
+grep -qx 'plasma-meta' "$PACKAGES" || fail "plasma-meta is missing from the Live package manifest"
+grep -qx 'sddm' "$PACKAGES" || fail "sddm is missing from the Live package manifest"
+pacman -Si plasma-workspace >/dev/null 2>&1 || fail "plasma-workspace is unavailable from the synchronized Arch repositories"
 sed -i -E 's/^Session=.*/Session=plasma.desktop/' "$SDDM"
 grep -Fq 'Session=plasma.desktop' "$SDDM" || fail "Live SDDM session was not repaired"
 
@@ -250,4 +254,4 @@ if grep -Fq 'MECHOS LIVE' "$CHECK/usr/share/plymouth/themes/mechos/mechos.script
 fi
 rm -rf "$CHECK"
 
-log 'Build 113 fix applied: visible Live/installed splashes, plasma.desktop autologin, forced Plymouth release, and redundant single-instance Live installer launch'
+log 'Build 113 fix applied: Plasma package contract verified, visible Live/installed splashes, plasma.desktop autologin, forced Plymouth release, and redundant single-instance Live installer launch'
