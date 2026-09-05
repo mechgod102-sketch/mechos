@@ -169,12 +169,14 @@ DeviceTimeout=8
 EOF
 ln -sfn mechos/mechos.plymouth "$STAGE/usr/share/plymouth/themes/default.plymouth"
 
-# Add a second, systemd-user launch path for the Live installer. XDG autostart
-# remains primary; a lock wrapper prevents duplicate installer windows when both
-# launch mechanisms fire.
+# Add a second, systemd-user launch path for the Live installer. The XDG file
+# is recreated authoritatively here because earlier install-payload cleanup may
+# remove its temporary Live copy before this final Live-only stage runs. A lock
+# wrapper prevents duplicate installer windows when both launch mechanisms fire.
 mkdir -p \
   "$ROOT/usr/lib/systemd/user" \
   "$ROOT/etc/systemd/user/graphical-session.target.wants" \
+  "$ROOT/etc/xdg/autostart" \
   "$ROOT/usr/local/bin"
 cat > "$ROOT/usr/local/bin/mechos-live-autostart" <<'EOF'
 #!/usr/bin/env bash
@@ -190,10 +192,18 @@ exec /usr/local/bin/mechos-live-welcome
 EOF
 chmod 0755 "$ROOT/usr/local/bin/mechos-live-autostart"
 
-if [ -f "$ROOT/etc/xdg/autostart/mechos-live-welcome.desktop" ]; then
-  sed -i 's#^Exec=.*#Exec=/usr/local/bin/mechos-live-autostart#' \
-    "$ROOT/etc/xdg/autostart/mechos-live-welcome.desktop"
-fi
+cat > "$ROOT/etc/xdg/autostart/mechos-live-welcome.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=MechOS Live Welcome
+Comment=Launch the MechOS Live installer
+Exec=/usr/local/bin/mechos-live-autostart
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel
+X-KDE-StartupNotify=false
+Terminal=false
+EOF
+chmod 0644 "$ROOT/etc/xdg/autostart/mechos-live-welcome.desktop"
 
 cat > "$ROOT/usr/lib/systemd/user/mechos-live-installer.service" <<'EOF'
 [Unit]
@@ -236,6 +246,8 @@ grep -Fq 'mechos-live-plymouth-release.service' \
   || fail "SDDM does not force-release Plymouth"
 [ -L "$ROOT/etc/systemd/user/graphical-session.target.wants/mechos-live-installer.service" ] \
   || fail "Live installer user-service fallback is not enabled"
+[ -f "$ROOT/etc/xdg/autostart/mechos-live-welcome.desktop" ] \
+  || fail "Live XDG installer autostart is missing"
 grep -Fq 'Exec=/usr/local/bin/mechos-live-autostart' \
   "$ROOT/etc/xdg/autostart/mechos-live-welcome.desktop" \
   || fail "Live XDG autostart does not use the single-instance wrapper"
