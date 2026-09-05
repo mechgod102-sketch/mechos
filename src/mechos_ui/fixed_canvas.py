@@ -73,6 +73,8 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
     def button(self, title, subtitle, rect, fn=None, primary=False, danger=False, size=13):
         q = self.reg(QPushButton(title + (('\n' + subtitle) if subtitle else '')), rect, size)
         q.setProperty('role', 'danger' if danger else ('primary' if primary else 'action'))
+        q.setProperty('mechosTitle', title)
+        q.setProperty('mechosSubtitle', subtitle)
         q.setCursor(Qt.CursorShape.PointingHandCursor)
         f = QFont('Sans Serif', size)
         f.setBold(True)
@@ -93,23 +95,37 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
         )
 
     def resizeEvent(self, event):
-        # MECHOS_VM_RESPONSIVE_GEOMETRY_V2
-        # Geometry used to scale while Qt stylesheet padding stayed at its
-        # full-size pixel value. On 1024/1100px VM desktops that left too little
-        # room for two-line button text, producing clipped labels and hit boxes.
-        # Scale typography and per-button padding with the same canvas factor.
+        # MECHOS_VM_RESPONSIVE_GEOMETRY_V3
+        # Scale geometry, typography and button padding together. On small VM
+        # desktops, short controls drop their secondary line when the scaled
+        # height cannot safely hold two lines. Narrow, short status labels also
+        # stop word-wrapping so long VM hardware names cannot spill into the
+        # next control below them.
         s = self.scale_factor()
         for widget, rect in self._rects.items():
-            widget.setGeometry(self.scale_rect(rect))
+            scaled = self.scale_rect(rect)
+            widget.setGeometry(scaled)
             base = self._font_sizes.get(widget)
             if base is not None:
                 f = widget.font()
                 f.setPointSize(max(5, int(round(base * s))))
                 widget.setFont(f)
+            if isinstance(widget, QLabel):
+                compact_label = s < 0.72 and rect.width() <= 220 and rect.height() <= 70
+                widget.setWordWrap(not compact_label)
             if isinstance(widget, QPushButton) and widget.property('role') != 'hotspot':
                 vpad = max(2, int(round(6 * s)))
                 hpad = max(4, int(round(10 * s)))
                 widget.setStyleSheet(f'padding:{vpad}px {hpad}px;')
+                title = widget.property('mechosTitle') or ''
+                subtitle = widget.property('mechosSubtitle') or ''
+                # A two-line label needs roughly 42 rendered pixels after
+                # borders/padding. Compact only short controls; larger cards
+                # retain their explanatory subtitle even at VM resolutions.
+                compact = bool(subtitle) and s < 0.72 and scaled.height() < 42
+                wanted = title if compact else title + (('\n' + subtitle) if subtitle else '')
+                if widget.text() != wanted:
+                    widget.setText(wanted)
         super().resizeEvent(event)
 
     def panel(self, painter, rect, fill='#08111e', border='#263a59', radius=20, width=1):

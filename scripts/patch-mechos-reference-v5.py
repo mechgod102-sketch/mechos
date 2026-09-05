@@ -89,11 +89,14 @@ bash /workspace/scripts/mechos-build113-live-boot-splash-fix.sh
 # responsive VM geometry, deterministic OOBE/tutorial, reboot and MechScope
 # runtime fixes cannot be overwritten.
 bash /workspace/scripts/mechos-build118-six-regression-final.sh
-# BUILD 119 VM MECHSCOPE AUTHORITY. Run absolute last before mkarchiso. Upgraded
-# VM installs must not depend on an old gaming-layer controller to enter
-# MechScope; the launcher routes directly to the Plasma-hosted VM runtime while
-# physical hardware keeps the normal Gamescope controller path.
+# BUILD 119 VM MECHSCOPE AUTHORITY. VM installs must not depend on an old
+# gaming-layer controller to enter MechScope; physical hardware keeps the
+# normal Gamescope controller path.
 bash /workspace/scripts/mechos-build119-vm-mechscope-final.sh
+# BUILD 120 REBOOT + VM CREATOR AUTHORITY. Run absolute last before mkarchiso so
+# the Update Center reboot handler and compact low-resolution VM geometry cannot
+# be overwritten by an older integration stage.
+bash /workspace/scripts/mechos-build120-reboot-vm-creator-final.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
