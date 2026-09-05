@@ -36,3 +36,6 @@ case "$MODE" in
   creator) "$CONTROL" creator >>"$LOG" 2>&1 ;;
   desktop) "$CONTROL" desktop >>"$LOG" 2>&1 ;;
 esac || { notify_error "${MODE^} could not be started."; exit 1; }
+
+# Build 127 rebuild trigger: the Build 118 compatibility stage now validates
+# MechScope launcher capabilities semantically instead of matching exact text.
