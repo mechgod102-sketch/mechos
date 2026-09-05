@@ -22,6 +22,8 @@ install -m0755 "$ROOT/scripts/mechos-mode-launch-hotfix10.sh" \
   "$STAGE/usr/local/libexec/mechos-mode-launch-base-v15"
 install -m0755 "$ROOT/scripts/mechos-hotfix15-runtime-patch.py" \
   "$STAGE/usr/local/libexec/mechos-hotfix15-runtime-patch"
+install -m0755 "$ROOT/scripts/mechos-provider-bootstrap-v15.sh" \
+  "$STAGE/usr/local/libexec/mechos-provider-bootstrap-v15"
 install -m0755 "$ROOT/scripts/mechos-hotfix-0.3.0-15-apply.sh" \
   "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-15-apply"
 
@@ -82,12 +84,16 @@ ln -s /usr/lib/systemd/system/mechos-hotfix-0.3.0-15.service \
 # Bundle gates.
 bash -n "$STAGE/usr/local/bin/mechos-mode-launch"
 bash -n "$STAGE/usr/local/libexec/mechos-mode-launch-base-v15"
+bash -n "$STAGE/usr/local/libexec/mechos-provider-bootstrap-v15"
 bash -n "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-15-apply"
 python3 -m py_compile "$STAGE/usr/local/libexec/mechos-hotfix15-runtime-patch"
 grep -Fq 'MECHOS_MODE_LAUNCH_V15' "$STAGE/usr/local/bin/mechos-mode-launch"
 grep -Fq 'MECHOS_CREATOR_HANDOFF_V15' "$STAGE/usr/local/bin/mechos-mode-launch"
 grep -Fq 'MECHOS_CREATOR_VM_OVERLAY_V15' "$STAGE/usr/local/bin/mechos-mode-launch"
 grep -Fq 'MECHOS_HOTFIX15_NATIVE_UNIFIED_STORE' "$STAGE/usr/local/libexec/mechos-hotfix15-runtime-patch"
+grep -Fq 'MECHOS_PROVIDER_BOOTSTRAP_V15' "$STAGE/usr/local/libexec/mechos-provider-bootstrap-v15"
+grep -Fq 'flatpak install --user -y flathub com.heroicgameslauncher.hgl' "$STAGE/usr/local/libexec/mechos-provider-bootstrap-v15"
+grep -Fq 'pkexec /usr/bin/pacman -S --needed --noconfirm steam' "$STAGE/usr/local/libexec/mechos-provider-bootstrap-v15"
 grep -Fq 'ExecStart=/usr/local/bin/mechos-creator-mode' "$STAGE/usr/lib/systemd/user/mechos-creator-mode.service"
 grep -Fq 'QT_OPENGL=software' "$STAGE/usr/lib/systemd/user/mechos-vm-creator.service"
 ! grep -Eq 'mechos-vm-mode-runtime[[:space:]]+creator' "$STAGE/usr/local/bin/mechos-mode-launch"
@@ -108,7 +114,7 @@ data={
   'version':'0.3.0-hotfix.15',
   'release_name':'MechOS v0.3.0 Hotfix 15',
   'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-  'notes':'Creator Mode and Unified Store reliability hotfix. Creator Mode is now launched as a verified overlay above MechScope instead of terminating MechScope first. Virtual machines inherit the required software-rendering environment while MechScope remains available underneath, so a failed Creator launch returns an in-MechOS error instead of exposing the desktop. Unified Store browse and search actions no longer hand off to the desktop web browser; Steam routes into the Steam client and Epic/GOG/Amazon routes into Heroic when installed.',
+  'notes':'Creator Mode and Unified Store reliability hotfix. Creator Mode is now launched as a verified overlay above MechScope instead of terminating MechScope first. Virtual machines inherit the required software-rendering environment while MechScope remains available underneath, so a failed Creator launch returns an in-MechOS error instead of exposing the desktop. Unified Store browse and search actions no longer hand off to the desktop web browser. Steam routes into the Steam client and Epic/GOG/Amazon route into Heroic. If Steam or Heroic is missing, MechOS automatically installs the required provider and then continues opening it; Steam uses the system package path and Heroic uses a user-scoped Flathub install.',
   'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst',
   'bundle_sha256':sha,
   'requires_reboot':True,
