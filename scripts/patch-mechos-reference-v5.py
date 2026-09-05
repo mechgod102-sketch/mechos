@@ -72,11 +72,14 @@ bash /workspace/scripts/mechos-new-build-final-hardening.sh
 # FINAL INSTALLED-PAYLOAD AUTHORITY. Reassert OOBE, updater, mode-switch
 # shortcuts and Creator geometry after payload finalization.
 bash /workspace/scripts/mechos-new-build-final-gate.sh
-# BUILD 111 POST-INSTALL UPDATE. This is intentionally the last targeted patch:
-# account creation now has both KDE/XDG and systemd-user launch paths, the
-# temporary setup account is usable but non-admin, and Plasma's stock KDE splash
-# is suppressed so the branded MechOS Plymouth splash remains the only splash.
+# BUILD 111 POST-INSTALL UPDATE. Account creation now has both KDE/XDG and
+# systemd-user launch paths, the temporary setup account is usable but non-admin,
+# and Plasma's stock KDE splash is suppressed.
 bash /workspace/scripts/mechos-build111-firstboot-splash-hotfix.sh
+# UPDATE DISCOVERY AUTHORITY. Run last so every final helper copy uses a
+# cache-busting stable-manifest request instead of silently accepting stale
+# raw.githubusercontent.com metadata immediately after a hotfix publish.
+bash /workspace/scripts/mechos-update-manifest-refresh-final.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
