@@ -8,6 +8,7 @@ on:
     paths:
       - 'scripts/mechos-new-build-final-gate.sh'
       - 'scripts/mechos-new-build-final-hardening.sh'
+      - 'scripts/mechos-build113-live-boot-splash-fix.sh'
       - 'scripts/patch-mechos-reference-v5.py'
       - 'scripts/validate-new-build-final-gate.sh'
       - 'overlay/rootfs/etc/mechos/release'
@@ -72,6 +73,14 @@ jobs:
           bash scripts/validate-vm-mode-runtime-final.sh
           bash scripts/validate-firstboot-vm-runtime.sh
           bash scripts/validate-new-build-final-gate.sh
+          bash -n scripts/mechos-build113-live-boot-splash-fix.sh
+          grep -Fq 'PACKAGES="/workspace/archlive/packages.x86_64"' scripts/mechos-build113-live-boot-splash-fix.sh
+          grep -Fq "grep -qx 'plasma-meta' \"\$PACKAGES\"" scripts/mechos-build113-live-boot-splash-fix.sh
+          grep -Fq 'pacman -Si plasma-workspace' scripts/mechos-build113-live-boot-splash-fix.sh
+          if grep -Fq 'if [ ! -f "$ROOT/usr/share/wayland-sessions/plasma.desktop"' scripts/mechos-build113-live-boot-splash-fix.sh; then
+            echo 'Build 113 must not inspect package-owned Plasma session files before mkarchiso installs packages.' >&2
+            exit 1
+          fi
 
       - name: Apply cumulative MechOS integration
         run: |
@@ -129,6 +138,7 @@ jobs:
           grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-new-build-final-hardening.sh' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-new-build-final-gate.sh' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-build113-live-boot-splash-fix.sh' scripts/build-mechos-archiso.sh
           grep -qxF 'partitionmanager' scripts/build-mechos-archiso.sh
           grep -Fq 'kdialog partitionmanager firefox' scripts/build-mechos-archiso.sh
           grep -Fq 'Session=plasma' scripts/build-mechos-archiso.sh
