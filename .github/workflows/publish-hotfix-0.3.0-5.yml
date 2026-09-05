@@ -1,5 +1,7 @@
 name: Publish MechOS v0.3.0 Hotfix 5
 
+# The first merge introduces this workflow; this tracked marker also permits the
+# initial stable publication to be triggered by a normal main-branch push.
 on:
   workflow_dispatch:
   push:
