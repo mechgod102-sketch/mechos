@@ -78,11 +78,17 @@ bash /workspace/scripts/mechos-new-build-final-gate.sh
 bash /workspace/scripts/mechos-build111-firstboot-splash-hotfix.sh
 # UPDATE DISCOVERY AUTHORITY. Keep stable-manifest discovery fresh.
 bash /workspace/scripts/mechos-update-manifest-refresh-final.sh
-# PRE-OOBE UPDATE AUTHORITY. This must be the last installed-payload patch so a
-# temporary mechos-setup session can apply a verified update without being asked
-# for a password that cannot exist before account creation. The PolicyKit grant
-# is restricted to one guarded wrapper and the wrapper stops after OOBE completes.
+# PRE-OOBE UPDATE AUTHORITY. A temporary mechos-setup session can apply a
+# verified update without being asked for a password that cannot exist before
+# account creation. The PolicyKit grant remains narrowly scoped.
 bash /workspace/scripts/mechos-preoobe-update-auth-final.sh
+# BUILD 113 LIVE-BOOT AUTHORITY. This intentionally runs last because Build 112
+# could remain on a black screen before the Live desktop. Reassert a visible,
+# separate Live splash, repair the SDDM plasma.desktop autologin target, force
+# Plymouth to release the VT, and add a redundant single-instance installer
+# launcher. It also restores the installed-system splash identity after all
+# installed-payload patch passes above.
+bash /workspace/scripts/mechos-build113-live-boot-splash-fix.sh
 '''
 
 text = text[:pos] + insert + text[pos:]
