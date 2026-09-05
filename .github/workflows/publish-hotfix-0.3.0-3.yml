@@ -56,15 +56,20 @@ jobs:
           fi
           git commit -m 'Publish MechOS v0.3.0 Hotfix 3'
 
-          # Another publisher or validation bot may have advanced main after
-          # checkout. Rebase the generated release commit before pushing so a
-          # harmless concurrent commit cannot strand the stable hotfix.
+          # The build/validation steps may chmod tracked scripts or leave Python
+          # cache files. The release payload is already committed above, so make
+          # the worktree clean before rebasing that commit onto the newest main.
+          git reset --hard HEAD
+          git clean -fd
+
           for attempt in 1 2 3; do
             git fetch origin main
             if git rebase origin/main && git push origin HEAD:main; then
               exit 0
             fi
             git rebase --abort >/dev/null 2>&1 || true
+            git reset --hard HEAD
+            git clean -fd
             sleep $((attempt * 2))
           done
           echo 'Unable to publish Hotfix 3 after three synchronized attempts.' >&2
