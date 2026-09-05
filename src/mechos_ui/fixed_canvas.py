@@ -16,14 +16,15 @@ BASE_H = 1080
 
 
 class FixedCanvas(QWidget):
-    # MECHOS_VISUAL_SURFACES_V9_FIXED_CANVAS
+    # MECHOS_VISUAL_SURFACES_V14_FIXED_CANVAS
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rects = {}
         self._font_sizes = {}
         self.setObjectName('mechosFixedCanvas')
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
         self.setStyleSheet('''
-QWidget#mechosFixedCanvas{background:#040713;color:#f4f7ff}
+QWidget#mechosFixedCanvas{background:#020611;color:#f4f7ff}
 QLabel[role="muted"]{color:#91a5c1}
 QLabel[role="accent"]{color:#b96cff}
 QLabel[role="section"]{color:#5ee7ff;letter-spacing:2px}
@@ -97,56 +98,39 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
 
     def resizeEvent(self, event):
         # MECHOS_VM_RESPONSIVE_GEOMETRY_V3
-        # MECHOS_VM_RESPONSIVE_GEOMETRY_V2 - compatibility marker for the
-        # Build 118 late-stage guard; V3 below is the authoritative behavior.
-        # Scale geometry, typography and button padding together. On small VM
-        # desktops, short controls drop their secondary line when the scaled
-        # height cannot safely hold two lines. Narrow, short status labels also
-        # stop word-wrapping so long VM hardware names cannot spill into the
-        # next control below them.
         s = self.scale_factor()
         for widget, rect in self._rects.items():
             scaled = self.scale_rect(rect)
             widget.setGeometry(scaled)
             base = self._font_sizes.get(widget)
             if base is not None:
-                f = widget.font()
-                f.setPointSize(max(5, int(round(base * s))))
-                widget.setFont(f)
+                f = widget.font(); f.setPointSize(max(5, int(round(base * s)))); widget.setFont(f)
             if isinstance(widget, QLabel):
                 compact_label = s < 0.72 and rect.width() <= 220 and rect.height() <= 70
                 widget.setWordWrap(not compact_label)
             if isinstance(widget, QPushButton) and widget.property('role') != 'hotspot':
-                vpad = max(2, int(round(6 * s)))
-                hpad = max(4, int(round(10 * s)))
+                vpad = max(2, int(round(6 * s))); hpad = max(4, int(round(10 * s)))
                 widget.setStyleSheet(f'padding:{vpad}px {hpad}px;')
-
-                # Only FixedCanvas.button() controls own mechosTitle/
-                # mechosSubtitle. Installer mode buttons and other custom
-                # QPushButtons deliberately manage their own text; touching
-                # them here used to replace their labels with an empty string
-                # on the first resize event.
                 title_prop = widget.property('mechosTitle')
                 if title_prop is not None:
-                    title = str(title_prop)
-                    subtitle_prop = widget.property('mechosSubtitle')
+                    title = str(title_prop); subtitle_prop = widget.property('mechosSubtitle')
                     subtitle = '' if subtitle_prop is None else str(subtitle_prop)
                     compact = bool(subtitle) and s < 0.72 and scaled.height() < 42
                     wanted = title if compact else title + (('\n' + subtitle) if subtitle else '')
-                    if widget.text() != wanted:
-                        widget.setText(wanted)
+                    if widget.text() != wanted: widget.setText(wanted)
         super().resizeEvent(event)
 
     def panel(self, painter, rect, fill='#08111e', border='#294566', radius=20, width=1):
-        rr = self.scale_rect(rect)
-        s = self.scale_factor()
-        painter.setBrush(QColor(fill))
-        painter.setPen(QPen(QColor(border), max(1, int(width * s))))
+        rr = self.scale_rect(rect); s = self.scale_factor()
+        painter.setBrush(QColor(fill)); painter.setPen(QPen(QColor(border), max(1, int(width * s))))
         painter.drawRoundedRect(rr, int(radius * s), int(radius * s))
 
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        # Explicitly paint every pixel dark. This prevents Qt/Plasma/VM style
+        # fallback from exposing a white backing surface in letterbox margins.
+        p.fillRect(self.rect(), QColor('#020611'))
         self.paint_background(p)
 
     def paint_background(self, painter):
