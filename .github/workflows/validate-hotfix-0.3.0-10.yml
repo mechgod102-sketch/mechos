@@ -1,0 +1,39 @@
+name: Validate MechOS v0.3.0 Hotfix 10
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-10-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-10.sh'
+      - 'scripts/validate-hotfix-0.3.0-10.sh'
+      - 'scripts/mechos-creator-visual-owner-v10-patch.py'
+      - 'scripts/mechos-mode-launch-hotfix10.sh'
+      - 'src/mechos_ui/creator_visual_shell_v10.py'
+      - '.github/workflows/validate-hotfix-0.3.0-10.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 10 source and bundle
+        run: |
+          set -euo pipefail
+          bash -n scripts/mechos-mode-launch-hotfix10.sh
+          bash -n scripts/mechos-hotfix-0.3.0-10-apply.sh
+          bash -n scripts/build-hotfix-0.3.0-10.sh
+          bash -n scripts/validate-hotfix-0.3.0-10.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile \
+            src/mechos_ui/creator_visual_shell_v10.py \
+            scripts/mechos-creator-visual-owner-v10-patch.py
+          bash scripts/build-hotfix-0.3.0-10.sh
+          bash scripts/validate-hotfix-0.3.0-10.sh
