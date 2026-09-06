@@ -32,6 +32,12 @@ Verify:
 
 Static validation catches source and configuration mistakes, but only a VM installation can validate partitioning, bootloader, display-manager and graphics behavior.
 
+## Hotfix 20 regression pass
+
+After installing MechOS v0.3.0 Hotfix 20, complete `docs/HOTFIX-20-REGRESSION-TEST.md` on both a VM and at least one physical-hardware system. This pass specifically covers the recovered updater, root-directory permission safety, single-window navigation, Creator Mode, physical-hardware MechScope, Unified Store, Update/Recovery/Performance Centers, restart behavior, and cold-boot persistence.
+
+Any regression that makes `/` non-traversable, hides `/usr/bin`, removes an Update Center helper, prevents MechScope from opening, or breaks boot is a release blocker.
+
 ## Release candidate certification
 
 A successful build and VM smoke test are not enough for a public release. For each v0.3.0 release candidate, copy or reset `docs/RELEASE-CERTIFICATION-v0.3.0.md`, record the RC/build ID and commit SHA, and complete every BLOCKER section.
