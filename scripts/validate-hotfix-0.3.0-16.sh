@@ -24,8 +24,6 @@ grep -Fq 'build-hotfix-0.3.0-15.sh' "$ROOT/scripts/build-hotfix-0.3.0-16.sh"
 grep -Fq 'Hotfix 16 is cumulative' "$ROOT/scripts/build-hotfix-0.3.0-16.sh"
 grep -Fq 'hotfix-0.3.0-15-applied' "$ROOT/scripts/mechos-hotfix-0.3.0-16-apply.sh"
 
-# Smoke-patch a representative generated MechScope owner. This checks that the
-# hotfix converts internal navigation without requiring the real display server.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 cat >"$tmp/mechscope" <<'PY'
 #!/usr/bin/env python3
@@ -54,15 +52,22 @@ from pathlib import Path
 import sys
 p=Path(sys.argv[1]); t=p.read_text(encoding='utf-8')
 compile(t,str(p),'exec')
-assert 'MECHOS_HOTFIX16_SINGLE_WINDOW_SHELL' in t
-assert 'QStackedWidget' in t
-assert "return self._mechos_shell_route_v16('store')" in t
-assert "return self._mechos_shell_route_v16('creator')" in t
-assert "lambda:self._mechos_shell_route_v16('performance')" in t
-assert "lambda:self._mechos_shell_route_v16('updates')" in t
-assert "lambda:self._mechos_shell_route_v16('recovery')" in t
-assert 'self._mechos_shell_dispatch_v16(c)' in t
-assert 'self._mechos_shell_install_v16()' in t
+checks=[
+ ('shell marker','MECHOS_HOTFIX16_SINGLE_WINDOW_SHELL'),
+ ('stack','QStackedWidget'),
+ ('store route',"return self._mechos_shell_route_v16('store')"),
+ ('creator route',"return self._mechos_shell_route_v16('creator')"),
+ ('performance route',"lambda:self._mechos_shell_route_v16('performance')"),
+ ('updates route',"lambda:self._mechos_shell_route_v16('updates')"),
+ ('recovery route',"lambda:self._mechos_shell_route_v16('recovery')"),
+ ('dispatch','self._mechos_shell_dispatch_v16(c)'),
+ ('install hook','self._mechos_shell_install_v16()'),
+]
+for label,needle in checks:
+    if needle not in t:
+        print('--- PATCHED MECHSCOPE ---')
+        print(t)
+        raise AssertionError(f'Hotfix16 smoke patch missing {label}: {needle}')
 PY
 
 echo 'Hotfix 16 validation passed: MechOS internal surfaces route through one stacked-window shell, mode requests target the running shell, and the bundle remains cumulative with Hotfix 15.'
