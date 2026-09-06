@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX22_APPLY_V4
+# MECHOS_HOTFIX22_APPLY_V5
 STATE=/var/lib/mechos
-MARKER="$STATE/hotfix-0.3.0-22.2-applied"
-LOG=/var/log/mechos-hotfix-0.3.0-22.2.log
+MARKER="$STATE/hotfix-0.3.0-22.3-applied"
+LOG=/var/log/mechos-hotfix-0.3.0-22.3.log
 mkdir -p "$STATE" /var/log
 exec >>"$LOG" 2>&1
 
-echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.2 cumulative apply start"
+echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.3 cumulative apply start"
 [ -e "$MARKER" ] && exit 0
 is_live(){ [ -e /run/archiso/bootmnt ] || grep -q archiso /proc/cmdline 2>/dev/null; }
 is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; }
 
-# Hotfix 22.2 is the recovery/cumulative activation point for Hotfixes 15-21.
-# Hotfix15 now tolerates newer UnifiedStore class shapes and defers that Store
-# replacement to Hotfix21 instead of aborting the entire cumulative chain.
+# Hotfix 22.3 remains the cumulative activation point for Hotfixes 15-21.
 apply_layer(){
   local n="$1"
   local layer_marker="$STATE/hotfix-0.3.0-${n}-applied"
@@ -70,17 +68,54 @@ grep -Fq '/var/lib/flatpak/appstream' "$MODULE"
 grep -Fq '/var/lib/flatpak/exports/share/applications' "$MODULE"
 grep -Fq 'QIcon.fromTheme' "$MODULE"
 
+# MECHOS_HOTFIX22_3_MECHSCOPE_PERSISTENT_RUNTIME
+# Cumulative patching can leave a syntactically valid generated MechScope owner
+# whose historical __main__ path returns 0 immediately. Preserve the final
+# patched owner and make a small stable runtime own QApplication.exec() itself.
+RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23
+OWNER=/usr/local/libexec/mechscope-owner-v23.py
+MECH_TARGET=/usr/local/bin/mechscope
+[ -f /usr/local/bin/mechscope.real ] && MECH_TARGET=/usr/local/bin/mechscope.real
+
+[ -x "$RUNTIME" ] || { echo "ERROR: MechScope persistent runtime missing: $RUNTIME"; exit 94; }
+python3 -m py_compile "$RUNTIME"
+
+if grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$MECH_TARGET" 2>/dev/null; then
+  [ -f "$OWNER" ] || { echo 'ERROR: MechScope runtime already installed but preserved owner is missing'; exit 95; }
+else
+  [ -f "$MECH_TARGET" ] || { echo "ERROR: MechScope implementation missing: $MECH_TARGET"; exit 96; }
+  install -D -m0755 "$MECH_TARGET" "$OWNER"
+fi
+
+python3 - "$OWNER" <<'PY'
+from pathlib import Path
+import ast,sys
+p=Path(sys.argv[1])
+text=p.read_text(encoding='utf-8')
+compile(text,str(p),'exec')
+tree=ast.parse(text,str(p))
+classes={node.name for node in tree.body if isinstance(node,ast.ClassDef)}
+if 'MechScope' not in classes:
+    raise SystemExit('preserved MechScope owner has no top-level MechScope class')
+PY
+
+install -m0755 "$RUNTIME" "$MECH_TARGET"
+grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$MECH_TARGET"
+grep -Fq 'QApplication.instance()' "$MECH_TARGET"
+grep -Fq 'app.exec()' "$MECH_TARGET"
+echo "[$(date -Is)] MechScope persistent runtime installed target=$MECH_TARGET owner=$OWNER"
+
 mkdir -p /etc/mechos
-printf '0.3.0-hotfix.22.2\n' >/etc/mechos/release
+printf '0.3.0-hotfix.22.3\n' >/etc/mechos/release
 if [ -f /etc/mechos/mechos.conf ]; then
   if grep -q '^MECHOS_VERSION=' /etc/mechos/mechos.conf; then
-    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.2/' /etc/mechos/mechos.conf
+    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.3/' /etc/mechos/mechos.conf
   else
-    printf 'MECHOS_VERSION=0.3.0-hotfix.22.2\n' >>/etc/mechos/mechos.conf
+    printf 'MECHOS_VERSION=0.3.0-hotfix.22.3\n' >>/etc/mechos/mechos.conf
   fi
 fi
-printf 'MechOS v0.3.0 Hotfix 22.2\n' >/etc/system-release
+printf 'MechOS v0.3.0 Hotfix 22.3\n' >/etc/system-release
 
 rm -f "$STATE/reboot-required"
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix 22.2 applied: Hotfixes 15-21 are active; Hotfix15 cumulative Store compatibility no longer blocks newer Store owners; Creator Mode/Creator Store prefer application-owned desktop/theme/AppStream icons with generated MechOS badges only as fallback."
+echo "[$(date -Is)] Hotfix 22.3 applied: cumulative Hotfixes 15-21 are active; Creator real icons remain enabled; MechScope now runs through a persistent Qt runtime that preserves the patched owner and cannot silently exit through a stale generated __main__ path."
