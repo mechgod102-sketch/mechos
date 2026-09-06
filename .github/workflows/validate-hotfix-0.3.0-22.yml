@@ -1,17 +1,20 @@
-name: Validate MechOS v0.3.0 Hotfix 22
+name: Validate MechOS v0.3.0 Hotfix 22.1
 
 on:
   pull_request:
     paths:
       - 'src/mechos_ui/creator_real_icons_v22.py'
       - 'scripts/mechos-creator-real-icons-owner-v22-patch.py'
+      - 'scripts/mechos-mode-launch-v19.sh'
+      - 'scripts/mechos-shell-route-v19.sh'
+      - 'scripts/mechos-update-helper-v19.sh'
       - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
       - 'scripts/build-hotfix-0.3.0-22.sh'
       - 'scripts/validate-hotfix-0.3.0-22.sh'
       - '.github/workflows/validate-hotfix-0.3.0-22.yml'
       - '.github/workflows/publish-hotfix-0.3.0-22.yml'
   push:
-    branches: ['fix/hotfix22-creator-real-icons']
+    branches: ['fix/hotfix22-creator-real-icons', 'fix/hotfix22-cumulative-15-21']
 
 jobs:
   validate:
@@ -23,17 +26,24 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Validate Hotfix 22 source
+      - name: Validate Hotfix 22.1 source
         run: bash scripts/validate-hotfix-0.3.0-22.sh
-      - name: Build cumulative Hotfix 22 bundle
+      - name: Build cumulative Hotfix 22.1 bundle
         run: |
           bash scripts/build-hotfix-0.3.0-22.sh
-          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22-update.tar.zst
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst
           (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
           CONTENTS="$(tar --zstd -tf "$BUNDLE")"
           grep -Fxq './usr/local/share/mechos/ui/creator_real_icons_v22.py' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-creator-real-icons-owner-v22-patch' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-22-apply' <<< "$CONTENTS"
+          for n in 15 16 17 18 19 20 21; do
+            grep -Fxq "./usr/local/libexec/mechos-hotfix-0.3.0-${n}-apply" <<< "$CONTENTS"
+          done
+          grep -Fxq './usr/local/bin/mechos-mode-launch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/bin/mechos-shell-route' <<< "$CONTENTS"
+          grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-hotfix21-unified-store-patch' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-update-transaction-v14' <<< "$CONTENTS"
-          echo 'Hotfix 22 cumulative bundle validation passed.'
+          grep -Fxq './usr/local/libexec/mechos-update-transaction-core-v20' <<< "$CONTENTS"
+          echo 'Hotfix 22.1 cumulative bundle validation passed.'

@@ -3,6 +3,7 @@ set -Eeuo pipefail
 # MECHOS_UPDATE_HELPER_V14
 # MECHOS_UPDATE_HELPER_V18
 # MECHOS_UPDATE_HELPER_V19
+# MECHOS_HOTFIX17_HELPER_WARNING_FIX
 # Hotfix 19 bootstrap repair: when an update bundle contains a newer validated
 # transaction engine, use that staged engine instead of blindly preferring the
 # older installed transaction that may be the reason updates are failing.

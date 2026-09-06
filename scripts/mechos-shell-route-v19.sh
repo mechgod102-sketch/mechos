@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_SHELL_ROUTE_V19
+# Backward-compatibility marker: v19 keeps the Hotfix 16 route-file contract.
+# MECHOS_SHELL_ROUTE_V16
 # Route only into MechScope when the actual MechScope application is alive.
 # A mechscope-session wrapper by itself is not a valid unified-shell host.
 
