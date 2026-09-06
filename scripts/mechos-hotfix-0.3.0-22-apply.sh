@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX22_APPLY_V3
+# MECHOS_HOTFIX22_APPLY_V4
 STATE=/var/lib/mechos
-MARKER="$STATE/hotfix-0.3.0-22.1-applied"
-LOG=/var/log/mechos-hotfix-0.3.0-22.1.log
+MARKER="$STATE/hotfix-0.3.0-22.2-applied"
+LOG=/var/log/mechos-hotfix-0.3.0-22.2.log
 mkdir -p "$STATE" /var/log
 exec >>"$LOG" 2>&1
 
-echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.1 cumulative apply start"
+echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.2 cumulative apply start"
 [ -e "$MARKER" ] && exit 0
 is_live(){ [ -e /run/archiso/bootmnt ] || grep -q archiso /proc/cmdline 2>/dev/null; }
 is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; }
 
-# Hotfix 22.1 is the recovery/cumulative activation point for Hotfixes 15-21.
-# Older units may already have applied some layers; marker checks keep this
-# idempotent. A direct jump from Hotfix 14, original Hotfix 22, or a partially
-# activated system receives every missing layer in order before 22.1 finalizes.
+# Hotfix 22.2 is the recovery/cumulative activation point for Hotfixes 15-21.
+# Hotfix15 now tolerates newer UnifiedStore class shapes and defers that Store
+# replacement to Hotfix21 instead of aborting the entire cumulative chain.
 apply_layer(){
   local n="$1"
   local layer_marker="$STATE/hotfix-0.3.0-${n}-applied"
@@ -72,16 +71,16 @@ grep -Fq '/var/lib/flatpak/exports/share/applications' "$MODULE"
 grep -Fq 'QIcon.fromTheme' "$MODULE"
 
 mkdir -p /etc/mechos
-printf '0.3.0-hotfix.22.1\n' >/etc/mechos/release
+printf '0.3.0-hotfix.22.2\n' >/etc/mechos/release
 if [ -f /etc/mechos/mechos.conf ]; then
   if grep -q '^MECHOS_VERSION=' /etc/mechos/mechos.conf; then
-    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.1/' /etc/mechos/mechos.conf
+    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.2/' /etc/mechos/mechos.conf
   else
-    printf 'MECHOS_VERSION=0.3.0-hotfix.22.1\n' >>/etc/mechos/mechos.conf
+    printf 'MECHOS_VERSION=0.3.0-hotfix.22.2\n' >>/etc/mechos/mechos.conf
   fi
 fi
-printf 'MechOS v0.3.0 Hotfix 22.1\n' >/etc/system-release
+printf 'MechOS v0.3.0 Hotfix 22.2\n' >/etc/system-release
 
 rm -f "$STATE/reboot-required"
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix 22.1 applied: Hotfixes 15-21 are active and Creator Mode/Creator Store prefer application-owned desktop/theme/AppStream icons with generated MechOS badges only as fallback."
+echo "[$(date -Is)] Hotfix 22.2 applied: Hotfixes 15-21 are active; Hotfix15 cumulative Store compatibility no longer blocks newer Store owners; Creator Mode/Creator Store prefer application-owned desktop/theme/AppStream icons with generated MechOS badges only as fallback."
