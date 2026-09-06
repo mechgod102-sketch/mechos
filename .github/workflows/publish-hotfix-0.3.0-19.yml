@@ -1,91 +1,29 @@
-name: Publish MechOS v0.3.0 Hotfix 19
+name: Validate Retired MechOS v0.3.0 Hotfix 19
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-update-helper-v19.sh'
-      - 'scripts/mechos-update-rescue-v19.sh'
-      - 'scripts/mechos-mode-launch-v19.sh'
-      - 'scripts/mechos-shell-route-v19.sh'
-      - 'scripts/mechscope-session-v19.sh'
-      - 'scripts/mechos-hotfix-0.3.0-19-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-19.sh'
-      - 'scripts/validate-hotfix-0.3.0-19.sh'
-      - '.github/workflows/publish-hotfix-0.3.0-19.yml'
 
+# Hotfix 19 is retired from stable publication. Current cumulative releases
+# still reuse selected v19 launcher/helper sources, so edits to those files must
+# never wake an old publisher and race updates/stable.json back to Hotfix 19.
 permissions:
-  contents: write
-
-concurrency:
-  group: mechos-hotfix-19-publish
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  publish:
+  validate-retired:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout MechOS
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Install bundle tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Build and validate Hotfix 19
+      - name: Validate retired Hotfix 19 source only
         run: |
           set -euo pipefail
           bash scripts/validate-hotfix-0.3.0-19.sh
           bash scripts/build-hotfix-0.3.0-19.sh
           BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst
           (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
-          CONTENTS="$(tar --zstd -tf "$BUNDLE")"
-          grep -Fxq './usr/local/bin/mechos-update-center' <<< "$CONTENTS"
-          grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
-          grep -Fxq './usr/local/bin/mechos-reboot' <<< "$CONTENTS"
-          grep -Fxq './usr/local/bin/mechos-update-rescue' <<< "$CONTENTS"
-          grep -Fxq './usr/local/bin/mechos-mode-launch' <<< "$CONTENTS"
-          grep -Fxq './usr/local/bin/mechos-shell-route' <<< "$CONTENTS"
-          grep -Fxq './usr/local/bin/mechscope-session' <<< "$CONTENTS"
-          grep -Fxq './usr/local/libexec/mechos-creator-launch-v19' <<< "$CONTENTS"
-          grep -Fxq './usr/local/libexec/mechos-update-transaction-v14' <<< "$CONTENTS"
-          grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-19-apply' <<< "$CONTENTS"
-          echo 'Hotfix 19 cumulative bundle validation passed.'
-      - name: Publish Hotfix 19 to Update Center stable channel
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst \
-            updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst.sha256 \
-            updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst \
-            updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst.sha256 \
-            updates/bundles/MechOS-0.3.0-hotfix.17-update.tar.zst \
-            updates/bundles/MechOS-0.3.0-hotfix.17-update.tar.zst.sha256 \
-            updates/bundles/MechOS-0.3.0-hotfix.18-update.tar.zst \
-            updates/bundles/MechOS-0.3.0-hotfix.18-update.tar.zst.sha256 \
-            updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst \
-            updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst.sha256 \
-            updates/stable.json
-          if git diff --cached --quiet; then
-            echo 'Hotfix 19 is already published.'
-            exit 0
-          fi
-          git commit -m 'Publish MechOS v0.3.0 Hotfix 19'
-          git reset --hard HEAD
-          git clean -fd
-          for attempt in 1 2 3; do
-            git fetch origin main
-            if git rebase origin/main && git push origin HEAD:main; then
-              exit 0
-            fi
-            git rebase --abort >/dev/null 2>&1 || true
-            git reset --hard HEAD
-            git clean -fd
-            sleep $((attempt * 2))
-          done
-          echo 'Unable to publish Hotfix 19 after three synchronized attempts.' >&2
-          exit 1
+          echo 'Hotfix 19 source remains buildable, but stable publication is retired.'
