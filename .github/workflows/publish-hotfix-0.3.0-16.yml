@@ -1,0 +1,79 @@
+name: Publish MechOS v0.3.0 Hotfix 16
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-hotfix16-single-shell-patch.py'
+      - 'scripts/mechos-shell-route-v16.sh'
+      - 'scripts/mechos-mode-launch-v16.sh'
+      - 'scripts/mechos-hotfix-0.3.0-16-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-16.sh'
+      - 'scripts/validate-hotfix-0.3.0-16.sh'
+      - '.github/workflows/publish-hotfix-0.3.0-16.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mechos-hotfix-16-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Build and validate Hotfix 16
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-16.sh
+          bash scripts/build-hotfix-0.3.0-16.sh
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst
+          (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+          CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+          grep -Fxq './usr/local/libexec/mechos-hotfix16-single-shell-patch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/bin/mechos-shell-route' <<< "$CONTENTS"
+          grep -Fxq './usr/local/bin/mechos-mode-launch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-16-apply' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-15-apply' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-hotfix15-game-browser-patch' <<< "$CONTENTS"
+          echo 'Hotfix 16 cumulative bundle validation passed.'
+      - name: Publish Hotfix 16 to Update Center stable channel
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst.sha256 \
+            updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst.sha256 \
+            updates/stable.json
+          if git diff --cached --quiet; then
+            echo 'Hotfix 16 is already published.'
+            exit 0
+          fi
+          git commit -m 'Publish MechOS v0.3.0 Hotfix 16'
+          git reset --hard HEAD
+          git clean -fd
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort >/dev/null 2>&1 || true
+            git reset --hard HEAD
+            git clean -fd
+            sleep $((attempt * 2))
+          done
+          echo 'Unable to publish Hotfix 16 after three synchronized attempts.' >&2
+          exit 1
