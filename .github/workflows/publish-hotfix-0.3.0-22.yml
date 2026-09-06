@@ -1,4 +1,4 @@
-name: Publish MechOS v0.3.0 Hotfix 22.4
+name: Publish MechOS v0.3.0 Hotfix 22.5
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'src/mechos_ui/creator_real_icons_v22.py'
+      - 'src/mechos_ui/mechscope_reference_compat_v25.py'
       - 'scripts/mechos-creator-real-icons-owner-v22-patch.py'
       - 'scripts/mechos-mechscope-runtime-v23.py'
       - 'scripts/mechos-mode-launch-v19.sh'
@@ -39,12 +40,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
-      - name: Validate Hotfix 22.4 source
+      - name: Validate Hotfix 22.5 source
         run: |
           set -euo pipefail
           bash scripts/validate-hotfix-0.3.0-22.sh
 
-      - name: Publish Hotfix 22.4 to Update Center stable channel
+      - name: Publish Hotfix 22.5 to Update Center stable channel
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -57,13 +58,14 @@ jobs:
             bash scripts/validate-hotfix-0.3.0-22.sh
             bash scripts/build-hotfix-0.3.0-22.sh
 
-            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.4-update.tar.zst
+            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst
             (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
             CONTENTS="$(tar --zstd -tf "$BUNDLE")"
 
             grep -Fxq './usr/local/libexec/mechos-update-center-v8.py' <<< "$CONTENTS"
             grep -Fxq './usr/local/libexec/mechos-update-center-v8-rescue.py' <<< "$CONTENTS"
             grep -Fxq './usr/local/share/mechos/ui/creator_real_icons_v22.py' <<< "$CONTENTS"
+            grep -Fxq './usr/local/share/mechos/ui/mechscope_reference_compat_v25.py' <<< "$CONTENTS"
             grep -Fxq './usr/local/libexec/mechos-creator-real-icons-owner-v22-patch' <<< "$CONTENTS"
             grep -Fxq './usr/local/libexec/mechos-mechscope-runtime-v23' <<< "$CONTENTS"
             grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-22-apply' <<< "$CONTENTS"
@@ -82,20 +84,20 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path('updates/stable.json').read_text())
-          assert data['version']=='0.3.0-hotfix.22.4', data
+          assert data['version']=='0.3.0-hotfix.22.5', data
           PY
 
             git add \
-              updates/bundles/MechOS-0.3.0-hotfix.22.4-update.tar.zst \
-              updates/bundles/MechOS-0.3.0-hotfix.22.4-update.tar.zst.sha256 \
+              updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst \
+              updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst.sha256 \
               updates/stable.json
 
             if git diff --cached --quiet; then
-              echo 'Hotfix 22.4 is already published.'
+              echo 'Hotfix 22.5 is already published.'
               exit 0
             fi
 
-            git commit -m 'Publish MechOS v0.3.0 Hotfix 22.4'
+            git commit -m 'Publish MechOS v0.3.0 Hotfix 22.5'
             if git push origin HEAD:main; then
               exit 0
             fi
@@ -104,5 +106,5 @@ jobs:
             sleep $((attempt * 2))
           done
 
-          echo 'Unable to publish Hotfix 22.4 after three synchronized rebuild attempts.' >&2
+          echo 'Unable to publish Hotfix 22.5 after three synchronized rebuild attempts.' >&2
           exit 1
