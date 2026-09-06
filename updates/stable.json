@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.19",
-  "release_name": "MechOS v0.3.0 Hotfix 19",
+  "version": "0.3.0-hotfix.21",
+  "release_name": "MechOS v0.3.0 Hotfix 21",
   "published_at": "2026-09-06",
-  "notes": "Recovery and mode-launch reliability hotfix. Restores the complete Update Center helper/reboot trio and adds a standalone rescue updater for systems where those public helpers are already missing. Future updates prefer the validated rsync-free transaction engine carried by the staged bundle, allowing the updater to repair itself. Creator Mode is a first-class target: if the unified shell is absent, Creator launches directly instead of bootstrapping Gaming/MechScope. Physical-hardware MechScope now uses conservative Gamescope startup with VRR/HDR opt-in and a Plasma-hosted fallback if Gamescope cannot start. Hotfix 19 is cumulative with Hotfixes 15-18.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst",
-  "bundle_sha256": "ab15b45097b68a2cc50f74e8655d74c2103013ed7205e7dd9ca15a52e39cc55b",
+  "notes": "Unified Store native-page repair. Replaces the legacy V5 Store class that still opened desktop-browser URLs with a redesigned in-shell game browser. Search results render directly inside Unified Store, provider filters stay in MechOS, compatibility help is internal, Steam game launch uses the native Steam client, and missing Steam/Heroic providers are bootstrapped only when an explicit provider action is chosen. Hotfix 21 is cumulative with Hotfixes 15-20 including root-safe updates, Creator Mode direct launch, hardware MechScope fallback, and updater recovery.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.21-update.tar.zst",
+  "bundle_sha256": "97473fcd36105fdc1f4c449c6153a8f552a954da681cd1d94a20329379ca83d6",
   "requires_reboot": true
 }
