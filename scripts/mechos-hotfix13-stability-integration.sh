@@ -67,4 +67,10 @@ if [ -s "$ARCHIVE" ]; then
   mv -f "$replacement" "$ARCHIVE"
   rm -rf "$tmp"; trap - EXIT
 fi
-log 'future ISO payload owns transactional updater, working Performance Center, fullscreen MechScope, separate-process Unified Store and provider install controller'
+
+# Absolute-final Live installer authority. Run after every older GUI/runtime
+# generator so password prompts, automatic disk selection and misrouted Custom
+# install paths cannot be restored immediately before mkarchiso.
+bash "$REPO/scripts/mechos-live-installer-final-hardening.sh" final
+
+log 'future ISO payload owns transactional updater, working Performance Center, fullscreen MechScope, separate-process Unified Store and provider install controller; Live installer hardening is final'
