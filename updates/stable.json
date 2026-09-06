@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.1",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 1",
+  "version": "0.3.0-hotfix.15",
+  "release_name": "MechOS v0.3.0 Hotfix 15",
   "published_at": "2026-09-06",
-  "notes": "Hotfix 22 cumulative revision 1. This rebuild makes Hotfix 22 a true recovery update: it carries and activates every missing Hotfix 15 through 21 layer in order before finalizing Hotfix 22. It preserves Creator/Unified Store repairs, the single-window shell, updater recovery, package reliability, hardware MechScope fallback, root-safe transactions, the native Unified Store and Hotfix 22 real application icons. Version 22.1 is intentionally distinct from the original 22 so systems that already recorded Hotfix 22 can receive this corrected cumulative payload. Hotfix 14 systems with the legacy rsync-dependent transaction engine can use the repository bootstrap rescue script to stage this verified cumulative bundle with the staged rsync-free transaction core before restarting.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst",
-  "bundle_sha256": "74b21698cde8392af2d51114ba56a7604b4e3e44bf5bf0c66b17d376450e282b",
+  "notes": "Creator Mode and Unified Store reliability hotfix. Creator Mode is launched as a verified overlay above MechScope instead of terminating MechScope first, including the correct VM rendering environment. Unified Store keeps game discovery inside MechOS with a fullscreen native Game Browser that searches live PC game listings and shows provider/price information. Search no longer opens desktop browser tabs. When a user chooses a provider action, Steam or Heroic is opened; if the required provider client is missing, MechOS installs it automatically first.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst",
+  "bundle_sha256": "67d62401e728557936827fe14748eca7882d9a5297cc5822f01ad82ca57e28fd",
   "requires_reboot": true
 }
