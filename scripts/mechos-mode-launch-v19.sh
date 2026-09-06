@@ -3,11 +3,12 @@ set -Eeuo pipefail
 # MECHOS_MODE_LAUNCH_V19
 # Creator Mode must never bootstrap Gaming/MechScope just to reach Creator.
 # When the unified MechScope shell is already alive, Creator routes in-place.
-# Otherwise the proven Hotfix 15 Creator launcher starts Creator directly.
+# Otherwise the proven Hotfix 15 Creator handoff starts Creator directly.
 
 MODE="${1:-}"
 ROUTER=/usr/local/bin/mechos-shell-route
 BASE=/usr/local/libexec/mechos-mode-launch-base-v15
+CREATOR=/usr/local/libexec/mechos-creator-launch-v19
 
 case "$MODE" in
   gaming|mechscope|creator|desktop) ;;
@@ -23,8 +24,8 @@ case "$MODE" in
     if mechscope_host_running && [ -x "$ROUTER" ]; then
       exec "$ROUTER" creator
     fi
-    [ -x "$BASE" ] || { echo 'MechOS Creator launcher base missing' >&2; exit 1; }
-    exec "$BASE" creator
+    [ -x "$CREATOR" ] || { echo 'MechOS Creator launcher is missing' >&2; exit 1; }
+    exec "$CREATOR" creator
     ;;
   gaming|mechscope)
     [ -x "$ROUTER" ] || { echo 'MechOS shell router missing' >&2; exit 1; }
