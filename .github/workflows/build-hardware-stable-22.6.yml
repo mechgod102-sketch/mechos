@@ -1,0 +1,150 @@
+name: Build MechOS 0.3.0 Hotfix 22.6 Hardware Test ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-hardware-verify-v22.sh'
+      - 'scripts/mechos-hardware-stable-seed-v22.sh'
+      - 'scripts/patch-mechos-hardware-stable-22.6.py'
+      - 'scripts/mechos-mechscope-runtime-v23.py'
+      - 'scripts/mechos-mode-launch-v19.sh'
+      - 'scripts/mechos-shell-route-v19.sh'
+      - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-22.sh'
+      - 'updates/stable.json'
+      - 'updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst'
+      - 'updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst.sha256'
+      - '.github/workflows/build-hardware-stable-22.6.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mechos-hardware-stable-22-6
+  cancel-in-progress: false
+
+jobs:
+  build-hardware-iso:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          docker system prune -af --volumes || true
+          df -h
+
+      - name: Validate stable hardware candidate
+        run: |
+          set -euo pipefail
+          ./scripts/validate-project.sh
+          bash scripts/validate-hotfix-0.3.0-22.sh
+          bash -n scripts/mechos-hardware-verify-v22.sh
+          bash -n scripts/mechos-hardware-stable-seed-v22.sh
+          python3 -m py_compile scripts/patch-mechos-hardware-stable-22.6.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text(encoding='utf-8'))
+          assert data['channel']=='stable', data
+          assert data['version']=='0.3.0-hotfix.22.6', data
+          assert data['bundle_sha256']=='0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106', data
+          assert data['requires_reboot'] is True, data
+          PY
+          (
+            cd updates/bundles
+            sha256sum -c MechOS-0.3.0-hotfix.22.6-update.tar.zst.sha256
+          )
+          grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' scripts/mechos-mode-launch-v19.sh
+          grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' scripts/mechos-shell-route-v19.sh
+          grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V26' scripts/mechos-mechscope-runtime-v23.py
+          grep -Fq 'MECHOS_HOTFIX22_APPLY_V8' scripts/mechos-hotfix-0.3.0-22-apply.sh
+
+      - name: Apply current MechOS integration stack
+        run: |
+          set -euo pipefail
+          python3 scripts/patch-mechos-current.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-partition-screen.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-safe-mode-switching.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-default-wallpaper.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-substance-painter.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-creator-postinstall.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-rgb-quick-actions.py scripts/build-mechos-archiso.sh
+          bash scripts/patch-mechos-live-autologin-partitionmanager.sh scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-reference-v5.py scripts/build-mechos-archiso.sh
+          python3 scripts/patch-mechos-hardware-stable-22.6.py scripts/build-mechos-archiso.sh
+          bash -n scripts/build-mechos-archiso.sh
+          test "$(grep -c '^# MECHOS_HARDWARE_STABLE_22_6_INTEGRATION$' scripts/build-mechos-archiso.sh)" -eq 1
+          grep -Fq 'bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
+
+      - name: Build physical hardware ISO
+        run: ./build-iso.sh
+
+      - name: Verify and name hardware candidate
+        run: |
+          set -euo pipefail
+          ISO="$(find out -maxdepth 2 -type f -name '*.iso' -print -quit)"
+          test -n "$ISO"
+          test -s "$ISO"
+          test -s "$ISO.sha256"
+          (
+            cd "$(dirname "$ISO")"
+            sha256sum -c "$(basename "$ISO").sha256"
+          )
+          DIR="$(dirname "$ISO")"
+          TARGET="$DIR/MechOS-v0.3.0-hotfix.22.6-hardware-test-x86_64.iso"
+          if [ "$ISO" != "$TARGET" ]; then
+            mv -f "$ISO" "$TARGET"
+            rm -f "$ISO.sha256"
+          fi
+          (
+            cd "$DIR"
+            sha256sum "$(basename "$TARGET")" >"$(basename "$TARGET").sha256"
+            sha256sum -c "$(basename "$TARGET").sha256"
+          )
+          cat >out/HARDWARE-TEST-README.txt <<'EOF'
+          MechOS v0.3.0 Hotfix 22.6 - Physical Hardware Validation ISO
+
+          Goal:
+          - verify clean UEFI boot and installation on real hardware
+          - verify GPU/Vulkan, Wi-Fi/Ethernet, Bluetooth, PipeWire audio, storage and controllers
+          - verify MechScope startup and MechScope -> Creator Mode external Qt handoff
+          - verify reboot/shutdown and suspend/resume manually
+
+          The installed payload contains the verified Hotfix 22.6 cumulative runtime.
+          On the first installed boot, mechos-hotfix-0.3.0-22.service activates before SDDM.
+          Intermediate Hotfix 14-21 services are not independently enabled on this fresh image.
+
+          After the first installed boot run:
+              cat /etc/mechos/release
+              mechos-hardware-verify
+
+          Expected release:
+              0.3.0-hotfix.22.6
+
+          Save the complete mechos-hardware-verify output when reporting a hardware issue.
+          EOF
+          ls -lh "$TARGET" "$TARGET.sha256" out/HARDWARE-TEST-README.txt
+
+      - name: Upload hardware test ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechOS-v0.3.0-hotfix.22.6-hardware-test-x86_64
+          path: |
+            out/**/*.iso
+            out/**/*.iso.sha256
+            out/HARDWARE-TEST-README.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
