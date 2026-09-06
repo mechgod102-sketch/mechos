@@ -45,7 +45,7 @@ def patch(path: Path):
         raise SystemExit('UnifiedStore class not found')
     start, end = bounds
 
-    replacement = r'''class UnifiedStore(QDialog):
+    replacement = r"""class UnifiedStore(QDialog):
     # MECHOS_HOTFIX21_UNIFIED_STORE_NATIVE_PAGE
     STORES = [
         ('All Stores', 'Search the MechOS catalog across supported providers.', 'all'),
@@ -423,12 +423,15 @@ QScrollArea > QWidget > QWidget { background:transparent; }
             'MechOS Compatibility Guide',
             'Verified — tested MechOS profile.\n\nPlayable — works with minor setup.\n\nNeeds Setup — compatibility profile or Proton configuration required.\n\nUnsupported — known blocker such as unsupported anti-cheat.\n\nUnknown — not tested yet.\n\nThe guide stays inside MechOS; it does not launch a web browser.'
         )
-'''
+"""
 
     text = text[:start] + replacement + text[end:]
     compile(text, str(path), 'exec')
 
-    section = text[class_bounds(text, 'UnifiedStore')[0]:class_bounds(text, 'UnifiedStore')[1]]
+    new_bounds = class_bounds(text, 'UnifiedStore')
+    if not new_bounds:
+        raise SystemExit('UnifiedStore class disappeared after patch')
+    section = text[new_bounds[0]:new_bounds[1]]
     if "spawn(['xdg-open'" in section or 'webbrowser.' in section:
         raise SystemExit('external browser handoff remains inside UnifiedStore')
     for required in (
