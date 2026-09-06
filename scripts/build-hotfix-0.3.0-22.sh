@@ -3,16 +3,17 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-BUNDLE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst"
+BUNDLE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst"
 SUM="$BUNDLE.sha256"
 MANIFEST="$ROOT/updates/stable.json"
 H21="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.21-update.tar.zst"
 mkdir -p "$(dirname "$BUNDLE")"
 
-# Hotfix 22.5 stays cumulative from the published Hotfix 21 payload and keeps
-# the Hotfix22.4 final-state reconciliation design.  It adds a source-owned
-# compatibility module for exact-reference MechScope helpers that some generated
-# owners reference after later patching removed their original definitions.
+# Hotfix 22.6 stays cumulative from the published Hotfix 21 payload and keeps
+# the Hotfix22.4 final-state reconciliation and Hotfix22.5 MechScope reference
+# compatibility. It prevents Creator Mode from being SourceFileLoader-imported
+# into the live MechScope QApplication and routes Creator through the proven
+# external Hotfix15 handoff instead.
 [ -s "$H21" ] || bash "$ROOT/scripts/build-hotfix-0.3.0-21.sh"
 [ -s "$H21" ] || { echo 'Hotfix 21 cumulative base bundle missing' >&2; exit 1; }
 tar --warning=no-timestamp --zstd -xpf "$H21" -C "$STAGE"
@@ -58,10 +59,10 @@ install -m0755 "$ROOT/scripts/mechos-hotfix-0.3.0-22-apply.sh" \
 
 cat >"$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service" <<'EOF'
 [Unit]
-Description=Apply cumulative MechOS v0.3.0 Hotfix 22.5 (15-22)
+Description=Apply cumulative MechOS v0.3.0 Hotfix 22.6 (15-22)
 After=local-fs.target mechos-hotfix-0.3.0-21.service
 Before=sddm.service display-manager.service
-ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.5-applied
+ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.6-applied
 
 [Service]
 Type=oneshot
@@ -97,16 +98,21 @@ grep -Fq 'def mechos_gpu_load_percent' "$STAGE/usr/local/share/mechos/ui/mechsco
 grep -Fq 'MECHOS_HOTFIX22_CREATOR_REAL_ICONS_OWNER_V1' "$STAGE/usr/local/libexec/mechos-creator-real-icons-owner-v22-patch"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V25' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
+grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V26' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
 grep -Fq 'install_owner_compat(module)' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
+grep -Fq 'install_creator_external_handoff(module)' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
 grep -Fq 'QApplication.instance()' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
 grep -Fq 'app.exec()' "$STAGE/usr/local/libexec/mechos-mechscope-runtime-v23"
 grep -Fq 'MECHOS_HOTFIX15_CUMULATIVE_STORE_DEFER_V22' "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-15-apply"
 grep -Fq 'MECHOS_MODE_LAUNCH_V19' "$STAGE/usr/local/bin/mechos-mode-launch"
 grep -Fq 'MECHOS_SHELL_ROUTE_V19' "$STAGE/usr/local/bin/mechos-shell-route"
+grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' "$STAGE/usr/local/bin/mechos-mode-launch"
+grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' "$STAGE/usr/local/bin/mechos-shell-route"
 grep -Fq 'MECHOS_HOTFIX17_HELPER_WARNING_FIX' "$STAGE/usr/local/bin/mechos-update-helper"
 grep -Fq 'MECHOS_HOTFIX22_FINAL_STATE_RECONCILE_V24' "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-22-apply"
 grep -Fq 'MECHOS_HOTFIX22_MECHSCOPE_REFERENCE_COMPAT_V25' "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-22-apply"
-grep -Fq 'ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.5-applied' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
+grep -Fq 'MECHOS_HOTFIX22_CREATOR_EXTERNAL_QT_HANDOFF_V26' "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-22-apply"
+grep -Fq 'ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.6-applied' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 ! grep -Fq 'Requires=mechos-hotfix-0.3.0-21.service' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 ! grep -Fq 'ConditionPathExists=/var/lib/mechos/installed' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 
@@ -155,14 +161,14 @@ p=Path(sys.argv[1]); sha=sys.argv[2]
 data={
   'schema':1,
   'channel':'stable',
-  'version':'0.3.0-hotfix.22.5',
-  'release_name':'MechOS v0.3.0 Hotfix 22 Cumulative Revision 5',
+  'version':'0.3.0-hotfix.22.6',
+  'release_name':'MechOS v0.3.0 Hotfix 22 Cumulative Revision 6',
   'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-  'notes':'Hotfix 22 cumulative revision 5 repairs the MechScope exact-reference helper contract found after successful 22.4 recovery. Some generated MechScope owners retained CPU/RAM/DISK gauge and GPU-load calls while losing the helper definitions that originally backed them. The persistent runtime now restores missing MechReferenceGauge and mechos_gpu_load_percent names from a source-owned compatibility module before constructing the window, without rewriting the preserved owner. Hotfix22.4 final-state updater reconciliation, Hotfix21 native Unified Store, Creator real icons, root-safe transactions, updater rescue and hardware fallback remain cumulative.',
-  'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst',
+  'notes':'Hotfix 22 cumulative revision 6 fixes a Creator Mode transition crash observed after MechScope recovery. Hotfix16 could SourceFileLoader-import Creator Mode inside the already-running MechScope QApplication, causing Qt6 Wayland to attempt GUI platform initialization again and abort the MechScope Python process. Creator is now a deliberate exception to the single-shell model: MechScope intercepts Creator routes and hands them to the proven external Creator launcher, while the mode launcher and shell router enforce the same process boundary. Unified Store, Performance, Updates and Recovery remain embedded. Hotfix22.5 MechScope reference compatibility and all prior cumulative recovery fixes remain active.',
+  'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst',
   'bundle_sha256':sha,
   'requires_reboot':True,
 }
 p.write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
 PY
-printf 'Hotfix 22.5 cumulative bundle: %s\nSHA256: %s\n' "$BUNDLE" "$SHA"
+printf 'Hotfix 22.6 cumulative bundle: %s\nSHA256: %s\n' "$BUNDLE" "$SHA"

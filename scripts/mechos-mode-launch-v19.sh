@@ -2,14 +2,15 @@
 set -Eeuo pipefail
 # MECHOS_MODE_LAUNCH_V19
 # Backward-compatibility markers: v19 preserves the v15 Creator handoff/VM
-# overlay through mechos-creator-launch-v19 and the v16 in-shell routing model.
+# overlay and v16 routing for MechScope-owned pages.
 # MECHOS_MODE_LAUNCH_V16
 # MECHOS_MODE_LAUNCH_V15
 # MECHOS_CREATOR_HANDOFF_V15
 # MECHOS_CREATOR_VM_OVERLAY_V15
-# Creator Mode must never bootstrap Gaming/MechScope just to reach Creator.
-# When the unified MechScope shell is already alive, Creator routes in-place.
-# Otherwise the proven Hotfix 15 Creator handoff starts Creator directly.
+# MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26
+# Creator Mode owns its own Qt application and must never be imported/routed
+# inside the live MechScope QApplication. Always use the proven Hotfix 15
+# external Creator handoff, even while MechScope is already running.
 
 MODE="${1:-}"
 ROUTER=/usr/local/bin/mechos-shell-route
@@ -21,15 +22,8 @@ case "$MODE" in
   *) echo 'Usage: mechos-mode-launch {gaming|mechscope|creator|desktop}' >&2; exit 2 ;;
 esac
 
-mechscope_host_running(){
-  pgrep -u "$(id -u)" -f '(^|[[:space:]])(/usr/bin/python3[[:space:]]+)?/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1
-}
-
 case "$MODE" in
   creator)
-    if mechscope_host_running && [ -x "$ROUTER" ]; then
-      exec "$ROUTER" creator
-    fi
     [ -x "$CREATOR" ] || { echo 'MechOS Creator launcher is missing' >&2; exit 1; }
     exec "$CREATOR" creator
     ;;

@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX22_APPLY_V7
+# MECHOS_HOTFIX22_APPLY_V8
 # MECHOS_HOTFIX22_FINAL_STATE_RECONCILE_V24
 # MECHOS_HOTFIX22_MECHSCOPE_REFERENCE_COMPAT_V25
+# MECHOS_HOTFIX22_CREATOR_EXTERNAL_QT_HANDOFF_V26
 STATE=/var/lib/mechos
-MARKER="$STATE/hotfix-0.3.0-22.5-applied"
-LOG=/var/log/mechos-hotfix-0.3.0-22.5.log
+MARKER="$STATE/hotfix-0.3.0-22.6-applied"
+LOG=/var/log/mechos-hotfix-0.3.0-22.6.log
 mkdir -p "$STATE" /var/log
 exec >>"$LOG" 2>&1
 
-echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.5 cumulative apply start"
+echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.6 cumulative apply start"
 [ -e "$MARKER" ] && exit 0
 is_live(){ [ -e /run/archiso/bootmnt ] || grep -q archiso /proc/cmdline 2>/dev/null; }
 is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; }
@@ -164,6 +165,7 @@ grep -Fq 'QIcon.fromTheme' "$MODULE"
 
 # MECHOS_HOTFIX22_3_MECHSCOPE_PERSISTENT_RUNTIME
 # MECHOS_HOTFIX22_5_MECHSCOPE_REFERENCE_COMPAT
+# MECHOS_HOTFIX22_6_CREATOR_EXTERNAL_QT_HANDOFF
 RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23
 COMPAT=/usr/local/share/mechos/ui/mechscope_reference_compat_v25.py
 OWNER=/usr/local/libexec/mechscope-owner-v23.py
@@ -174,9 +176,15 @@ MECH_TARGET=/usr/local/bin/mechscope
 [ -f "$COMPAT" ] || { echo "ERROR: MechScope reference compatibility module missing: $COMPAT"; exit 94; }
 python3 -m py_compile "$RUNTIME" "$COMPAT"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V25' "$RUNTIME"
+grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V26' "$RUNTIME"
 grep -Fq 'MECHOS_MECHSCOPE_REFERENCE_COMPAT_V25' "$COMPAT"
 grep -Fq 'class MechReferenceGauge' "$COMPAT"
 grep -Fq 'def mechos_gpu_load_percent' "$COMPAT"
+
+# Creator must be external to the live MechScope QApplication. These launcher
+# contracts are installed from the final cumulative bundle before this apply.
+grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' /usr/local/bin/mechos-mode-launch
+grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' /usr/local/bin/mechos-shell-route
 
 if grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$MECH_TARGET" 2>/dev/null; then
   [ -f "$OWNER" ] || { echo 'ERROR: MechScope runtime already installed but preserved owner is missing'; exit 95; }
@@ -200,22 +208,24 @@ PY
 install -m0755 "$RUNTIME" "$MECH_TARGET"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$MECH_TARGET"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V25' "$MECH_TARGET"
+grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V26' "$MECH_TARGET"
 grep -Fq 'install_owner_compat(module)' "$MECH_TARGET"
+grep -Fq 'install_creator_external_handoff(module)' "$MECH_TARGET"
 grep -Fq 'QApplication.instance()' "$MECH_TARGET"
 grep -Fq 'app.exec()' "$MECH_TARGET"
-echo "[$(date -Is)] MechScope persistent runtime installed target=$MECH_TARGET owner=$OWNER compat=$COMPAT"
+echo "[$(date -Is)] MechScope persistent runtime installed target=$MECH_TARGET owner=$OWNER compat=$COMPAT Creator=external"
 
 mkdir -p /etc/mechos
-printf '0.3.0-hotfix.22.5\n' >/etc/mechos/release
+printf '0.3.0-hotfix.22.6\n' >/etc/mechos/release
 if [ -f /etc/mechos/mechos.conf ]; then
   if grep -q '^MECHOS_VERSION=' /etc/mechos/mechos.conf; then
-    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.5/' /etc/mechos/mechos.conf
+    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.6/' /etc/mechos/mechos.conf
   else
-    printf 'MECHOS_VERSION=0.3.0-hotfix.22.5\n' >>/etc/mechos/mechos.conf
+    printf 'MECHOS_VERSION=0.3.0-hotfix.22.6\n' >>/etc/mechos/mechos.conf
   fi
 fi
-printf 'MechOS v0.3.0 Hotfix 22.5\n' >/etc/system-release
+printf 'MechOS v0.3.0 Hotfix 22.6\n' >/etc/system-release
 
 rm -f "$STATE/reboot-required"
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix 22.5 applied: final-state recovery remains active and the persistent MechScope runtime now restores missing MechReferenceGauge and GPU-load helpers from a source-owned compatibility module before constructing the generated owner."
+echo "[$(date -Is)] Hotfix 22.6 applied: MechScope reference compatibility remains active and Creator Mode now leaves the MechScope QApplication through the external Creator handoff, preventing Qt/Wayland reinitialization crashes while preserving embedded Store/Performance/Updates/Recovery pages."
