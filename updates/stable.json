@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.15",
-  "release_name": "MechOS v0.3.0 Hotfix 15",
+  "version": "0.3.0-hotfix.16",
+  "release_name": "MechOS v0.3.0 Hotfix 16",
   "published_at": "2026-09-06",
-  "notes": "Creator Mode and Unified Store reliability hotfix. Creator Mode is launched as a verified overlay above MechScope instead of terminating MechScope first, including the correct VM rendering environment. Unified Store keeps game discovery inside MechOS with a fullscreen native Game Browser that searches live PC game listings and shows provider/price information. Search no longer opens desktop browser tabs. When a user chooses a provider action, Steam or Heroic is opened; if the required provider client is missing, MechOS installs it automatically first.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.15-update.tar.zst",
-  "bundle_sha256": "6dcfb7c70136824616f81c072876138b27c0294d9ff0333c68a2278576416ce5",
+  "notes": "Single-window shell hotfix. MechScope becomes the persistent MechOS shell and internal sections switch inside one QStackedWidget instead of launching separate top-level windows. Gaming, Unified Store, Creator Mode, Performance Center, Update Center and Recovery Center share one navigation bar and back stack. Creator/Gaming mode requests are routed to the running shell. Steam, Heroic, games, Blender, Unity and other true external applications still launch externally. Hotfix 16 is cumulative and includes the Hotfix 15 Creator/Unified Store repairs.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst",
+  "bundle_sha256": "4980f03ecf088871c19ccb941396b4ae1fe8acff34889be000b016305f901336",
   "requires_reboot": true
 }
