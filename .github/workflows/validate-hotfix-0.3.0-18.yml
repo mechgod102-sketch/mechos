@@ -1,0 +1,22 @@
+name: Validate MechOS v0.3.0 Hotfix 18
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-pacman-health-v18.sh'
+      - 'scripts/mechos-update-helper-v18.sh'
+      - 'scripts/mechos-hotfix-0.3.0-18-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-18.sh'
+      - 'scripts/validate-hotfix-0.3.0-18.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-18.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-18.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Validate Hotfix 18 source
+        run: bash scripts/validate-hotfix-0.3.0-18.sh
