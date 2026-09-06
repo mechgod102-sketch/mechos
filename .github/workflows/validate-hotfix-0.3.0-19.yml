@@ -1,0 +1,25 @@
+name: Validate MechOS v0.3.0 Hotfix 19
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-update-helper-v19.sh'
+      - 'scripts/mechos-update-rescue-v19.sh'
+      - 'scripts/mechos-mode-launch-v19.sh'
+      - 'scripts/mechos-shell-route-v19.sh'
+      - 'scripts/mechscope-session-v19.sh'
+      - 'scripts/mechos-hotfix-0.3.0-19-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-19.sh'
+      - 'scripts/validate-hotfix-0.3.0-19.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-19.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-19.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Validate Hotfix 19 source
+        run: bash scripts/validate-hotfix-0.3.0-19.sh
