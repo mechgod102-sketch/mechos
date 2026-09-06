@@ -37,9 +37,7 @@ def replace_method(text, cls, name, replacement):
     return text[:start] + replacement.rstrip() + '\n' + text[end:]
 
 
-def inject_method(text, cls, marker, method):
-    if marker in text:
-        return text
+def inject_method(text, cls, method):
     cb = class_bounds(text, cls)
     if not cb:
         raise SystemExit(f'class {cls} missing')
@@ -54,13 +52,21 @@ def patch_mechscope(path: Path):
         raise SystemExit(f'MechScope missing: {path}')
 
     text = path.read_text(encoding='utf-8')
-    marker = 'MECHOS_HOTFIX16_SINGLE_WINDOW_SHELL'
-    if marker in text:
-        compile(text, str(path), 'exec')
+    target_marker = '# MECHOS_HOTFIX16_SINGLE_WINDOW_SHELL'
+    done_marker = 'def _mechos_shell_install_v16('
+    if done_marker in text:
+        if target_marker not in text:
+            lines = text.splitlines(True)
+            at = 1 if lines and lines[0].startswith('#!') else 0
+            lines.insert(at, target_marker + '\n')
+            text = ''.join(lines)
+            compile(text, str(path), 'exec')
+            path.write_text(text, encoding='utf-8')
+        else:
+            compile(text, str(path), 'exec')
         return
 
-    helper = r'''    # MECHOS_HOTFIX16_SINGLE_WINDOW_SHELL
-    def _mechos_shell_install_v16(self):
+    helper = r'''    def _mechos_shell_install_v16(self):
         import os as _shell_os
         from pathlib import Path as _ShellPath
         from PyQt6.QtCore import QTimer as _ShellTimer
@@ -258,7 +264,7 @@ def patch_mechscope(path: Path):
         spawn(command)
         return True
 '''
-    text = inject_method(text, 'MechScope', marker, helper)
+    text = inject_method(text, 'MechScope', helper)
 
     bounds = method_bounds(text, 'MechScope', 'build_ui')
     if not bounds:
@@ -290,6 +296,13 @@ def patch_mechscope(path: Path):
     text = text.replace("lambda:spawn(['/usr/local/bin/mechos-update-center'])", "lambda:self._mechos_shell_route_v16('updates')")
     text = text.replace("lambda:spawn(['/usr/local/bin/mechos-recovery-center'])", "lambda:self._mechos_shell_route_v16('recovery')")
     text = text.replace("b.clicked.connect(lambda _=False,c=cmd:spawn(c))", "b.clicked.connect(lambda _=False,c=cmd:self._mechos_shell_dispatch_v16(c))")
+    text = text.replace("button.clicked.connect(lambda _=False,c=cmd:spawn(c))", "button.clicked.connect(lambda _=False,c=cmd:self._mechos_shell_dispatch_v16(c))")
+
+    if target_marker not in text:
+        lines = text.splitlines(True)
+        at = 1 if lines and lines[0].startswith('#!') else 0
+        lines.insert(at, target_marker + '\n')
+        text = ''.join(lines)
 
     compile(text, str(path), 'exec')
     path.write_text(text, encoding='utf-8')
