@@ -1,0 +1,23 @@
+name: Validate MechOS v0.3.0 Hotfix 16
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix16-single-shell-patch.py'
+      - 'scripts/mechos-shell-route-v16.sh'
+      - 'scripts/mechos-mode-launch-v16.sh'
+      - 'scripts/mechos-hotfix-0.3.0-16-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-16.sh'
+      - 'scripts/validate-hotfix-0.3.0-16.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-16.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-16.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Validate Hotfix 16 source
+        run: bash scripts/validate-hotfix-0.3.0-16.sh
