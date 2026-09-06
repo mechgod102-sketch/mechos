@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.19",
-  "release_name": "MechOS v0.3.0 Hotfix 19",
+  "version": "0.3.0-hotfix.20",
+  "release_name": "MechOS v0.3.0 Hotfix 20",
   "published_at": "2026-09-06",
-  "notes": "Recovery and mode-launch reliability hotfix. Restores the complete Update Center helper/reboot trio and adds a standalone rescue updater for systems where those public helpers are already missing. Future updates prefer the validated rsync-free transaction engine carried by the staged bundle, allowing the updater to repair itself. Creator Mode is a first-class target: if the unified shell is absent, Creator launches directly instead of bootstrapping Gaming/MechScope. Physical-hardware MechScope now uses conservative Gamescope startup with VRR/HDR opt-in and a Plasma-hosted fallback if Gamescope cannot start. Hotfix 19 is cumulative with Hotfixes 15-18.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst",
-  "bundle_sha256": "ca2644df3b48addbf1b666d44df12537eed65cdb6aa4a43136950b2bf25fe17b",
+  "notes": "Critical update transaction safety repair. Prevents mktemp staging-directory permissions from being applied to the installed root directory during tar-based updates, restores and verifies root-directory metadata after every transaction, and refuses to report success if normal users could lose root traversal. Hotfix 20 is cumulative with Hotfixes 15-19, including updater rescue, Creator Mode direct launch and hardware MechScope fallback repairs.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.20-update.tar.zst",
+  "bundle_sha256": "d8c1ee29be107c1e74e96494a5682a57588103841b501bd46005d70001e9e4c6",
   "requires_reboot": true
 }
