@@ -1,0 +1,23 @@
+name: Validate MechOS v0.3.0 Hotfix 17
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-update-transaction-v14.sh'
+      - 'scripts/mechos-hotfix17-updater-patch.py'
+      - 'scripts/mechos-clear-reboot-required-v17.sh'
+      - 'scripts/mechos-hotfix-0.3.0-17-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-17.sh'
+      - 'scripts/validate-hotfix-0.3.0-17.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-17.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-17.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Validate Hotfix 17 source
+        run: bash scripts/validate-hotfix-0.3.0-17.sh
