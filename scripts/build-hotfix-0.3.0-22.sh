@@ -9,15 +9,39 @@ MANIFEST="$ROOT/updates/stable.json"
 H21="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.21-update.tar.zst"
 mkdir -p "$(dirname "$BUNDLE")"
 
+# Start from the published cumulative Hotfix 21 payload, then refresh the
+# activation helpers/launchers that Hotfix 22 uses to make a direct 14 -> 22
+# jump reliable on first reboot.
 [ -s "$H21" ] || bash "$ROOT/scripts/build-hotfix-0.3.0-21.sh"
 [ -s "$H21" ] || { echo 'Hotfix 21 cumulative base bundle missing' >&2; exit 1; }
 tar --warning=no-timestamp --zstd -xpf "$H21" -C "$STAGE"
 
 mkdir -p \
+  "$STAGE/usr/local/bin" \
   "$STAGE/usr/local/share/mechos/ui" \
   "$STAGE/usr/local/libexec" \
   "$STAGE/usr/lib/systemd/system" \
   "$STAGE/etc/systemd/system/multi-user.target.wants"
+
+# Refresh the final public v19 launcher/updater surfaces. They intentionally
+# carry compatibility markers for the v15-v17 activation checks while keeping
+# the newer v19 behavior active.
+install -m0755 "$ROOT/scripts/mechos-mode-launch-v19.sh" \
+  "$STAGE/usr/local/bin/mechos-mode-launch"
+install -m0755 "$ROOT/scripts/mechos-shell-route-v19.sh" \
+  "$STAGE/usr/local/bin/mechos-shell-route"
+install -m0755 "$ROOT/scripts/mechos-update-helper-v19.sh" \
+  "$STAGE/usr/local/bin/mechos-update-helper"
+install -m0755 "$ROOT/scripts/mechos-update-helper-v19.sh" \
+  "$STAGE/usr/local/libexec/mechos-update-helper-v19"
+
+# Always carry current activation helpers for every cumulative layer. Hotfix 22
+# invokes these itself when an older marker is missing, so it does not depend on
+# the older systemd units successfully chaining first.
+for n in 15 16 17 18 19 20 21; do
+  install -m0755 "$ROOT/scripts/mechos-hotfix-0.3.0-${n}-apply.sh" \
+    "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-${n}-apply"
+done
 
 install -m0644 "$ROOT/src/mechos_ui/creator_real_icons_v22.py" \
   "$STAGE/usr/local/share/mechos/ui/creator_real_icons_v22.py"
@@ -28,11 +52,9 @@ install -m0755 "$ROOT/scripts/mechos-hotfix-0.3.0-22-apply.sh" \
 
 cat >"$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service" <<'EOF'
 [Unit]
-Description=Apply MechOS v0.3.0 Hotfix 22 Creator real application icons
+Description=Apply cumulative MechOS v0.3.0 Hotfix 22 (15-22)
 After=local-fs.target mechos-hotfix-0.3.0-21.service
-Requires=mechos-hotfix-0.3.0-21.service
 Before=sddm.service display-manager.service
-ConditionPathExists=/var/lib/mechos/installed
 ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22-applied
 
 [Service]
@@ -48,20 +70,44 @@ ln -sf /usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service \
 python3 -m py_compile \
   "$STAGE/usr/local/share/mechos/ui/creator_real_icons_v22.py" \
   "$STAGE/usr/local/libexec/mechos-creator-real-icons-owner-v22-patch"
-bash -n "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-22-apply"
+bash -n \
+  "$STAGE/usr/local/bin/mechos-mode-launch" \
+  "$STAGE/usr/local/bin/mechos-shell-route" \
+  "$STAGE/usr/local/bin/mechos-update-helper" \
+  "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-22-apply"
 
 grep -Fq 'MECHOS_CREATOR_REAL_ICONS_V22' "$STAGE/usr/local/share/mechos/ui/creator_real_icons_v22.py"
 grep -Fq 'MECHOS_HOTFIX22_CREATOR_REAL_ICONS_OWNER_V1' "$STAGE/usr/local/libexec/mechos-creator-real-icons-owner-v22-patch"
+grep -Fq 'MECHOS_MODE_LAUNCH_V15' "$STAGE/usr/local/bin/mechos-mode-launch"
+grep -Fq 'MECHOS_MODE_LAUNCH_V16' "$STAGE/usr/local/bin/mechos-mode-launch"
+grep -Fq 'MECHOS_MODE_LAUNCH_V19' "$STAGE/usr/local/bin/mechos-mode-launch"
+grep -Fq 'MECHOS_SHELL_ROUTE_V16' "$STAGE/usr/local/bin/mechos-shell-route"
+grep -Fq 'MECHOS_SHELL_ROUTE_V19' "$STAGE/usr/local/bin/mechos-shell-route"
+grep -Fq 'MECHOS_HOTFIX17_HELPER_WARNING_FIX' "$STAGE/usr/local/bin/mechos-update-helper"
 grep -Fq 'After=local-fs.target mechos-hotfix-0.3.0-21.service' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
+! grep -Fq 'Requires=mechos-hotfix-0.3.0-21.service' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
+! grep -Fq 'ConditionPathExists=/var/lib/mechos/installed' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 
-# Preserve the stable native Unified Store and root-safe updater chain.
+# Preserve and verify the complete cumulative activation/runtime chain.
+for n in 15 16 17 18 19 20 21; do
+  required="$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-${n}-apply"
+  [ -x "$required" ] || { echo "Cumulative apply helper missing: $required" >&2; exit 1; }
+  bash -n "$required"
+done
 for required in \
-  "$STAGE/usr/local/libexec/mechos-hotfix21-unified-store-patch" \
-  "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-21-apply" \
+  "$STAGE/usr/local/libexec/mechos-hotfix15-runtime-patch" \
+  "$STAGE/usr/local/libexec/mechos-hotfix15-game-browser-patch" \
+  "$STAGE/usr/local/libexec/mechos-hotfix16-single-shell-patch" \
+  "$STAGE/usr/local/libexec/mechos-hotfix17-updater-patch" \
+  "$STAGE/usr/local/libexec/mechos-pacman-health-v18" \
   "$STAGE/usr/local/bin/mechos-update-center" \
   "$STAGE/usr/local/bin/mechos-update-helper" \
   "$STAGE/usr/local/bin/mechos-reboot" \
-  "$STAGE/usr/local/libexec/mechos-update-transaction-v14"; do
+  "$STAGE/usr/local/bin/mechos-update-rescue" \
+  "$STAGE/usr/local/bin/mechscope-session" \
+  "$STAGE/usr/local/libexec/mechos-update-transaction-v14" \
+  "$STAGE/usr/local/libexec/mechos-update-transaction-core-v20" \
+  "$STAGE/usr/local/libexec/mechos-hotfix21-unified-store-patch"; do
   [ -e "$required" ] || { echo "Cumulative component missing: $required" >&2; exit 1; }
 done
 
@@ -83,7 +129,7 @@ data={
   'version':'0.3.0-hotfix.22',
   'release_name':'MechOS v0.3.0 Hotfix 22',
   'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-  'notes':'Creator icon fidelity repair. Creator Mode and Creator Store now prefer application-owned icons discovered from installed desktop entries, icon themes, Flatpak exports and Flatpak AppStream caches. MechOS no longer replaces creator application icons with generated monogram badges when a real application icon is available; generated badges remain the offline fallback for missing/vendor-only tools and MechOS navigation controls. Hotfix 22 is cumulative with Hotfix 21 native Unified Store and Hotfix 20 root-safe updater protections.',
+  'notes':'Cumulative activation repair plus Creator icon fidelity. Hotfix 22 now carries and activates Hotfixes 15 through 21 itself when their installed markers are missing, allowing older 0.3.0 systems to jump directly to 22 without relying on the older boot-service dependency chain. This preserves Creator/Unified Store repairs, the single-window shell, updater recovery, package reliability, hardware MechScope fallback, root-safe transactions and the native Unified Store before applying Hotfix 22 real application icons. The Hotfix 22 boot unit no longer requires the Hotfix 21 unit or the legacy /var/lib/mechos/installed marker; the apply helper still detects and skips Live ISO sessions.',
   'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22-update.tar.zst',
   'bundle_sha256':sha,
   'requires_reboot':True,
