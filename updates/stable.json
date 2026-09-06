@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.3",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 3",
+  "version": "0.3.0-hotfix.22.4",
+  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 4",
   "published_at": "2026-09-06",
-  "notes": "Hotfix 22 cumulative revision 3. Fixes the MechScope clean-exit regression found after cumulative recovery. After Hotfixes 15-21 patch the generated MechScope owner, MechOS now preserves that final owner and launches it through a stable Qt runtime that owns QApplication.exec() directly. This prevents a stale or missing generated __main__ path from starting Python/Pygame and then exiting with code 0 before the GUI remains visible. The runtime also disables bytecode writes beside root-owned MechOS executables. Hotfix 22.3 remains cumulative with the Hotfix15 Store compatibility fix, native Unified Store, updater recovery, root-safe transactions, hardware MechScope fallback and Creator real application icons.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.3-update.tar.zst",
-  "bundle_sha256": "7744ce36f5edebf98080919b7ce3196bc8f8f8d31426c15df3346a7397b1f28d",
+  "notes": "Hotfix 22 cumulative revision 4 repairs the cumulative activation architecture. The final bundle now owns the Hotfix17 Update Center failure-state behavior directly, and updater/recovery layers 17-20 are reconciled by validating their final installed contracts instead of replaying historical text patchers over newer files. This prevents systems that reached Hotfix16 from getting stranded on obsolete updater anchors. Hotfix21 still performs the generated Unified Store transformation, then the Hotfix22 Creator icon layer and persistent MechScope Qt runtime are installed. The release remains cumulative with Hotfixes 15-21, root-safe transactions, updater rescue, hardware fallback and native Unified Store.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.4-update.tar.zst",
+  "bundle_sha256": "44128f2559f148fe34abc2e92e2c22f789d3c3a038ae1947217ab261f6cb3ea8",
   "requires_reboot": true
 }
