@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.16",
-  "release_name": "MechOS v0.3.0 Hotfix 16",
+  "version": "0.3.0-hotfix.17",
+  "release_name": "MechOS v0.3.0 Hotfix 17",
   "published_at": "2026-09-06",
-  "notes": "Single-window shell hotfix. MechScope becomes the persistent MechOS shell and internal sections switch inside one QStackedWidget instead of launching separate top-level windows. Gaming, Unified Store, Creator Mode, Performance Center, Update Center and Recovery Center share one navigation bar and back stack. Creator/Gaming mode requests are routed to the running shell. Steam, Heroic, games, Blender, Unity and other true external applications still launch externally. Hotfix 16 is cumulative and includes the Hotfix 15 Creator/Unified Store repairs.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.16-update.tar.zst",
-  "bundle_sha256": "4980f03ecf088871c19ccb941396b4ae1fe8acff34889be000b016305f901336",
+  "notes": "Updater runtime repair. Replaces the transaction engine with a base-system-only tar copy path so future MechOS updates do not depend on rsync and cannot fail with shell exit 127 when rsync is absent. Future bundle extraction suppresses harmless guest-clock timestamp warnings, failed installs no longer display a contradictory success message, and reboot-required state is cleared after the requested restart is actually completed. Hotfix 17 is cumulative and retains the Hotfix 15 Creator/Unified Store repairs and Hotfix 16 single-window MechOS shell.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.17-update.tar.zst",
+  "bundle_sha256": "16144953f288bfcf5420ca90a5238b6321d9624e43b9824eea579228832b6aea",
   "requires_reboot": true
 }
