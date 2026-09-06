@@ -1,4 +1,4 @@
-name: Validate MechOS v0.3.0 Hotfix 22.5
+name: Validate MechOS v0.3.0 Hotfix 22.6
 
 on:
   pull_request:
@@ -29,13 +29,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Validate Hotfix 22.5 source
+      - name: Validate Hotfix 22.6 source
         run: bash scripts/validate-hotfix-0.3.0-22.sh
-      - name: Build cumulative Hotfix 22.5 bundle
+      - name: Build cumulative Hotfix 22.6 bundle
         run: |
           set -euo pipefail
           bash scripts/build-hotfix-0.3.0-22.sh
-          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst
           (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
           CONTENTS="$(tar --zstd -tf "$BUNDLE")"
           grep -Fxq './usr/local/libexec/mechos-update-center-v8.py' <<< "$CONTENTS"
@@ -59,6 +59,6 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path('updates/stable.json').read_text())
-          assert data['version']=='0.3.0-hotfix.22.5', data
+          assert data['version']=='0.3.0-hotfix.22.6', data
           PY
-          echo 'Hotfix 22.5 cumulative bundle validation passed.'
+          echo 'Hotfix 22.6 cumulative bundle validation passed.'
