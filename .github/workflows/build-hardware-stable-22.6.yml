@@ -13,6 +13,8 @@ on:
       - 'scripts/mechos-shell-route-v19.sh'
       - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
       - 'scripts/build-hotfix-0.3.0-22.sh'
+      - 'scripts/mechos-hotfix13-stability-integration.sh'
+      - 'scripts/mechos-live-installer-final-hardening.sh'
       - 'updates/stable.json'
       - 'updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst'
       - 'updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst.sha256'
@@ -51,6 +53,9 @@ jobs:
           bash scripts/validate-hotfix-0.3.0-22.sh
           bash -n scripts/mechos-hardware-verify-v22.sh
           bash -n scripts/mechos-hardware-stable-seed-v22.sh
+          bash -n scripts/mechos-live-installer-final-hardening.sh
+          grep -Fq 'MECHOS_LIVE_INSTALLER_FINAL_HARDENING_V1' scripts/mechos-live-installer-final-hardening.sh
+          grep -Fq 'mechos-live-installer-final-hardening.sh' scripts/mechos-hotfix13-stability-integration.sh
           python3 -m py_compile scripts/patch-mechos-hardware-stable-22.6.py
           python3 - <<'PY'
           import json
@@ -87,6 +92,7 @@ jobs:
           test "$(grep -c '^# MECHOS_HARDWARE_STABLE_22_6_INTEGRATION$' scripts/build-mechos-archiso.sh)" -eq 1
           grep -Fq 'bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
+          grep -Fq 'mechos-hotfix13-stability-integration.sh' scripts/build-mechos-archiso.sh
 
       - name: Build physical hardware ISO
         run: ./build-iso.sh
@@ -121,6 +127,9 @@ jobs:
           - verify GPU/Vulkan, Wi-Fi/Ethernet, Bluetooth, PipeWire audio, storage and controllers
           - verify MechScope startup and MechScope -> Creator Mode external Qt handoff
           - verify reboot/shutdown and suspend/resume manually
+          - verify the Live installer requires explicit whole-disk selection
+          - verify Clean Install/Keep Home never ask for a Live-session sudo password
+          - verify an offline/broken-mirror Clean Install fails before any disk changes
 
           The installed payload contains the verified Hotfix 22.6 cumulative runtime.
           On the first installed boot, mechos-hotfix-0.3.0-22.service activates before SDDM.
