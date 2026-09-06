@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.2",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 2",
+  "version": "0.3.0-hotfix.22.3",
+  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 3",
   "published_at": "2026-09-06",
-  "notes": "Hotfix 22 cumulative revision 2. Fixes the direct Hotfix 14 recovery chain discovered in testing: Hotfix 15 no longer aborts when the installed Unified Store uses a newer class shape without the legacy browse_selected API. Creator and launcher checks still activate at Hotfix 15, while Store replacement safely defers to Hotfix 21. The bundle remains cumulative with Hotfixes 15-21, updater recovery, package reliability, hardware MechScope fallback, root-safe transactions, the native Unified Store and Hotfix 22 application-owned Creator icons.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.2-update.tar.zst",
-  "bundle_sha256": "84944f85659135afb9807df73a8793240f2b3e3002978f1fe79383e6ffbab497",
+  "notes": "Hotfix 22 cumulative revision 3. Fixes the MechScope clean-exit regression found after cumulative recovery. After Hotfixes 15-21 patch the generated MechScope owner, MechOS now preserves that final owner and launches it through a stable Qt runtime that owns QApplication.exec() directly. This prevents a stale or missing generated __main__ path from starting Python/Pygame and then exiting with code 0 before the GUI remains visible. The runtime also disables bytecode writes beside root-owned MechOS executables. Hotfix 22.3 remains cumulative with the Hotfix15 Store compatibility fix, native Unified Store, updater recovery, root-safe transactions, hardware MechScope fallback and Creator real application icons.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.3-update.tar.zst",
+  "bundle_sha256": "7744ce36f5edebf98080919b7ce3196bc8f8f8d31426c15df3346a7397b1f28d",
   "requires_reboot": true
 }
