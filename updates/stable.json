@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.18",
-  "release_name": "MechOS v0.3.0 Hotfix 18",
+  "version": "0.3.0-hotfix.19",
+  "release_name": "MechOS v0.3.0 Hotfix 19",
   "published_at": "2026-09-06",
-  "notes": "Package update reliability hotfix. Repairs pacman download-directory ownership/permissions and clears stale pacman download sandboxes before package refreshes. A successfully committed MechOS OS update is now preserved even if a later Arch or Flatpak package refresh needs to be retried, preventing the Update Center from treating a staged OS release as a total install failure. Hotfix 18 is cumulative and retains Hotfix 15 Creator/Unified Store, Hotfix 16 single-window shell and Hotfix 17 rsync-free updater repairs.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.18-update.tar.zst",
-  "bundle_sha256": "b57ddce3102b47bb574836ea88b3ebcf1975175983ad639c0f1cd1ca5a79a755",
+  "notes": "Recovery and mode-launch reliability hotfix. Restores the complete Update Center helper/reboot trio and adds a standalone rescue updater for systems where those public helpers are already missing. Future updates prefer the validated rsync-free transaction engine carried by the staged bundle, allowing the updater to repair itself. Creator Mode is a first-class target: if the unified shell is absent, Creator launches directly instead of bootstrapping Gaming/MechScope. Physical-hardware MechScope now uses conservative Gamescope startup with VRR/HDR opt-in and a Plasma-hosted fallback if Gamescope cannot start. Hotfix 19 is cumulative with Hotfixes 15-18.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst",
+  "bundle_sha256": "ca2644df3b48addbf1b666d44df12537eed65cdb6aa4a43136950b2bf25fe17b",
   "requires_reboot": true
 }
