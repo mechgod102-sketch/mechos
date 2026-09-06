@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX22_APPLY_V6
+# MECHOS_HOTFIX22_APPLY_V7
 # MECHOS_HOTFIX22_FINAL_STATE_RECONCILE_V24
+# MECHOS_HOTFIX22_MECHSCOPE_REFERENCE_COMPAT_V25
 STATE=/var/lib/mechos
-MARKER="$STATE/hotfix-0.3.0-22.4-applied"
-LOG=/var/log/mechos-hotfix-0.3.0-22.4.log
+MARKER="$STATE/hotfix-0.3.0-22.5-applied"
+LOG=/var/log/mechos-hotfix-0.3.0-22.5.log
 mkdir -p "$STATE" /var/log
 exec >>"$LOG" 2>&1
 
-echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.4 cumulative apply start"
+echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22.5 cumulative apply start"
 [ -e "$MARKER" ] && exit 0
 is_live(){ [ -e /run/archiso/bootmnt ] || grep -q archiso /proc/cmdline 2>/dev/null; }
 is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; }
@@ -38,14 +39,9 @@ mark_reconciled(){
   echo "[$(date -Is)] Hotfix ${n} final-state contracts verified; historical patcher not replayed"
 }
 
-# 15 and 16 still own generated Creator/MechScope transformations. Systems that
-# already reached 16 (the failure seen in VM testing) skip both immediately.
 apply_legacy_layer 15
 apply_legacy_layer 16
 
-# Hotfix 17 final state: source-owned Update Center already contains the failure
-# state behavior, the public helper already contains the timestamp-warning fix,
-# and Hotfix20's transaction wrapper supersedes the older direct v14 path.
 if [ ! -e "$STATE/hotfix-0.3.0-17-applied" ]; then
   echo "[$(date -Is)] Reconciling cumulative Hotfix 17 from final installed state"
   [ -x /usr/local/bin/mechos-update-helper ] || { echo 'ERROR: Hotfix17 final helper missing'; exit 157; }
@@ -66,8 +62,6 @@ if [ ! -e "$STATE/hotfix-0.3.0-17-applied" ]; then
   mark_reconciled 17
 fi
 
-# Hotfix 18 final state is already carried by the v19 helper plus the package
-# health helper. Run only the idempotent package-path repair, not the old patcher.
 if [ ! -e "$STATE/hotfix-0.3.0-18-applied" ]; then
   echo "[$(date -Is)] Reconciling cumulative Hotfix 18 from final installed state"
   [ -x /usr/local/bin/mechos-update-helper ] || { echo 'ERROR: Hotfix18 helper missing'; exit 158; }
@@ -80,8 +74,6 @@ if [ ! -e "$STATE/hotfix-0.3.0-18-applied" ]; then
   mark_reconciled 18
 fi
 
-# Hotfix 19 final state: verify the recovery/updater trio and final mode/session
-# launchers. This is a contract check only; no historical source mutation.
 if [ ! -e "$STATE/hotfix-0.3.0-19-applied" ]; then
   echo "[$(date -Is)] Reconciling cumulative Hotfix 19 from final installed state"
   for f in \
@@ -113,8 +105,6 @@ if [ ! -e "$STATE/hotfix-0.3.0-19-applied" ]; then
   mark_reconciled 19
 fi
 
-# Hotfix 20 final state: the installed v13/v14 paths must both be the root-safe
-# v20 wrapper and the underlying v14 core must remain available.
 if [ ! -e "$STATE/hotfix-0.3.0-20-applied" ]; then
   echo "[$(date -Is)] Reconciling cumulative Hotfix 20 from final installed state"
   for f in \
@@ -133,8 +123,6 @@ if [ ! -e "$STATE/hotfix-0.3.0-20-applied" ]; then
   mark_reconciled 20
 fi
 
-# Hotfix 21 still transforms the generated UnifiedStore class, so retain its
-# current source-aware patcher after 17-20 have been reconciled safely.
 apply_legacy_layer 21
 
 for n in 15 16 17 18 19 20 21; do
@@ -175,13 +163,20 @@ grep -Fq '/var/lib/flatpak/exports/share/applications' "$MODULE"
 grep -Fq 'QIcon.fromTheme' "$MODULE"
 
 # MECHOS_HOTFIX22_3_MECHSCOPE_PERSISTENT_RUNTIME
+# MECHOS_HOTFIX22_5_MECHSCOPE_REFERENCE_COMPAT
 RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23
+COMPAT=/usr/local/share/mechos/ui/mechscope_reference_compat_v25.py
 OWNER=/usr/local/libexec/mechscope-owner-v23.py
 MECH_TARGET=/usr/local/bin/mechscope
 [ -f /usr/local/bin/mechscope.real ] && MECH_TARGET=/usr/local/bin/mechscope.real
 
 [ -x "$RUNTIME" ] || { echo "ERROR: MechScope persistent runtime missing: $RUNTIME"; exit 94; }
-python3 -m py_compile "$RUNTIME"
+[ -f "$COMPAT" ] || { echo "ERROR: MechScope reference compatibility module missing: $COMPAT"; exit 94; }
+python3 -m py_compile "$RUNTIME" "$COMPAT"
+grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V25' "$RUNTIME"
+grep -Fq 'MECHOS_MECHSCOPE_REFERENCE_COMPAT_V25' "$COMPAT"
+grep -Fq 'class MechReferenceGauge' "$COMPAT"
+grep -Fq 'def mechos_gpu_load_percent' "$COMPAT"
 
 if grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$MECH_TARGET" 2>/dev/null; then
   [ -f "$OWNER" ] || { echo 'ERROR: MechScope runtime already installed but preserved owner is missing'; exit 95; }
@@ -204,21 +199,23 @@ PY
 
 install -m0755 "$RUNTIME" "$MECH_TARGET"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$MECH_TARGET"
+grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V25' "$MECH_TARGET"
+grep -Fq 'install_owner_compat(module)' "$MECH_TARGET"
 grep -Fq 'QApplication.instance()' "$MECH_TARGET"
 grep -Fq 'app.exec()' "$MECH_TARGET"
-echo "[$(date -Is)] MechScope persistent runtime installed target=$MECH_TARGET owner=$OWNER"
+echo "[$(date -Is)] MechScope persistent runtime installed target=$MECH_TARGET owner=$OWNER compat=$COMPAT"
 
 mkdir -p /etc/mechos
-printf '0.3.0-hotfix.22.4\n' >/etc/mechos/release
+printf '0.3.0-hotfix.22.5\n' >/etc/mechos/release
 if [ -f /etc/mechos/mechos.conf ]; then
   if grep -q '^MECHOS_VERSION=' /etc/mechos/mechos.conf; then
-    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.4/' /etc/mechos/mechos.conf
+    sed -i 's/^MECHOS_VERSION=.*/MECHOS_VERSION=0.3.0-hotfix.22.5/' /etc/mechos/mechos.conf
   else
-    printf 'MECHOS_VERSION=0.3.0-hotfix.22.4\n' >>/etc/mechos/mechos.conf
+    printf 'MECHOS_VERSION=0.3.0-hotfix.22.5\n' >>/etc/mechos/mechos.conf
   fi
 fi
-printf 'MechOS v0.3.0 Hotfix 22.4\n' >/etc/system-release
+printf 'MechOS v0.3.0 Hotfix 22.5\n' >/etc/system-release
 
 rm -f "$STATE/reboot-required"
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix 22.4 applied: updater layers 17-20 were reconciled from final source-owned components instead of replaying obsolete patchers; Hotfix21 native Store, Creator real icons and persistent MechScope runtime are active."
+echo "[$(date -Is)] Hotfix 22.5 applied: final-state recovery remains active and the persistent MechScope runtime now restores missing MechReferenceGauge and GPU-load helpers from a source-owned compatibility module before constructing the generated owner."
