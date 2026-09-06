@@ -15,7 +15,6 @@ on:
       - 'scripts/build-hotfix-0.3.0-22.sh'
       - 'scripts/mechos-hotfix13-stability-integration.sh'
       - 'scripts/mechos-live-installer-final-hardening.sh'
-      - 'updates/stable.json'
       - 'updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst'
       - 'updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst.sha256'
       - '.github/workflows/build-hardware-stable-22.6.yml'
@@ -53,19 +52,13 @@ jobs:
           bash scripts/validate-hotfix-0.3.0-22.sh
           bash -n scripts/mechos-hardware-verify-v22.sh
           bash -n scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'MECHOS_HARDWARE_STABLE_SEED_V22_7' scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'EXPECTED_VERSION=0.3.0-hotfix.22.6' scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'EXPECTED_SHA=0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106' scripts/mechos-hardware-stable-seed-v22.sh
           bash -n scripts/mechos-live-installer-final-hardening.sh
           grep -Fq 'MECHOS_LIVE_INSTALLER_FINAL_HARDENING_V1' scripts/mechos-live-installer-final-hardening.sh
           grep -Fq 'mechos-live-installer-final-hardening.sh' scripts/mechos-hotfix13-stability-integration.sh
           python3 -m py_compile scripts/patch-mechos-hardware-stable-22.6.py
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          data=json.loads(Path('updates/stable.json').read_text(encoding='utf-8'))
-          assert data['channel']=='stable', data
-          assert data['version']=='0.3.0-hotfix.22.6', data
-          assert data['bundle_sha256']=='0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106', data
-          assert data['requires_reboot'] is True, data
-          PY
           (
             cd updates/bundles
             sha256sum -c MechOS-0.3.0-hotfix.22.6-update.tar.zst.sha256
@@ -132,6 +125,7 @@ jobs:
           - verify an offline/broken-mirror Clean Install fails before any disk changes
 
           The installed payload contains the verified Hotfix 22.6 cumulative runtime.
+          This is a hardware-validation candidate and does NOT promote updates/stable.json.
           On the first installed boot, mechos-hotfix-0.3.0-22.service activates before SDDM.
           Intermediate Hotfix 14-21 services are not independently enabled on this fresh image.
 
