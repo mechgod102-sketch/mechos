@@ -10,7 +10,6 @@ set -Eeuo pipefail
 CORE=/usr/local/libexec/mechos-update-helper-core-v18
 HEALTH=/usr/local/libexec/mechos-pacman-health-v18
 STATE=/var/lib/mechos
-TXLOG=/var/log/mechos-update-transaction.log
 
 [ -x "$CORE" ] || { echo 'MechOS update helper core is missing.' >&2; exit 73; }
 
@@ -89,33 +88,46 @@ apply_mechos_v19(){
   bundle="$work/update.tar.zst"
   stage="$work/stage"
   mkdir -p "$stage"
-  trap 'rm -rf "$work"' RETURN
 
   echo "Downloading MechOS $latest..."
-  curl -fL --retry 3 --connect-timeout 10 -H 'Cache-Control: no-cache' "$url" -o "$bundle"
-  printf '%s  %s\n' "$sha" "$bundle" | sha256sum -c -
-  validate_bundle_paths "$bundle"
-  tar --warning=no-timestamp --zstd -xpf "$bundle" -C "$stage"
+  if ! curl -fL --retry 3 --connect-timeout 10 -H 'Cache-Control: no-cache' "$url" -o "$bundle"; then
+    rm -rf "$work"; return 13
+  fi
+  if ! printf '%s  %s\n' "$sha" "$bundle" | sha256sum -c -; then
+    rm -rf "$work"; return 14
+  fi
+  if ! validate_bundle_paths "$bundle"; then
+    rm -rf "$work"; return 15
+  fi
+  if ! tar --warning=no-timestamp --zstd -xpf "$bundle" -C "$stage"; then
+    rm -rf "$work"; return 16
+  fi
 
   tx="$(choose_transaction "$stage")" || {
     echo 'No validated rsync-free transaction engine is available.' >&2
+    rm -rf "$work"
     return 12
   }
   echo "Using transaction engine: $tx"
   "$tx" "$stage" "$latest" || rc=$?
+  rm -rf "$work"
   [ "$rc" -eq 0 ] || return "$rc"
 
   mkdir -p "$STATE"
   [ "$reboot" = 1 ] && touch "$STATE/reboot-required"
-  echo "MECHOS_CORE_UPDATE_STAGED=1"
+  echo 'MECHOS_CORE_UPDATE_STAGED=1'
   return 0
 }
 
 apply_packages_v19(){
   local rc=0
   if [ -x "$HEALTH" ]; then "$HEALTH" || true; fi
-  if command -v pacman >/dev/null 2>&1; then pacman -Syu --noconfirm || rc=$?; fi
-  if command -v flatpak >/dev/null 2>&1; then flatpak update --system -y || rc=${rc:-1}; fi
+  if command -v pacman >/dev/null 2>&1; then
+    if ! pacman -Syu --noconfirm; then rc=1; fi
+  fi
+  if command -v flatpak >/dev/null 2>&1; then
+    if ! flatpak update --system -y; then rc=1; fi
+  fi
   return "$rc"
 }
 
@@ -126,8 +138,6 @@ case "$cmd" in
     ;;
   apply)
     [ "$(id -u)" -eq 0 ] || { echo 'Administrator privileges required. Run through pkexec.' >&2; exit 77; }
-    before=0
-    [ -f "$TXLOG" ] && before="$(wc -l <"$TXLOG" 2>/dev/null || echo 0)"
     apply_mechos_v19
     mech_rc=$?
     [ "$mech_rc" -eq 0 ] || exit "$mech_rc"
