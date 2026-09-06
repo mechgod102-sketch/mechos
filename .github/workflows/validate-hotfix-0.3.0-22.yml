@@ -1,20 +1,23 @@
-name: Validate MechOS v0.3.0 Hotfix 22.1
+name: Validate MechOS v0.3.0 Hotfix 22.5
 
 on:
   pull_request:
     paths:
       - 'src/mechos_ui/creator_real_icons_v22.py'
+      - 'src/mechos_ui/mechscope_reference_compat_v25.py'
       - 'scripts/mechos-creator-real-icons-owner-v22-patch.py'
+      - 'scripts/mechos-mechscope-runtime-v23.py'
       - 'scripts/mechos-mode-launch-v19.sh'
       - 'scripts/mechos-shell-route-v19.sh'
       - 'scripts/mechos-update-helper-v19.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - 'scripts/mechos-hotfix-0.3.0-15-apply.sh'
       - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
+      - 'scripts/mechos-hotfix14-bootstrap-rescue-v22.sh'
       - 'scripts/build-hotfix-0.3.0-22.sh'
       - 'scripts/validate-hotfix-0.3.0-22.sh'
       - '.github/workflows/validate-hotfix-0.3.0-22.yml'
       - '.github/workflows/publish-hotfix-0.3.0-22.yml'
-  push:
-    branches: ['fix/hotfix22-creator-real-icons', 'fix/hotfix22-cumulative-15-21']
 
 jobs:
   validate:
@@ -26,16 +29,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Validate Hotfix 22.1 source
+      - name: Validate Hotfix 22.5 source
         run: bash scripts/validate-hotfix-0.3.0-22.sh
-      - name: Build cumulative Hotfix 22.1 bundle
+      - name: Build cumulative Hotfix 22.5 bundle
         run: |
+          set -euo pipefail
           bash scripts/build-hotfix-0.3.0-22.sh
-          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst
           (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
           CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+          grep -Fxq './usr/local/libexec/mechos-update-center-v8.py' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-update-center-v8-rescue.py' <<< "$CONTENTS"
           grep -Fxq './usr/local/share/mechos/ui/creator_real_icons_v22.py' <<< "$CONTENTS"
+          grep -Fxq './usr/local/share/mechos/ui/mechscope_reference_compat_v25.py' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-creator-real-icons-owner-v22-patch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-mechscope-runtime-v23' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-22-apply' <<< "$CONTENTS"
           for n in 15 16 17 18 19 20 21; do
             grep -Fxq "./usr/local/libexec/mechos-hotfix-0.3.0-${n}-apply" <<< "$CONTENTS"
@@ -44,6 +52,13 @@ jobs:
           grep -Fxq './usr/local/bin/mechos-shell-route' <<< "$CONTENTS"
           grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-hotfix21-unified-store-patch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-update-transaction-v13' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-update-transaction-v14' <<< "$CONTENTS"
           grep -Fxq './usr/local/libexec/mechos-update-transaction-core-v20' <<< "$CONTENTS"
-          echo 'Hotfix 22.1 cumulative bundle validation passed.'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text())
+          assert data['version']=='0.3.0-hotfix.22.5', data
+          PY
+          echo 'Hotfix 22.5 cumulative bundle validation passed.'
