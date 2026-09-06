@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# MECHOS_HOTFIX17_FAILURE_STATE_FIX
 """MechOS Update Center v8.
 
 Keeps the proven Hotfix 7 update backend while rendering the canonical
@@ -188,7 +189,7 @@ class UpdateCenter(QMainWindow):
             count = 0
         available = mechos_available or count > 0
         self.install_button.setEnabled(available and self.proc is None)
-        if reboot:
+        if reboot and not available:
             self.status_label.setText("Restart required")
             self.details_label.setText("Updates are installed. Restart MechOS to finish applying them.")
         elif available:
@@ -271,6 +272,14 @@ class UpdateCenter(QMainWindow):
 
         if code != 0:
             self.status_label.setText(f"{mode.capitalize()} failed")
+            if mode == "install":
+                self.details_label.setText(
+                    "The update did not finish. Nothing should be treated as successfully installed yet. "
+                    "Review the output, correct the reported problem, then retry Install Updates."
+                )
+                self.install_button.setEnabled(True)
+            else:
+                self.details_label.setText("The update action did not complete. Review the output and retry.")
             QMessageBox.critical(
                 self,
                 "MechOS Update Center",
