@@ -4,6 +4,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODULE="$ROOT/src/mechos_ui/creator_real_icons_v22.py"
 PATCH="$ROOT/scripts/mechos-creator-real-icons-owner-v22-patch.py"
 RUNTIME="$ROOT/scripts/mechos-mechscope-runtime-v23.py"
+UPDATE_CENTER="$ROOT/scripts/mechos-update-center-reference-v8.py"
 APPLY="$ROOT/scripts/mechos-hotfix-0.3.0-22-apply.sh"
 BUILD="$ROOT/scripts/build-hotfix-0.3.0-22.sh"
 H15APPLY="$ROOT/scripts/mechos-hotfix-0.3.0-15-apply.sh"
@@ -11,7 +12,7 @@ MODE19="$ROOT/scripts/mechos-mode-launch-v19.sh"
 ROUTE19="$ROOT/scripts/mechos-shell-route-v19.sh"
 HELPER19="$ROOT/scripts/mechos-update-helper-v19.sh"
 
-python3 -m py_compile "$MODULE" "$PATCH" "$RUNTIME"
+python3 -m py_compile "$MODULE" "$PATCH" "$RUNTIME" "$UPDATE_CENTER"
 bash -n "$APPLY" "$BUILD" "$H15APPLY" "$MODE19" "$ROUTE19" "$HELPER19"
 
 for token in \
@@ -26,10 +27,15 @@ done
 grep -Fq 'MECHOS_HOTFIX22_CREATOR_REAL_ICONS_OWNER_V1' "$PATCH"
 grep -Fq 'icons.install(shell)' "$PATCH"
 
-# Regression gate for the failure observed on the VM after cumulative recovery:
-# the generated owner can terminate its historical startup path with clean rc=0,
-# but the stable runtime must still instantiate MechScope and enter Qt's event
-# loop instead of disappearing within the VM launcher's three-second health gate.
+# Hotfix17 behavior must now be source-owned so cumulative recovery never needs
+# to replay its historical text patcher over a newer Update Center.
+grep -Fq 'MECHOS_HOTFIX17_FAILURE_STATE_FIX' "$UPDATE_CENTER"
+grep -Fq 'if reboot and not available:' "$UPDATE_CENTER"
+grep -Fq 'Nothing should be treated as successfully installed yet.' "$UPDATE_CENTER"
+
+# Regression gate for the VM clean-exit failure: the generated owner can
+# terminate a historical startup path with rc=0, while the stable runtime must
+# still instantiate MechScope and enter the Qt event loop.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/fake/PyQt6"
@@ -85,23 +91,37 @@ done
 grep -Fq 'MECHOS_SHELL_ROUTE_V19' "$ROUTE19"
 grep -Fq 'MECHOS_HOTFIX17_HELPER_WARNING_FIX' "$HELPER19"
 
-# Hotfix22.3 must orchestrate all earlier layers and then install the stable
-# MechScope runtime only after the final patched owner has been preserved.
-grep -Fq 'MECHOS_HOTFIX22_APPLY_V5' "$APPLY"
-grep -Fq 'for n in 15 16 17 18 19 20 21' "$APPLY"
+# Hotfix22.4 must not replay the old updater patchers. It runs 15/16 only when
+# missing, reconciles 17-20 from final contracts, then runs Store-owner Hotfix21.
+grep -Fq 'MECHOS_HOTFIX22_APPLY_V6' "$APPLY"
+grep -Fq 'MECHOS_HOTFIX22_FINAL_STATE_RECONCILE_V24' "$APPLY"
+grep -Fq 'apply_legacy_layer 15' "$APPLY"
+grep -Fq 'apply_legacy_layer 16' "$APPLY"
+grep -Fq 'Reconciling cumulative Hotfix 17 from final installed state' "$APPLY"
+grep -Fq 'Reconciling cumulative Hotfix 18 from final installed state' "$APPLY"
+grep -Fq 'Reconciling cumulative Hotfix 19 from final installed state' "$APPLY"
+grep -Fq 'Reconciling cumulative Hotfix 20 from final installed state' "$APPLY"
+grep -Fq 'apply_legacy_layer 21' "$APPLY"
+! grep -Fq 'apply_legacy_layer 17' "$APPLY"
+! grep -Fq 'apply_legacy_layer 18' "$APPLY"
+! grep -Fq 'apply_legacy_layer 19' "$APPLY"
+! grep -Fq 'apply_legacy_layer 20' "$APPLY"
+grep -Fq 'MECHOS_HOTFIX17_FAILURE_STATE_FIX' "$APPLY"
+grep -Fq 'MECHOS_UPDATE_TRANSACTION_V20' "$APPLY"
 grep -Fq 'MECHOS_HOTFIX22_3_MECHSCOPE_PERSISTENT_RUNTIME' "$APPLY"
 grep -Fq 'mechscope-owner-v23.py' "$APPLY"
-grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$APPLY"
-grep -Fq 'hotfix-0.3.0-22.3-applied' "$APPLY"
-grep -Fq "printf '0.3.0-hotfix.22.3" "$APPLY"
+grep -Fq 'hotfix-0.3.0-22.4-applied' "$APPLY"
+grep -Fq "printf '0.3.0-hotfix.22.4" "$APPLY"
 
 grep -Fq 'MechOS-0.3.0-hotfix.21-update.tar.zst' "$BUILD"
-grep -Fq 'MechOS-0.3.0-hotfix.22.3-update.tar.zst' "$BUILD"
+grep -Fq 'MechOS-0.3.0-hotfix.22.4-update.tar.zst' "$BUILD"
+grep -Fq 'mechos-update-center-reference-v8.py' "$BUILD"
+grep -Fq 'MECHOS_HOTFIX17_FAILURE_STATE_FIX' "$BUILD"
 grep -Fq 'mechos-mechscope-runtime-v23.py' "$BUILD"
 grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V23' "$BUILD"
-grep -Fq "'version':'0.3.0-hotfix.22.3'" "$BUILD"
-grep -Fq 'ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.3-applied' "$BUILD"
+grep -Fq "'version':'0.3.0-hotfix.22.4'" "$BUILD"
+grep -Fq 'ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.4-applied' "$BUILD"
 ! grep -Fq 'Requires=mechos-hotfix-0.3.0-21.service' "$BUILD"
 ! grep -Fq 'ConditionPathExists=/var/lib/mechos/installed' "$BUILD"
 
-echo 'Hotfix 22.3 cumulative + MechScope persistent runtime regression validation passed.'
+echo 'Hotfix 22.4 final-state reconciliation + MechScope persistent runtime validation passed.'
