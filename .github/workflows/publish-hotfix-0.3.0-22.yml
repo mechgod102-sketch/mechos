@@ -1,4 +1,4 @@
-name: Publish MechOS v0.3.0 Hotfix 22.1
+name: Publish MechOS v0.3.0 Hotfix 22.2
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ on:
       - 'scripts/mechos-mode-launch-v19.sh'
       - 'scripts/mechos-shell-route-v19.sh'
       - 'scripts/mechos-update-helper-v19.sh'
+      - 'scripts/mechos-hotfix-0.3.0-15-apply.sh'
       - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
       - 'scripts/build-hotfix-0.3.0-22.sh'
       - 'scripts/validate-hotfix-0.3.0-22.sh'
@@ -34,19 +35,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Validate Hotfix 22.1 source
+      - name: Validate Hotfix 22.2 source
         run: |
           set -euo pipefail
           bash scripts/validate-hotfix-0.3.0-22.sh
-      - name: Publish Hotfix 22.1 to Update Center stable channel
+      - name: Publish Hotfix 22.2 to Update Center stable channel
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          # Rebuild from the newest main on every attempt. This avoids rebasing
-          # a generated stable.json across another publisher's stable.json
-          # commit, which previously caused an unresolvable publish race.
           for attempt in 1 2 3; do
             git fetch origin main
             git reset --hard origin/main
@@ -54,7 +52,7 @@ jobs:
             bash scripts/validate-hotfix-0.3.0-22.sh
             bash scripts/build-hotfix-0.3.0-22.sh
 
-            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst
+            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.22.2-update.tar.zst
             (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
             CONTENTS="$(tar --zstd -tf "$BUNDLE")"
             grep -Fxq './usr/local/share/mechos/ui/creator_real_icons_v22.py' <<< "$CONTENTS"
@@ -74,20 +72,20 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path('updates/stable.json').read_text())
-          assert data['version']=='0.3.0-hotfix.22.1', data
+          assert data['version']=='0.3.0-hotfix.22.2', data
           PY
 
             git add \
-              updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst \
-              updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst.sha256 \
+              updates/bundles/MechOS-0.3.0-hotfix.22.2-update.tar.zst \
+              updates/bundles/MechOS-0.3.0-hotfix.22.2-update.tar.zst.sha256 \
               updates/stable.json
 
             if git diff --cached --quiet; then
-              echo 'Hotfix 22.1 is already published.'
+              echo 'Hotfix 22.2 is already published.'
               exit 0
             fi
 
-            git commit -m 'Publish MechOS v0.3.0 Hotfix 22.1'
+            git commit -m 'Publish MechOS v0.3.0 Hotfix 22.2'
             if git push origin HEAD:main; then
               exit 0
             fi
@@ -96,5 +94,5 @@ jobs:
             sleep $((attempt * 2))
           done
 
-          echo 'Unable to publish Hotfix 22.1 after three synchronized rebuild attempts.' >&2
+          echo 'Unable to publish Hotfix 22.2 after three synchronized rebuild attempts.' >&2
           exit 1
