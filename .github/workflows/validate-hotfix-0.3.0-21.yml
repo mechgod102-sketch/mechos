@@ -1,0 +1,50 @@
+name: Validate MechOS v0.3.0 Hotfix 21
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix21-unified-store-patch.py'
+      - 'scripts/mechos-hotfix-0.3.0-21-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-21.sh'
+      - 'scripts/validate-hotfix-0.3.0-21.sh'
+      - 'scripts/mechos-game-catalog-v15.py'
+      - 'scripts/mechos-provider-bootstrap-v15.sh'
+      - 'scripts/mechos-reference-v5-store-layout.sh'
+      - 'scripts/mechos-hotfix15-runtime-patch.py'
+      - '.github/workflows/validate-hotfix-0.3.0-21.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-21.yml'
+  push:
+    branches:
+      - 'fix/hotfix21-unified-store-native'
+    paths:
+      - 'scripts/mechos-hotfix21-unified-store-patch.py'
+      - 'scripts/mechos-hotfix-0.3.0-21-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-21.sh'
+      - 'scripts/validate-hotfix-0.3.0-21.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-21.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 21 source and regression guards
+        run: bash scripts/validate-hotfix-0.3.0-21.sh
+      - name: Build cumulative Hotfix 21 bundle
+        run: |
+          bash scripts/build-hotfix-0.3.0-21.sh
+          BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.21-update.tar.zst
+          (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+          CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+          grep -Fxq './usr/local/libexec/mechos-hotfix21-unified-store-patch' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-21-apply' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-game-catalog-v15' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-provider-bootstrap-v15' <<< "$CONTENTS"
+          grep -Fxq './usr/local/libexec/mechos-update-transaction-v14' <<< "$CONTENTS"
+          grep -Fxq './usr/local/bin/mechos-update-center' <<< "$CONTENTS"
+          echo 'Hotfix 21 bundle validation passed.'
