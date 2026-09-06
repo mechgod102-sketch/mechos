@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.5",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 5",
+  "version": "0.3.0-hotfix.19",
+  "release_name": "MechOS v0.3.0 Hotfix 19",
   "published_at": "2026-09-06",
-  "notes": "Hotfix 22 cumulative revision 5 repairs the MechScope exact-reference helper contract found after successful 22.4 recovery. Some generated MechScope owners retained CPU/RAM/DISK gauge and GPU-load calls while losing the helper definitions that originally backed them. The persistent runtime now restores missing MechReferenceGauge and mechos_gpu_load_percent names from a source-owned compatibility module before constructing the window, without rewriting the preserved owner. Hotfix22.4 final-state updater reconciliation, Hotfix21 native Unified Store, Creator real icons, root-safe transactions, updater rescue and hardware fallback remain cumulative.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.5-update.tar.zst",
-  "bundle_sha256": "4915440e53a30fa685649450238f318b8e43b481472d457a373b9891d0fac12f",
+  "notes": "Recovery and mode-launch reliability hotfix. Restores the complete Update Center helper/reboot trio and adds a standalone rescue updater for systems where those public helpers are already missing. Future updates prefer the validated rsync-free transaction engine carried by the staged bundle, allowing the updater to repair itself. Creator Mode is a first-class target: if the unified shell is absent, Creator launches directly instead of bootstrapping Gaming/MechScope. Physical-hardware MechScope now uses conservative Gamescope startup with VRR/HDR opt-in and a Plasma-hosted fallback if Gamescope cannot start. Hotfix 19 is cumulative with Hotfixes 15-18.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst",
+  "bundle_sha256": "6f0711e3a9acc7397069f9e63c18389fde8787891c39fed240465004b3734bf6",
   "requires_reboot": true
 }
