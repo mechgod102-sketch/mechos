@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.6",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 6",
+  "version": "0.3.0-hotfix.13",
+  "release_name": "MechOS v0.3.0 Hotfix 13",
   "published_at": "2026-09-06",
-  "notes": "Hotfix 22 cumulative revision 6 fixes a Creator Mode transition crash observed after MechScope recovery. Hotfix16 could SourceFileLoader-import Creator Mode inside the already-running MechScope QApplication, causing Qt6 Wayland to attempt GUI platform initialization again and abort the MechScope Python process. Creator is now a deliberate exception to the single-shell model: MechScope intercepts Creator routes and hands them to the proven external Creator launcher, while the mode launcher and shell router enforce the same process boundary. Unified Store, Performance, Updates and Recovery remain embedded. Hotfix22.5 MechScope reference compatibility and all prior cumulative recovery fixes remain active.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst",
-  "bundle_sha256": "0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106",
+  "notes": "Stability, fullscreen and Unified Store install-controller hotfix. Restores Update Center to the proven backend; replaces the no-op Performance/Optimization Center with the canonical responsive UI; makes MechScope and the separate Unified Store true scalable fullscreen surfaces; adds a provider install controller so Steam AppIDs route to the Steam install protocol, Lutris slugs route to the Lutris installer URI, Epic uses Legendary when available, Amazon uses Nile when available, and Epic/GOG/Amazon/Heroic otherwise hand off to Heroic without bypassing provider authentication, ownership or DRM. Install handoffs and queue state are logged in the MechOS store state directory. Also installs transactional future-update protection with staged validation, rollback, updater-last replacement and no automatic reboot/logout/poweroff.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.13-update.tar.zst",
+  "bundle_sha256": "9bbe6b38275a05e2ebe295b8a436edc2329cd8c366e7cc06fd1ec35c17de79b1",
   "requires_reboot": true
 }
