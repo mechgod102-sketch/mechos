@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX14_BOOTSTRAP_RESCUE_V23
+# MECHOS_HOTFIX14_BOOTSTRAP_RESCUE_V24
 
 MANIFEST_URL="https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json"
 STATE=/var/lib/mechos
@@ -21,7 +21,7 @@ is_live && { echo 'Run this rescue from the installed MechOS system, not the Liv
 mkdir -p "$STATE" /var/log /var/cache/mechos/update-center
 
 log(){
-  local line="[$(date -Is 2>/dev/null || date)] [hotfix14-bootstrap-v23] $*"
+  local line="[$(date -Is 2>/dev/null || date)] [hotfix14-bootstrap-v24] $*"
   printf '%s\n' "$line"
   printf '%s\n' "$line" >>"$LOG"
 }
@@ -139,8 +139,8 @@ mkdir -p /etc/systemd/system/multi-user.target.wants
 ln -sfn "$SERVICE" /etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-22.service
 
 # Apply now instead of waiting for another reboot. A machine stranded at Hotfix
-# 16 will therefore either advance through 17-22.3 immediately or print the
-# exact layer that fails, with its log tail, in this same rescue run.
+# 16 will either reconcile 17-20 and advance through 21-22.x immediately, or
+# print the exact final-state contract that failed in this same rescue run.
 log "running cumulative apply immediately for $latest"
 set +e
 "$APPLY"
@@ -148,7 +148,14 @@ apply_rc=$?
 set -e
 if [ "$apply_rc" -ne 0 ]; then
   log "ERROR: cumulative apply failed with code $apply_rc"
-  for f in /var/log/mechos-hotfix-0.3.0-{17,18,19,20,21,22.3}.log; do
+  for f in \
+    /var/log/mechos-hotfix-0.3.0-17.log \
+    /var/log/mechos-hotfix-0.3.0-18.log \
+    /var/log/mechos-hotfix-0.3.0-19.log \
+    /var/log/mechos-hotfix-0.3.0-20.log \
+    /var/log/mechos-hotfix-0.3.0-21.log \
+    /var/log/mechos-hotfix-0.3.0-22.3.log \
+    /var/log/mechos-hotfix-0.3.0-22.4.log; do
     [ -s "$f" ] || continue
     echo "----- $f -----" >&2
     tail -n 60 "$f" >&2 || true
