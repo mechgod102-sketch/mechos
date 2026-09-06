@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_MODE_LAUNCH_V19
+# Backward-compatibility markers: v19 preserves the v15 Creator handoff/VM
+# overlay through mechos-creator-launch-v19 and the v16 in-shell routing model.
+# MECHOS_MODE_LAUNCH_V16
+# MECHOS_MODE_LAUNCH_V15
+# MECHOS_CREATOR_HANDOFF_V15
+# MECHOS_CREATOR_VM_OVERLAY_V15
 # Creator Mode must never bootstrap Gaming/MechScope just to reach Creator.
 # When the unified MechScope shell is already alive, Creator routes in-place.
 # Otherwise the proven Hotfix 15 Creator handoff starts Creator directly.
