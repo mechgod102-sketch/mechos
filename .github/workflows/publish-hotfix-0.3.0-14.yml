@@ -2,23 +2,6 @@ name: Publish MechOS v0.3.0 Hotfix 14
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/mechos_ui/fixed_canvas.py'
-      - 'src/mechos_ui/quick_actions_shell.py'
-      - 'src/mechos_ui/recovery_shell.py'
-      - 'src/mechos_ui/stream_center_v14.py'
-      - 'scripts/mechos-reboot-v14.sh'
-      - 'scripts/mechos-update-helper-v14.sh'
-      - 'scripts/mechos-update-guard-v14.sh'
-      - 'scripts/mechos-update-transaction-v13.sh'
-      - 'scripts/mechos-mechscope-update-notify-v14.sh'
-      - 'scripts/mechos-hotfix14-runtime-patch.py'
-      - 'scripts/mechos-hotfix-0.3.0-14-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-14.sh'
-      - 'scripts/validate-hotfix-0.3.0-14.sh'
-      - '.github/workflows/publish-hotfix-0.3.0-14.yml'
 
 permissions:
   contents: write
@@ -53,6 +36,13 @@ jobs:
       - name: Publish Hotfix 14 to Update Center stable channel
         run: |
           set -euo pipefail
+          git fetch origin main
+          REMOTE_VERSION="$(git show origin/main:updates/stable.json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))')"
+          if [ "$REMOTE_VERSION" != '0.3.0-hotfix.14' ] && [ -n "$REMOTE_VERSION" ]; then
+            echo "Stable channel is already $REMOTE_VERSION; refusing to downgrade it to Hotfix 14."
+            exit 0
+          fi
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
@@ -64,17 +54,4 @@ jobs:
             exit 0
           fi
           git commit -m 'Publish MechOS v0.3.0 Hotfix 14'
-          git reset --hard HEAD
-          git clean -fd
-          for attempt in 1 2 3; do
-            git fetch origin main
-            if git rebase origin/main && git push origin HEAD:main; then
-              exit 0
-            fi
-            git rebase --abort >/dev/null 2>&1 || true
-            git reset --hard HEAD
-            git clean -fd
-            sleep $((attempt * 2))
-          done
-          echo 'Unable to publish Hotfix 14 after three synchronized attempts.' >&2
-          exit 1
+          git push origin HEAD:main
