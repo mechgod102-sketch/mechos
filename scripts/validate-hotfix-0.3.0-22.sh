@@ -52,7 +52,7 @@ grep -Fq 'icons.install(shell)' "$TMP/creator-owner.py"
 python3 -m py_compile "$TMP/creator-owner.py"
 
 # Final v19 public surfaces must remain compatible with the older cumulative
-# activation checks that Hotfix 22 can invoke on a direct 14 -> 22 jump.
+# activation checks that Hotfix 22.1 can invoke on a direct update jump.
 for token in \
   MECHOS_MODE_LAUNCH_V15 \
   MECHOS_CREATOR_HANDOFF_V15 \
@@ -66,22 +66,26 @@ grep -Fq 'MECHOS_SHELL_ROUTE_V19' "$ROUTE19"
 grep -Fq 'MECHOS_HOTFIX17_HELPER_WARNING_FIX' "$HELPER19"
 grep -Fq 'tar --warning=no-timestamp --zstd -xpf' "$HELPER19"
 
-# Hotfix 22 must actively orchestrate every missing layer from 15 through 21.
-grep -Fq 'MECHOS_HOTFIX22_APPLY_V2' "$APPLY"
+# Hotfix 22.1 must actively orchestrate every missing layer from 15 through 21.
+grep -Fq 'MECHOS_HOTFIX22_APPLY_V3' "$APPLY"
 grep -Fq 'for n in 15 16 17 18 19 20 21' "$APPLY"
 grep -Fq 'mechos-hotfix-0.3.0-${n}-apply' "$APPLY"
 grep -Fq 'Hotfixes 15-21 confirmed active' "$APPLY"
-grep -Fq "printf '0.3.0-hotfix.22" "$APPLY"
+grep -Fq 'hotfix-0.3.0-22.1-applied' "$APPLY"
+grep -Fq "printf '0.3.0-hotfix.22.1" "$APPLY"
 
-# The bundle remains based on Hotfix 21, but Hotfix 22 refreshes all cumulative
-# apply helpers and no longer requires the legacy installed marker or v21 unit.
+# The bundle remains based on Hotfix 21, but Hotfix 22.1 refreshes all
+# cumulative apply helpers. A distinct 22.1 version is required so machines
+# that already recorded original Hotfix 22 will see the corrected payload.
 grep -Fq 'MechOS-0.3.0-hotfix.21-update.tar.zst' "$BUILD"
+grep -Fq 'MechOS-0.3.0-hotfix.22.1-update.tar.zst' "$BUILD"
 grep -Fq 'for n in 15 16 17 18 19 20 21' "$BUILD"
 grep -Fq 'mechos-mode-launch-v19.sh' "$BUILD"
 grep -Fq 'mechos-shell-route-v19.sh' "$BUILD"
 grep -Fq 'mechos-update-helper-v19.sh' "$BUILD"
-grep -Fq "'version':'0.3.0-hotfix.22'" "$BUILD"
+grep -Fq "'version':'0.3.0-hotfix.22.1'" "$BUILD"
+grep -Fq 'ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.1-applied' "$BUILD"
 ! grep -Fq 'Requires=mechos-hotfix-0.3.0-21.service' "$BUILD"
 ! grep -Fq 'ConditionPathExists=/var/lib/mechos/installed' "$BUILD"
 
-echo 'Hotfix 22 cumulative 15-21 + Creator real-icon validation passed.'
+echo 'Hotfix 22.1 cumulative 15-21 + Creator real-icon validation passed.'
