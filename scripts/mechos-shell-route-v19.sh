@@ -14,6 +14,7 @@ esac
 RUNTIME="${XDG_RUNTIME_DIR:-/tmp/mechos-$(id -u)}"
 ROUTE_FILE="$RUNTIME/mechos-shell-route-v16"
 BASE=/usr/local/libexec/mechos-mode-launch-base-v15
+CREATOR=/usr/local/libexec/mechos-creator-launch-v19
 mkdir -p "$RUNTIME"
 
 mechscope_host_running(){
@@ -29,8 +30,8 @@ fi
 # later route poll succeeds. Start the proven Creator handoff directly.
 if [ "$ROUTE" = creator ]; then
   rm -f "$ROUTE_FILE"
-  [ -x "$BASE" ] || { echo 'MechOS Creator launcher base missing' >&2; exit 1; }
-  exec "$BASE" creator
+  [ -x "$CREATOR" ] || { echo 'MechOS Creator launcher missing' >&2; exit 1; }
+  exec "$CREATOR" creator
 fi
 
 # Other internal pages still need the MechScope shell host. Queue the requested
