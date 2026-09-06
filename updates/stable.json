@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.14",
-  "release_name": "MechOS v0.3.0 Hotfix 14",
+  "version": "0.3.0-hotfix.22.1",
+  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 1",
   "published_at": "2026-09-06",
-  "notes": "Visual, navigation, updater-resilience and session-stability hotfix. Redesigns and widens Quick Actions; refreshes Recovery Center; replaces the small desktop Stream Center with a responsive fullscreen MechOS surface; paints dark backing pixels to eliminate white GUI margins; replaces the manual Restart backend with a direct logind-first path; makes MechScope check for updates once per gaming session and notify only when updates are available; keeps MechScope behind Creator Mode; adds Escape/back navigation across major surfaces; and uses real installed program/theme icons in Creator Mode and store surfaces. Hotfix 14 also installs a canonical verified Update Helper, protected rescue copies and a boot-time self-healing updater guard so a missing Update Center helper/launcher/backend is restored before login. Update installation remains transactional and never automatically reboots, logs out or powers off.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.14-update.tar.zst",
-  "bundle_sha256": "25e48adfa26d0c677937faa3c882ba4862b1e8bf5dcb0e851b93fb5593a121bd",
+  "notes": "Hotfix 22 cumulative revision 1. This rebuild makes Hotfix 22 a true recovery update: it carries and activates every missing Hotfix 15 through 21 layer in order before finalizing Hotfix 22. It preserves Creator/Unified Store repairs, the single-window shell, updater recovery, package reliability, hardware MechScope fallback, root-safe transactions, the native Unified Store and Hotfix 22 real application icons. Version 22.1 is intentionally distinct from the original 22 so systems that already recorded Hotfix 22 can receive this corrected cumulative payload. Hotfix 14 systems with the legacy rsync-dependent transaction engine can use the repository bootstrap rescue script to stage this verified cumulative bundle with the staged rsync-free transaction core before restarting.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst",
+  "bundle_sha256": "74b21698cde8392af2d51114ba56a7604b4e3e44bf5bf0c66b17d376450e282b",
   "requires_reboot": true
 }
