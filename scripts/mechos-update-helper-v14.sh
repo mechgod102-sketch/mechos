@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_UPDATE_HELPER_V14
+# MECHOS_HOTFIX14_STAGED_TRANSACTION_BOOTSTRAP_V1
 
 MANIFEST_URL="https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json"
 STATE=/var/lib/mechos
@@ -132,6 +133,48 @@ if count==0: raise SystemExit('empty update bundle')
 PY
 }
 
+run_transaction(){
+  local stage="$1" latest="$2" tx rc=0 root_mode root_uid root_gid
+
+  # Hotfix 20+ bundles carry the proven rsync-free v14 engine as a staged core.
+  # Use that core directly on an old Hotfix 14 system so the installed v13
+  # engine cannot block the update before it repairs itself.
+  tx="$stage/usr/local/libexec/mechos-update-transaction-core-v20"
+  if [ -x "$tx" ] && grep -Fq 'MECHOS_UPDATE_TRANSACTION_V14' "$tx" 2>/dev/null; then
+    root_mode="$(stat -c '%a' /)"
+    root_uid="$(stat -c '%u' /)"
+    root_gid="$(stat -c '%g' /)"
+    chmod "$root_mode" "$stage"
+    chown "$root_uid:$root_gid" "$stage"
+    "$tx" "$stage" "$latest" || rc=$?
+    chown "$root_uid:$root_gid" / 2>/dev/null || true
+    chmod "$root_mode" / 2>/dev/null || true
+    return "$rc"
+  fi
+
+  # Hotfix 17-19 bundles contain a standalone rsync-free v14 transaction.
+  for tx in \
+    "$stage/usr/local/libexec/mechos-update-transaction-v14" \
+    "$stage/usr/local/libexec/mechos-update-transaction-v13"; do
+    [ -x "$tx" ] || continue
+    grep -Fq 'MECHOS_UPDATE_TRANSACTION_V14' "$tx" 2>/dev/null || continue
+    grep -Fq 'MECHOS_UPDATE_TRANSACTION_V20' "$tx" 2>/dev/null && continue
+    "$tx" "$stage" "$latest"
+    return $?
+  done
+
+  # Only fall back to installed transactions when the bundle has no newer
+  # staged engine. Prefer v14 over the legacy rsync-dependent v13 engine.
+  for tx in /usr/local/libexec/mechos-update-transaction-v14 /usr/local/libexec/mechos-update-transaction-v13; do
+    [ -x "$tx" ] || continue
+    "$tx" "$stage" "$latest"
+    return $?
+  done
+
+  echo 'Transactional update engine is missing; update was not applied.' >&2
+  return 12
+}
+
 apply_mechos(){
   fetch_manifest || { echo 'Unable to retrieve stable MechOS manifest.' >&2; return 10; }
   local latest='' url='' sha='' reboot=0 notes=''
@@ -144,7 +187,7 @@ apply_mechos(){
   [ -n "$latest" ] && [ -n "$url" ] && [ -n "$sha" ] || { echo 'Stable manifest is incomplete.' >&2; return 11; }
   if [ "$latest" = "$current" ]; then log "MechOS already current: $current"; return 0; fi
 
-  local work bundle stage tx rc=0
+  local work bundle stage rc=0
   work="$(mktemp -d /tmp/mechos-update-v14.XXXXXX)"; bundle="$work/update.tar.zst"; stage="$work/stage"
   mkdir -p "$stage"
   log "downloading MechOS $latest"
@@ -153,15 +196,9 @@ apply_mechos(){
   fi
   if ! printf '%s  %s\n' "$sha" "$bundle" | sha256sum -c -; then rm -rf "$work"; return 14; fi
   if ! validate_bundle "$bundle"; then rm -rf "$work"; return 15; fi
-  if ! tar --zstd -xpf "$bundle" -C "$stage"; then rm -rf "$work"; return 16; fi
+  if ! tar --warning=no-timestamp --zstd -xpf "$bundle" -C "$stage"; then rm -rf "$work"; return 16; fi
 
-  tx=/usr/local/libexec/mechos-update-transaction-v13
-  if [ ! -x "$tx" ] && [ -x "$stage/usr/local/libexec/mechos-update-transaction-v13" ]; then tx="$stage/usr/local/libexec/mechos-update-transaction-v13"; fi
-  if [ ! -x "$tx" ]; then
-    echo 'Transactional update engine is missing; update was not applied.' >&2
-    rm -rf "$work"; return 12
-  fi
-  "$tx" "$stage" "$latest" || rc=$?
+  run_transaction "$stage" "$latest" || rc=$?
   if [ "$rc" -ne 0 ]; then rm -rf "$work"; return "$rc"; fi
   rm -rf "$work"
   mkdir -p "$STATE"
