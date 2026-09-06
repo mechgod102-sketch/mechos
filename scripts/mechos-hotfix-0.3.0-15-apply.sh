@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_HOTFIX15_APPLY_V1
+# MECHOS_HOTFIX15_CUMULATIVE_STORE_DEFER_V22
 STATE=/var/lib/mechos
 MARKER="$STATE/hotfix-0.3.0-15-applied"
 LOG=/var/log/mechos-hotfix-0.3.0-15.log
@@ -33,6 +34,7 @@ grep -Fq 'MECHOS_MODE_LAUNCH_V15' /usr/local/bin/mechos-mode-launch
 grep -Fq 'MECHOS_CREATOR_HANDOFF_V15' /usr/local/bin/mechos-mode-launch
 grep -Fq 'MECHOS_CREATOR_VM_OVERLAY_V15' /usr/local/bin/mechos-mode-launch
 grep -Fq 'MECHOS_PROVIDER_BOOTSTRAP_V15' /usr/local/libexec/mechos-provider-bootstrap-v15
+
 grep -Fq 'MECHOS_HOTFIX15_INTERNAL_GAME_BROWSER' /usr/local/libexec/mechos-hotfix15-game-browser-patch
 
 [ -x /usr/local/bin/mechos-creator-mode ] || { echo 'ERROR: Creator Mode executable missing'; exit 91; }
@@ -61,11 +63,31 @@ TARGET=/usr/local/bin/mechscope
 [ -f /usr/local/bin/mechscope.real ] && TARGET=/usr/local/bin/mechscope.real
 [ -f "$TARGET" ] || { echo 'ERROR: MechScope implementation missing'; exit 93; }
 
-# First remove browser handoff behavior and add provider auto-install. Then add
-# the native fullscreen game browser on top of the corrected Unified Store.
-python3 /usr/local/libexec/mechos-hotfix15-runtime-patch store "$TARGET"
-python3 /usr/local/libexec/mechos-hotfix15-game-browser-patch "$TARGET"
-python3 - "$TARGET" <<'PY'
+# Hotfix 15 originally patched a legacy UnifiedStore API that exposed
+# browse_selected/search_selected/search_all directly. Newer cumulative builds
+# may already carry the later V5/Hotfix21 Store shape where browse_selected is
+# intentionally absent until Hotfix21 replaces the whole class. In that case,
+# do not abort the cumulative chain: Creator/launcher repairs still belong to
+# Hotfix15, while the native in-shell Store replacement is owned by Hotfix21.
+if python3 - "$TARGET" <<'PY'
+from pathlib import Path
+import sys
+text=Path(sys.argv[1]).read_text(encoding='utf-8')
+start=text.find('class UnifiedStore(')
+if start < 0:
+    raise SystemExit(2)
+end=text.find('\nclass ',start+1)
+if end < 0:
+    end=len(text)
+section=text[start:end]
+required=('    def browse_selected(', '    def search_selected(', '    def search_all(')
+raise SystemExit(0 if all(token in section for token in required) else 1)
+PY
+then
+  echo "[$(date -Is)] Hotfix15 legacy UnifiedStore API detected; applying Store compatibility patches"
+  python3 /usr/local/libexec/mechos-hotfix15-runtime-patch store "$TARGET"
+  python3 /usr/local/libexec/mechos-hotfix15-game-browser-patch "$TARGET"
+  python3 - "$TARGET" <<'PY'
 from pathlib import Path
 import sys
 p=Path(sys.argv[1])
@@ -79,6 +101,17 @@ assert 'mechos-game-catalog-v15' in t
 assert "spawn(['xdg-open', url.format(query=self.query())])" not in t
 assert "spawn(['xdg-open', url.format(query=q)])" not in t
 PY
+else
+  echo "[$(date -Is)] UnifiedStore legacy browse/search API not present; deferring full Store replacement to cumulative Hotfix21"
+  python3 - "$TARGET" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+t=p.read_text(encoding='utf-8')
+compile(t,str(p),'exec')
+assert 'class UnifiedStore(' in t
+PY
+fi
 
 # Creator is an overlay: never delegate the Creator transition to the old VM
 # runtime because that runtime stops MechScope.
@@ -96,4 +129,4 @@ fi
 printf 'MechOS v0.3.0 Hotfix 15\n' >/etc/system-release
 
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix15 applied: Creator is health-checked above MechScope; VM Creator preserves MechScope; Unified Store search stays inside the native Game Browser; provider clients auto-install only when a provider action is chosen."
+echo "[$(date -Is)] Hotfix15 applied: Creator is health-checked above MechScope; VM Creator preserves MechScope; legacy Store patches apply when compatible and newer cumulative Store shapes defer safely to Hotfix21."
