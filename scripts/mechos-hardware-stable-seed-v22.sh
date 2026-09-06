@@ -23,7 +23,7 @@ trap 'rc=$?; printf "[MechOS Hardware Stable] ERROR line %s: %s (exit %s)\n" "$L
 [ -s "$BUNDLE" ] || fail "Hotfix 22.6 cumulative bundle is missing"
 [ -s "$SUM" ] || fail "Hotfix 22.6 checksum is missing"
 [ -s "$MANIFEST" ] || fail "stable manifest is missing"
-[ -x "$VERIFY" ] || fail "hardware verification tool is missing or not executable"
+[ -f "$VERIFY" ] || fail "hardware verification tool source is missing"
 
 python3 - "$MANIFEST" "$EXPECTED_VERSION" "$EXPECTED_SHA" <<'PY'
 import json,sys
