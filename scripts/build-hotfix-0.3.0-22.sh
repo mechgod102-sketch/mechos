@@ -3,15 +3,16 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-BUNDLE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.22-update.tar.zst"
+BUNDLE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst"
 SUM="$BUNDLE.sha256"
 MANIFEST="$ROOT/updates/stable.json"
 H21="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.21-update.tar.zst"
 mkdir -p "$(dirname "$BUNDLE")"
 
 # Start from the published cumulative Hotfix 21 payload, then refresh the
-# activation helpers/launchers that Hotfix 22 uses to make a direct 14 -> 22
-# jump reliable on first reboot.
+# activation helpers/launchers that Hotfix 22 uses to make a direct 14 -> 22.1
+# jump reliable on first reboot. 22.1 is intentionally a distinct version so
+# machines that already recorded the original Hotfix 22 can receive the repair.
 [ -s "$H21" ] || bash "$ROOT/scripts/build-hotfix-0.3.0-21.sh"
 [ -s "$H21" ] || { echo 'Hotfix 21 cumulative base bundle missing' >&2; exit 1; }
 tar --warning=no-timestamp --zstd -xpf "$H21" -C "$STAGE"
@@ -52,10 +53,10 @@ install -m0755 "$ROOT/scripts/mechos-hotfix-0.3.0-22-apply.sh" \
 
 cat >"$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service" <<'EOF'
 [Unit]
-Description=Apply cumulative MechOS v0.3.0 Hotfix 22 (15-22)
+Description=Apply cumulative MechOS v0.3.0 Hotfix 22.1 (15-22)
 After=local-fs.target mechos-hotfix-0.3.0-21.service
 Before=sddm.service display-manager.service
-ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22-applied
+ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.1-applied
 
 [Service]
 Type=oneshot
@@ -85,6 +86,7 @@ grep -Fq 'MECHOS_SHELL_ROUTE_V16' "$STAGE/usr/local/bin/mechos-shell-route"
 grep -Fq 'MECHOS_SHELL_ROUTE_V19' "$STAGE/usr/local/bin/mechos-shell-route"
 grep -Fq 'MECHOS_HOTFIX17_HELPER_WARNING_FIX' "$STAGE/usr/local/bin/mechos-update-helper"
 grep -Fq 'After=local-fs.target mechos-hotfix-0.3.0-21.service' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
+grep -Fq 'ConditionPathExists=!/var/lib/mechos/hotfix-0.3.0-22.1-applied' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 ! grep -Fq 'Requires=mechos-hotfix-0.3.0-21.service' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 ! grep -Fq 'ConditionPathExists=/var/lib/mechos/installed' "$STAGE/usr/lib/systemd/system/mechos-hotfix-0.3.0-22.service"
 
@@ -126,14 +128,14 @@ p=Path(sys.argv[1]); sha=sys.argv[2]
 data={
   'schema':1,
   'channel':'stable',
-  'version':'0.3.0-hotfix.22',
-  'release_name':'MechOS v0.3.0 Hotfix 22',
+  'version':'0.3.0-hotfix.22.1',
+  'release_name':'MechOS v0.3.0 Hotfix 22 Cumulative Revision 1',
   'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-  'notes':'Cumulative activation repair plus Creator icon fidelity. Hotfix 22 now carries and activates Hotfixes 15 through 21 itself when their installed markers are missing, allowing older 0.3.0 systems to jump directly to 22 without relying on the older boot-service dependency chain. This preserves Creator/Unified Store repairs, the single-window shell, updater recovery, package reliability, hardware MechScope fallback, root-safe transactions and the native Unified Store before applying Hotfix 22 real application icons. The Hotfix 22 boot unit no longer requires the Hotfix 21 unit or the legacy /var/lib/mechos/installed marker; the apply helper still detects and skips Live ISO sessions.',
-  'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22-update.tar.zst',
+  'notes':'Hotfix 22 cumulative revision 1. This rebuild makes Hotfix 22 a true recovery update: it carries and activates every missing Hotfix 15 through 21 layer in order before finalizing Hotfix 22. It preserves Creator/Unified Store repairs, the single-window shell, updater recovery, package reliability, hardware MechScope fallback, root-safe transactions, the native Unified Store and Hotfix 22 real application icons. Version 22.1 is intentionally distinct from the original 22 so systems that already recorded Hotfix 22 can receive this corrected cumulative payload. The Hotfix 22 boot unit no longer requires the Hotfix 21 unit or the legacy /var/lib/mechos/installed marker; the apply helper still detects and skips Live ISO sessions.',
+  'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.1-update.tar.zst',
   'bundle_sha256':sha,
   'requires_reboot':True,
 }
 p.write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
 PY
-printf 'Hotfix 22 bundle: %s\nSHA256: %s\n' "$BUNDLE" "$SHA"
+printf 'Hotfix 22.1 cumulative bundle: %s\nSHA256: %s\n' "$BUNDLE" "$SHA"
