@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22",
-  "release_name": "MechOS v0.3.0 Hotfix 22",
+  "version": "0.3.0-hotfix.19",
+  "release_name": "MechOS v0.3.0 Hotfix 19",
   "published_at": "2026-09-06",
-  "notes": "Creator icon fidelity repair. Creator Mode and Creator Store now prefer application-owned icons discovered from installed desktop entries, icon themes, Flatpak exports and Flatpak AppStream caches. MechOS no longer replaces creator application icons with generated monogram badges when a real application icon is available; generated badges remain the offline fallback for missing/vendor-only tools and MechOS navigation controls. Hotfix 22 is cumulative with Hotfix 21 native Unified Store and Hotfix 20 root-safe updater protections.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22-update.tar.zst",
-  "bundle_sha256": "6dcd94d0bb7a7694e27939720fd9f99fab1d4b6530dc2539dc942053bc0bf007",
+  "notes": "Recovery and mode-launch reliability hotfix. Restores the complete Update Center helper/reboot trio and adds a standalone rescue updater for systems where those public helpers are already missing. Future updates prefer the validated rsync-free transaction engine carried by the staged bundle, allowing the updater to repair itself. Creator Mode is a first-class target: if the unified shell is absent, Creator launches directly instead of bootstrapping Gaming/MechScope. Physical-hardware MechScope now uses conservative Gamescope startup with VRR/HDR opt-in and a Plasma-hosted fallback if Gamescope cannot start. Hotfix 19 is cumulative with Hotfixes 15-18.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.19-update.tar.zst",
+  "bundle_sha256": "418e7e282835c7408b53fa1524357977468f36b13c8f014c42efc841095d0457",
   "requires_reboot": true
 }
