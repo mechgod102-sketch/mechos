@@ -1,16 +1,44 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-# MECHOS_HOTFIX22_APPLY_V1
+# MECHOS_HOTFIX22_APPLY_V2
 STATE=/var/lib/mechos
 MARKER="$STATE/hotfix-0.3.0-22-applied"
 LOG=/var/log/mechos-hotfix-0.3.0-22.log
 mkdir -p "$STATE" /var/log
 exec >>"$LOG" 2>&1
 
-echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22 apply start"
+echo "[$(date -Is)] MechOS v0.3.0 Hotfix 22 cumulative apply start"
 [ -e "$MARKER" ] && exit 0
 is_live(){ [ -e /run/archiso/bootmnt ] || grep -q archiso /proc/cmdline 2>/dev/null; }
 is_live && { echo 'Live ISO detected; installed-system apply skipped.'; exit 0; }
+
+# Hotfix 22 is the recovery/cumulative activation point for Hotfixes 15-21.
+# Older units may already have applied some layers; marker checks keep this
+# idempotent. A direct jump from Hotfix 14 (or a partially activated system)
+# therefore receives every missing layer in order before v22 is finalized.
+apply_layer(){
+  local n="$1"
+  local layer_marker="$STATE/hotfix-0.3.0-${n}-applied"
+  local helper="/usr/local/libexec/mechos-hotfix-0.3.0-${n}-apply"
+  if [ -e "$layer_marker" ]; then
+    echo "[$(date -Is)] Hotfix ${n} already active; skipping"
+    return 0
+  fi
+  [ -x "$helper" ] || { echo "ERROR: cumulative Hotfix ${n} helper missing: $helper"; exit $((120 + n)); }
+  echo "[$(date -Is)] Activating cumulative Hotfix ${n}"
+  "$helper"
+  [ -e "$layer_marker" ] || { echo "ERROR: Hotfix ${n} helper returned without creating $layer_marker"; exit $((140 + n)); }
+}
+
+for n in 15 16 17 18 19 20 21; do
+  apply_layer "$n"
+done
+
+for n in 15 16 17 18 19 20 21; do
+  [ -e "$STATE/hotfix-0.3.0-${n}-applied" ] || { echo "ERROR: cumulative activation incomplete at Hotfix ${n}"; exit 170; }
+done
+
+echo "[$(date -Is)] Hotfixes 15-21 confirmed active; applying Hotfix 22 icon layer"
 
 MODULE=/usr/local/share/mechos/ui/creator_real_icons_v22.py
 PATCH=/usr/local/libexec/mechos-creator-real-icons-owner-v22-patch
@@ -54,5 +82,6 @@ if [ -f /etc/mechos/mechos.conf ]; then
 fi
 printf 'MechOS v0.3.0 Hotfix 22\n' >/etc/system-release
 
+rm -f "$STATE/reboot-required"
 touch "$MARKER"
-echo "[$(date -Is)] Hotfix 22 applied: Creator Mode and Creator Store now prefer application-owned desktop/theme/AppStream icons and use generated MechOS badges only as fallback."
+echo "[$(date -Is)] Hotfix 22 applied: Hotfixes 15-21 are active and Creator Mode/Creator Store now prefer application-owned desktop/theme/AppStream icons with generated MechOS badges only as fallback."
