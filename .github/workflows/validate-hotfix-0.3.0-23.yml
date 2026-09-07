@@ -1,0 +1,45 @@
+name: Validate MechOS v0.3.0 Hotfix 23
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-firstboot-update-apply-v23.sh'
+      - 'scripts/mechos-hotfix-0.3.0-23-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-23.sh'
+      - 'scripts/validate-hotfix-0.3.0-23.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - '.github/workflows/validate-hotfix-0.3.0-23.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-23.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-firstboot-update-apply-v23.sh'
+      - 'scripts/mechos-hotfix-0.3.0-23-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-23.sh'
+      - 'scripts/validate-hotfix-0.3.0-23.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - '.github/workflows/validate-hotfix-0.3.0-23.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-23.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Validate Hotfix 23 account recovery source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-23.sh
+
+      - name: Confirm Update Center firstboot route
+        run: |
+          set -euo pipefail
+          grep -Fq 'FIRSTBOOT_APPLY = "/usr/local/libexec/mechos-firstboot-update-apply"' scripts/mechos-update-center-reference-v8.py
+          grep -Fq 'user == "mechos-setup" and firstboot' scripts/mechos-update-center-reference-v8.py
+          grep -Fq 'self.start_process("install", "pkexec", [FIRSTBOOT_APPLY])' scripts/mechos-update-center-reference-v8.py

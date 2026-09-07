@@ -1,0 +1,103 @@
+name: Publish MechOS v0.3.0 Hotfix 23
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-firstboot-update-apply-v23.sh'
+      - 'scripts/mechos-hotfix-0.3.0-23-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-23.sh'
+      - 'scripts/validate-hotfix-0.3.0-23.sh'
+      - 'scripts/mechos-update-center-reference-v8.py'
+      - '.github/workflows/publish-hotfix-0.3.0-23.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mechos-hotfix-23-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Validate Hotfix 23 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-23.sh
+
+      - name: Publish Hotfix 23 to Update Center stable channel
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+
+            bash scripts/validate-hotfix-0.3.0-23.sh
+            bash scripts/build-hotfix-0.3.0-23.sh
+
+            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.23-update.tar.zst
+            (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+            CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+
+            grep -Fxq './usr/local/libexec/mechos-update-center-v8.py' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-update-center-v8-rescue.py' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-firstboot-update-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-23-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/lib/systemd/system/mechos-hotfix-0.3.0-23.service' <<< "$CONTENTS"
+            grep -Fxq './etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-23.service' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-22-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-update-transaction-v13' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-update-transaction-v14' <<< "$CONTENTS"
+
+            # Current updater allowlist compatibility: policy and SDDM changes
+            # are created by the root boot service, never carried as forbidden
+            # direct bundle paths.
+            ! grep -E '^\./etc/(polkit-1|sddm\.conf\.d)/' <<< "$CONTENTS"
+
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text())
+          assert data['version']=='0.3.0-hotfix.23', data
+          assert data['requires_reboot'] is True, data
+          assert data['bundle_url'].endswith('MechOS-0.3.0-hotfix.23-update.tar.zst'), data
+          PY
+
+            git add \
+              updates/bundles/MechOS-0.3.0-hotfix.23-update.tar.zst \
+              updates/bundles/MechOS-0.3.0-hotfix.23-update.tar.zst.sha256 \
+              updates/stable.json
+
+            if git diff --cached --quiet; then
+              echo 'Hotfix 23 is already published.'
+              exit 0
+            fi
+
+            git commit -m 'Publish MechOS v0.3.0 Hotfix 23'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            echo "Publish race on attempt ${attempt}; rebuilding from latest main."
+            sleep $((attempt * 2))
+          done
+
+          echo 'Unable to publish Hotfix 23 after three synchronized rebuild attempts.' >&2
+          exit 1
