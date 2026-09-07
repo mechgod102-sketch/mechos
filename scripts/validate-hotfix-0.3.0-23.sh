@@ -10,7 +10,7 @@ python3 -m py_compile "$ROOT/scripts/mechos-update-center-reference-v8.py"
 
 grep -Fq 'MECHOS_FIRSTBOOT_UPDATE_APPLY_V23' "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
 grep -Fq 'PKEXEC_UID' "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
-grep -Fq "origin_user.*mechos-setup" "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
+grep -Fq "[ \"\$origin_user\" = 'mechos-setup' ]" "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
 grep -Fq 'exec "$HELPER" apply' "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
 ! grep -Fq 'curl ' "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
 ! grep -Fq 'wget ' "$ROOT/scripts/mechos-firstboot-update-apply-v23.sh"
@@ -29,7 +29,7 @@ grep -Fq 'FIRSTBOOT_APPLY = "/usr/local/libexec/mechos-firstboot-update-apply"' 
 grep -Fq 'user == "mechos-setup" and firstboot' "$ROOT/scripts/mechos-update-center-reference-v8.py"
 grep -Fq 'pkexec' "$ROOT/scripts/mechos-update-center-reference-v8.py"
 
-grep -Fq "version':'0.3.0-hotfix.23'" "$ROOT/scripts/build-hotfix-0.3.0-23.sh"
+grep -Fq "'version':'0.3.0-hotfix.23'" "$ROOT/scripts/build-hotfix-0.3.0-23.sh"
 grep -Fq 'MechOS-0.3.0-hotfix.22.6-update.tar.zst' "$ROOT/scripts/build-hotfix-0.3.0-23.sh"
 grep -Fq 'MechOS-0.3.0-hotfix.23-update.tar.zst' "$ROOT/scripts/build-hotfix-0.3.0-23.sh"
 grep -Fq 'requires_reboot' "$ROOT/scripts/build-hotfix-0.3.0-23.sh"
