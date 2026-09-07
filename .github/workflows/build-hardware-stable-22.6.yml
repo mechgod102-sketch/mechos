@@ -7,6 +7,7 @@ on:
     paths:
       - 'scripts/mechos-hardware-verify-v22.sh'
       - 'scripts/mechos-hardware-stable-seed-v22.sh'
+      - 'scripts/mechos-postinstall-account-hotfix.sh'
       - 'scripts/patch-mechos-hardware-stable-22.6.py'
       - 'scripts/mechos-mechscope-runtime-v23.py'
       - 'scripts/mechos-mode-launch-v19.sh'
@@ -52,7 +53,11 @@ jobs:
           bash scripts/validate-hotfix-0.3.0-22.sh
           bash -n scripts/mechos-hardware-verify-v22.sh
           bash -n scripts/mechos-hardware-stable-seed-v22.sh
+          bash -n scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq 'MECHOS_HARDWARE_STABLE_SEED_V22_7' scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'MECHOS_POSTINSTALL_ACCOUNT_HOTFIX_V2' scripts/mechos-postinstall-account-hotfix.sh
+          grep -Fq 'mechos-oobe-finish-reboot' scripts/mechos-postinstall-account-hotfix.sh
+          grep -Fq '99-mechos-final-user.conf' scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq 'EXPECTED_VERSION=0.3.0-hotfix.22.6' scripts/mechos-hardware-stable-seed-v22.sh
           grep -Fq 'EXPECTED_SHA=0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106' scripts/mechos-hardware-stable-seed-v22.sh
           bash -n scripts/mechos-live-installer-final-hardening.sh
@@ -84,6 +89,14 @@ jobs:
           bash -n scripts/build-mechos-archiso.sh
           test "$(grep -c '^# MECHOS_HARDWARE_STABLE_22_6_INTEGRATION$' scripts/build-mechos-archiso.sh)" -eq 1
           grep -Fq 'bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final' scripts/build-mechos-archiso.sh
+          grep -Fq 'bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final' scripts/build-mechos-archiso.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('scripts/build-mechos-archiso.sh').read_text()
+          seed='bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final'
+          account='bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final'
+          assert t.index(seed) < t.index(account) < t.rindex('mkarchiso')
+          PY
           grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-hotfix13-stability-integration.sh' scripts/build-mechos-archiso.sh
 
@@ -102,7 +115,7 @@ jobs:
             sha256sum -c "$(basename "$ISO").sha256"
           )
           DIR="$(dirname "$ISO")"
-          TARGET="$DIR/MechOS-v0.3.0-hotfix.22.6-hardware-test-x86_64.iso"
+          TARGET="$DIR/MechOS-v0.3.0-hotfix.22.6-account-fix-hardware-test-x86_64.iso"
           if [ "$ISO" != "$TARGET" ]; then
             mv -f "$ISO" "$TARGET"
             rm -f "$ISO.sha256"
@@ -113,10 +126,14 @@ jobs:
             sha256sum -c "$(basename "$TARGET").sha256"
           )
           cat >out/HARDWARE-TEST-README.txt <<'EOF'
-          MechOS v0.3.0 Hotfix 22.6 - Physical Hardware Validation ISO
+          MechOS v0.3.0 Hotfix 22.6 - Postinstall Account Fix Hardware Validation ISO
 
           Goal:
           - verify clean UEFI boot and installation on real hardware
+          - verify first installed boot goes directly into fullscreen account creation
+          - verify mechos-setup is only a temporary transport account and never the final owner
+          - verify finishing OOBE creates the requested user, assigns its password/admin groups, and schedules a privileged reboot
+          - verify the next boot removes mechos-setup before SDDM starts and shows the real user sign-in
           - verify GPU/Vulkan, Wi-Fi/Ethernet, Bluetooth, PipeWire audio, storage and controllers
           - verify MechScope startup and MechScope -> Creator Mode external Qt handoff
           - verify reboot/shutdown and suspend/resume manually
@@ -124,13 +141,19 @@ jobs:
           - verify Clean Install/Keep Home never ask for a Live-session sudo password
           - verify an offline/broken-mirror Clean Install fails before any disk changes
 
-          The installed payload contains the verified Hotfix 22.6 cumulative runtime.
+          The installed payload contains the verified Hotfix 22.6 cumulative runtime plus the final postinstall account-creation repair.
           This is a hardware-validation candidate and does NOT promote updates/stable.json.
-          On the first installed boot, mechos-hotfix-0.3.0-22.service activates before SDDM.
-          Intermediate Hotfix 14-21 services are not independently enabled on this fresh image.
 
-          After the first installed boot run:
+          Expected account flow:
+              install completes -> reboot -> fullscreen MechOS account creation
+              -> Finish Setup -> automatic privileged reboot -> real-user sign-in
+              -> mechos-setup no longer exists
+
+          After signing in run:
               cat /etc/mechos/release
+              id
+              getent passwd mechos-setup || echo "mechos-setup removed"
+              cat /var/lib/mechos/system-user
               mechos-hardware-verify
 
           Expected release:
@@ -143,7 +166,7 @@ jobs:
       - name: Upload hardware test ISO
         uses: actions/upload-artifact@v4
         with:
-          name: MechOS-v0.3.0-hotfix.22.6-hardware-test-x86_64
+          name: MechOS-v0.3.0-hotfix.22.6-account-fix-hardware-test-x86_64
           path: |
             out/**/*.iso
             out/**/*.iso.sha256
