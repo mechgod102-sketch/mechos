@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.13",
-  "release_name": "MechOS v0.3.0 Hotfix 13",
-  "published_at": "2026-09-06",
-  "notes": "Stability, fullscreen and Unified Store install-controller hotfix. Restores Update Center to the proven backend; replaces the no-op Performance/Optimization Center with the canonical responsive UI; makes MechScope and the separate Unified Store true scalable fullscreen surfaces; adds a provider install controller so Steam AppIDs route to the Steam install protocol, Lutris slugs route to the Lutris installer URI, Epic uses Legendary when available, Amazon uses Nile when available, and Epic/GOG/Amazon/Heroic otherwise hand off to Heroic without bypassing provider authentication, ownership or DRM. Install handoffs and queue state are logged in the MechOS store state directory. Also installs transactional future-update protection with staged validation, rollback, updater-last replacement and no automatic reboot/logout/poweroff.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.13-update.tar.zst",
-  "bundle_sha256": "9bbe6b38275a05e2ebe295b8a436edc2329cd8c366e7cc06fd1ec35c17de79b1",
+  "version": "0.3.0-hotfix.23",
+  "release_name": "MechOS v0.3.0 Hotfix 23",
+  "published_at": "2026-09-07",
+  "notes": "Cumulative post-install account-creation recovery update. Repairs systems that can reach the temporary mechos-setup session but do not complete the permanent-user handoff. The OOBE is forced fullscreen, the temporary account remains non-admin, completion creates or renames the permanent user and sets its password/admin groups, SDDM is cleared of stale mechos-setup autologin fragments, reboot is scheduled by the privileged OOBE helper, and the temporary setup account is removed before the final sign-in. Update Center also retains the restricted firstboot apply bridge so incomplete-OOBE systems can install manifest-pinned MechOS updates without giving mechos-setup general administrator access. Includes the complete Hotfix 22.6 cumulative runtime and transactional updater protections.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.23-update.tar.zst",
+  "bundle_sha256": "bfbd5e82988369f4990ef48e1f693ab93ee1eb61dd07adc80e6ca83ed1d2f435",
   "requires_reboot": true
 }
