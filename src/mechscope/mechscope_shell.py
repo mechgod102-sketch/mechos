@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
+# MECHOS_MECHSCOPE_RESPONSIVE_UI_V34
 """Reference-authored MechScope 2.0 visual composition.
 
-The approved MechScope reference is 1672x941. This source uses the same authored
-coordinate system and keeps a single aspect-preserving scale so the installed
-system, Gamescope and VM fallback all retain the same composition.
+The approved MechScope reference is 1672x941. This source keeps the authored
+coordinate system and scales it uniformly while adding responsive text/layout
+behavior for 720p, 900p and 1080p displays.
 """
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from PyQt6.QtCore import QRect, Qt
-from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPen, QPixmap, QRadialGradient
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QRadialGradient
 from PyQt6.QtWidgets import QLabel, QPushButton, QWidget
 
 BASE_W = 1672
@@ -60,6 +61,30 @@ class Gauge(QWidget):
                    '--' if self.value is None else f'{self.value}%')
 
 
+class ElidedLabel(QLabel):
+    """Single-line label that keeps full text but elides to the current width."""
+    def __init__(self, text='', parent=None):
+        super().__init__(parent)
+        self._full_text = str(text)
+        self.setWordWrap(False)
+        self.setToolTip(self._full_text)
+        self._apply_elision()
+
+    def setText(self, text):
+        self._full_text = str(text)
+        self.setToolTip(self._full_text)
+        self._apply_elision()
+
+    def _apply_elision(self):
+        width = max(32, self.width() - 6)
+        metrics = QFontMetrics(self.font())
+        super().setText(metrics.elidedText(self._full_text, Qt.TextElideMode.ElideRight, width))
+
+    def resizeEvent(self, event):
+        self._apply_elision()
+        super().resizeEvent(event)
+
+
 class MechScopeShell(QWidget):
     BASE_W = BASE_W
     BASE_H = BASE_H
@@ -74,13 +99,17 @@ class MechScopeShell(QWidget):
         self.setObjectName('mechscopeReferenceShell')
         self.setStyleSheet('''
 QWidget#mechscopeReferenceShell{background:#020711;color:#f4f7ff}
+QLabel[role="normal"]{color:#f4f7ff}
+QLabel[role="brand"]{color:#dce7f7}
+QLabel[role="hero-title"]{color:#eef4ff}
+QLabel[role="hero-copy"]{color:#a9b8cc}
 QLabel[role="muted"]{color:#9aa9bf}
 QLabel[role="blue"]{color:#4b9cff}
 QLabel[role="purple"]{color:#a783ff}
 QPushButton[role="hero-blue"]{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #123b77,stop:1 #0e2b59);border:2px solid #2e8bff;border-radius:13px;color:white;text-align:left;padding:10px 18px;font-weight:800}
 QPushButton[role="hero-purple"]{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #34205e,stop:1 #4a216c);border:2px solid #9d58ee;border-radius:13px;color:white;text-align:left;padding:10px 18px;font-weight:800}
 QPushButton[role="hero-teal"]{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #113948,stop:1 #0d2634);border:2px solid #2bbab0;border-radius:13px;color:white;text-align:left;padding:10px 18px;font-weight:800}
-QPushButton[role="action"]{background:#111a29;border:1px solid #2a3b52;border-radius:10px;color:#f4f7ff;text-align:left;padding:7px 13px;font-weight:700}
+QPushButton[role="action"]{background:#111a29;border:1px solid #2a3b52;border-radius:10px;color:#f4f7ff;text-align:left;padding:0px 46px 0px 14px;font-weight:700}
 QPushButton[role="mode"]{background:#0d1727;border:1px solid #33445e;border-radius:12px;color:#f7f9ff;font-weight:800}
 QPushButton[role="mode-blue"]{background:#10284d;border:2px solid #318cff;border-radius:12px;color:white;font-weight:800}
 QPushButton[role="mode-purple"]{background:#281937;border:1px solid #7e3a91;border-radius:12px;color:white;font-weight:800}
@@ -109,11 +138,14 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         if font_size is not None: self.font_sizes[widget] = font_size
         return widget
 
-    def _label(self, text, rect, size=14, bold=False, role='normal', align=None):
-        q = self._reg(QLabel(text), rect, size)
-        q.setWordWrap(True); q.setProperty('role', role)
+    def _label(self, text, rect, size=14, bold=False, role='normal', align=None, wrap=True, elide=False):
+        q = self._reg(ElidedLabel(text) if elide else QLabel(text), rect, size)
+        q.setWordWrap(False if elide else wrap)
+        q.setProperty('role', role)
         q.setAlignment(align or (Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignLeft))
         f = QFont('Sans Serif', size); f.setBold(bold); q.setFont(f)
+        if elide:
+            q._apply_elision()
         return q
 
     def _button(self, key, title, subtitle, rect, role='action', size=13):
@@ -129,45 +161,50 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
             except Exception: pass
         return q
 
-    def _build(self):
-        # Header exactly follows the approved reference structure.
-        self._label('◉  MECHOS', QRect(22,14,260,42), 20, True)
-        self._label('MECHSCOPE 2.0', QRect(660,13,370,44), 22, True, 'purple', Qt.AlignmentFlag.AlignCenter)
-        self.net_label = self._label('▥  NET detecting', QRect(1360,14,185,40), 12, False, 'muted', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
-        self.time_label = self._label('--:--', QRect(1553,14,96,40), 14, True, 'normal', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
+    def _quick_action(self, key, title, rect, size=11):
+        # MECHOS_QUICK_ACTION_SINGLE_LINE_V34
+        # Keep the action name and chevron on one visual row at all target
+        # resolutions. The arrow is a mouse-transparent overlay, not a subtitle.
+        q = self._button(key, title, '', rect, 'action', size)
+        arrow_rect = QRect(rect.x()+rect.width()-43, rect.y(), 34, rect.height())
+        arrow = self._label('›', arrow_rect, size+2, True, 'normal', Qt.AlignmentFlag.AlignCenter, False)
+        arrow.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        return q
 
-        # Hero copy / primary actions.
-        self._label('WELCOME TO', QRect(63,86,260,28), 12, True, 'blue')
-        self._label('MechScope 2.0', QRect(62,112,620,74), 36, True)
-        self._label('Your unified command center for gaming, performance, and creation.', QRect(63,190,650,44), 14, False)
+    def _build(self):
+        self._label('◉  MECHOS', QRect(22,14,260,42), 20, True, 'brand', wrap=False)
+        self._label('MECHSCOPE 2.0', QRect(660,13,370,44), 22, True, 'purple', Qt.AlignmentFlag.AlignCenter, False)
+        self.net_label = self._label('▥  NET detecting', QRect(1360,14,185,40), 12, False, 'muted', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter, False, True)
+        self.time_label = self._label('--:--', QRect(1553,14,96,40), 14, True, 'normal', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter, False)
+
+        self._label('WELCOME TO', QRect(63,86,260,28), 12, True, 'blue', wrap=False)
+        self._label('MechScope 2.0', QRect(62,112,620,74), 36, True, 'hero-title', wrap=False)
+        self._label('Your unified command center for gaming, performance, and creation.', QRect(63,190,650,44), 14, False, 'hero-copy')
         self._button('steam','◉   Steam Library','Browse your games     ›',QRect(62,265,309,98),'hero-blue',14)
         self._button('store','▰   Unified Store','All games, one place     ›',QRect(387,265,299,98),'hero-purple',14)
         self._button('performance','◔   Performance Center','Optimize. Monitor. Dominate.     ›',QRect(703,265,314,98),'hero-teal',14)
 
-        # Live system status replaces the static values shown in the concept.
-        self._label('SYSTEM STATUS', QRect(1093,82,280,30), 12, True, 'blue')
+        self._label('SYSTEM STATUS', QRect(1093,82,280,30), 12, True, 'blue', wrap=False)
         self.cpu_gauge = self._reg(Gauge('CPU','#3e85ff'), QRect(1100,119,128,128))
         self.ram_gauge = self._reg(Gauge('RAM','#9b58f0'), QRect(1236,119,128,128))
         self.disk_gauge = self._reg(Gauge('DISK','#31bbaa'), QRect(1372,119,128,128))
-        self.gpu_status = self._label('▣  GPU detecting', QRect(1104,264,300,28), 12, False, 'muted')
-        self.temp_label = self._label('♨  Temperature: sensor dependent', QRect(1104,291,310,28), 11, False, 'muted')
-        self._button('performance','⌁   Run Optimization','Open Performance Center     ›',QRect(1091,337,518,62),'action',12)
+        self.gpu_status = self._label('▣  GPU detecting', QRect(1104,255,500,27), 11, False, 'muted', wrap=False, elide=True)
+        self.temp_label = self._label('♨  Temperature: sensor dependent', QRect(1104,286,500,25), 10, False, 'muted', wrap=False, elide=True)
+        self._button('performance','⌁   Run Optimization','Open Performance Center     ›',QRect(1091,329,518,70),'action',12)
 
-        # Recent games and quick actions.
-        self._label('RECENT GAMES', QRect(46,438,250,28), 12, True, 'blue')
+        self._label('RECENT GAMES', QRect(46,438,250,28), 12, True, 'blue', wrap=False)
         self.recent_host = self._reg(QWidget(), QRect(43,474,1001,218))
         self.recent_host.setStyleSheet('background:transparent')
-        self._label('QUICK ACTIONS', QRect(1116,438,250,28), 12, True, 'blue')
+        self._label('QUICK ACTIONS', QRect(1116,438,250,28), 12, True, 'blue', wrap=False)
         quick = [
             ('updates','⇩   Update Center'),('drivers','▣   Drivers & Firmware'),
             ('systeminfo','ⓘ   System Info'),('network','⌁   Network Manager'),
             ('performance','ϟ   Power Plan')]
         y = 470
         for key,title in quick:
-            self._button(key,title,'›',QRect(1110,y,500,43),'action',11); y += 46
+            self._quick_action(key,title,QRect(1110,y,500,41),11); y += 45
 
-        # Bottom quick modes.
-        self._label('QUICK MODES', QRect(46,719,250,28), 12, True, 'blue')
+        self._label('QUICK MODES', QRect(46,719,250,28), 12, True, 'blue', wrap=False)
         modes = [
             ('gaming','🎮  Gaming Mode',QRect(46,756,244,75),'mode-blue'),
             ('desktop','▣  Desktop Mode',QRect(306,756,244,75),'mode'),
@@ -179,8 +216,8 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         for key,title,rect,role in modes:
             self._button(key,title,'',rect,role,13)
 
-        self._label('Ⓐ  Select     Ⓑ  Back     ☰  Menu     ✥  D-Pad / Arrows  Navigate', QRect(22,875,890,42), 11, False, 'muted')
-        self.pad_label = self._label('🎮  Controller: detecting', QRect(1350,875,295,42), 11, False, 'muted', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
+        self._label('Ⓐ  Select     Ⓑ  Back     ☰  Menu     ✥  D-Pad / Arrows  Navigate', QRect(22,875,890,42), 11, False, 'muted', wrap=False)
+        self.pad_label = self._label('🎮  Controller: detecting', QRect(1350,875,295,42), 11, False, 'muted', Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter, False, True)
 
     def _recent_card_style(self, scale: float, artwork: str = '') -> str:
         scale = max(.05, float(scale))
@@ -205,10 +242,7 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
 
     def _layout_recent_widgets(self):
         # MECHOS_RESPONSIVE_RECENT_GAMES_V1
-        # recent_widgets are children of a scaled host, so their local geometry
-        # must be scaled as well. Without this second-stage layout the host
-        # shrank at 720p/VM resolutions while 190x210 cards stayed full-size and
-        # clipped into adjacent panels.
+        # MECHOS_RESPONSIVE_RECENT_GAMES_V2
         if not self.recent_widgets or not hasattr(self, 'recent_host'):
             return
         host_w = max(1, self.recent_host.width())
@@ -219,7 +253,9 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
 
         for child in self.recent_widgets:
             if bool(child.property('mechosRecentEmpty')):
-                child.setGeometry(0, 0, host_w, max(1, int(round(210 * sy))))
+                y = max(0, int(round(23 * sy)))
+                h = max(1, min(host_h-y, int(round(154 * sy))))
+                child.setGeometry(0, y, host_w, h)
                 pad = max(6, int(round(16 * scale)))
                 radius = max(4, int(round(10 * scale)))
                 child.setStyleSheet(
@@ -252,6 +288,7 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         if not games:
             q = QLabel('No installed Steam games detected yet. Open Steam Library to sign in or install games.', self.recent_host)
             q.setWordWrap(True)
+            q.setAlignment(Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignLeft)
             q.setProperty('mechosRecentEmpty', True)
             self.recent_widgets.append(q)
             self._layout_recent_widgets()
@@ -264,7 +301,6 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
             btn.setProperty('mechosRecentIndex', i)
             btn.setProperty('mechosArtwork', '')
             btn.clicked.connect(lambda _=False,g=game: launch_game(g))
-            # Use a local Steam artwork path when the backend supplies one.
             for attr in ('grid_path','cover_path','artwork','image','header_image'):
                 p = getattr(game,attr,None)
                 if p and Path(str(p)).is_file():
@@ -283,6 +319,8 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
             base = self.font_sizes.get(widget)
             if base is not None:
                 f = widget.font(); f.setPointSize(max(7,int(round(base*s)))); widget.setFont(f)
+            if isinstance(widget, ElidedLabel):
+                widget._apply_elision()
         self._layout_recent_widgets()
         super().resizeEvent(event)
 
@@ -300,8 +338,6 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         self._panel(p,QRect(1096,427,551,277),'#07101a','#26384e',14,1)
         self._panel(p,QRect(23,716,1624,142),'#07101a','#26384e',14,1)
 
-        # Reference hero planet / space glow. It is decorative and intentionally
-        # drawn behind live controls so the same composition survives any GPU.
         hero = self._rect(QRect(590,70,470,338))
         grad = QRadialGradient(hero.right()-20,hero.center().y()+80,max(hero.width(),hero.height())*.72)
         grad.setColorAt(0,QColor(65,105,255,130)); grad.setColorAt(.38,QColor(27,54,150,90)); grad.setColorAt(.72,QColor(9,17,45,30)); grad.setColorAt(1,QColor(0,0,0,0))

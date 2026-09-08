@@ -1,0 +1,64 @@
+name: Validate MechOS Hotfix 34
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/mechscope/mechscope_shell.py'
+      - 'scripts/mechos-hotfix-0.3.0-34-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-34.sh'
+      - 'scripts/validate-hotfix-0.3.0-34.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-34.yml'
+      - '.github/workflows/publish-hotfix-34.yml'
+  push:
+    branches:
+      - 'hotfix/0.3.0-34-mechscope-responsive-ui'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-mechos-hotfix-34-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-hotfix-34:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 34 source contracts
+        run: bash scripts/validate-hotfix-0.3.0-34.sh
+      - name: Build cumulative Hotfix 34 bundle
+        run: bash scripts/build-hotfix-0.3.0-34.sh
+      - name: Validate Hotfix 34 bundle
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.34-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.34-update.tar.zst.sha256)
+          rm -rf /tmp/hf34-check && mkdir -p /tmp/hf34-check
+          tar --zstd -xpf "$B" -C /tmp/hf34-check
+          test -f /tmp/hf34-check/usr/local/share/mechos/mechscope/mechscope_shell.py
+          test -f /tmp/hf34-check/usr/local/libexec/mechos-hotfix-0.3.0-34-apply
+          test -f /tmp/hf34-check/usr/local/libexec/mechos-mechscope-source-runtime-v33
+          test -f /tmp/hf34-check/usr/local/bin/mechscope-session
+          grep -Fq 'MECHOS_MECHSCOPE_RESPONSIVE_UI_V34' /tmp/hf34-check/usr/local/share/mechos/mechscope/mechscope_shell.py
+          grep -Fq 'MECHOS_QUICK_ACTION_SINGLE_LINE_V34' /tmp/hf34-check/usr/local/share/mechos/mechscope/mechscope_shell.py
+          grep -Fq 'MECHOS_MECHSCOPE_SOURCE_RUNTIME_V33' /tmp/hf34-check/usr/local/libexec/mechos-mechscope-source-runtime-v33
+          grep -Fq 'MECHOS_MECHSCOPE_SESSION_V23_SOURCE_RUNTIME' /tmp/hf34-check/usr/local/bin/mechscope-session
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          b=Path('updates/bundles/MechOS-0.3.0-hotfix.34-update.tar.zst')
+          d=json.loads(Path('updates/stable.json').read_text())
+          assert d['channel']=='stable'
+          assert d['version']=='0.3.0-hotfix.34'
+          assert d['requires_reboot'] is True
+          assert hashlib.sha256(b.read_bytes()).hexdigest()==d['bundle_sha256']
+          PY
