@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.26",
-  "release_name": "MechOS v0.3.0 Hotfix 26",
+  "version": "0.3.0-hotfix.27",
+  "release_name": "MechOS v0.3.0 Hotfix 27",
   "published_at": "2026-09-08",
-  "notes": "Cumulative First System Setup launcher recovery. Fixes clicks that appeared to do nothing by replacing the OOBE launcher with a graphical-session-aware runtime that restores KDE user-manager display variables, verifies the active Wayland socket, launches the setup UI on Wayland, retries through X11/XWayland on VMware when needed, avoids duplicate OOBE processes, writes a persistent launch log, and shows an on-screen error when setup cannot open. Also rewires the application-menu, KDE autostart, and systemd-user OOBE entries through the repaired launcher. Includes all Hotfix 25 update-version and persistent account-creation recovery fixes.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.26-update.tar.zst",
-  "bundle_sha256": "865d832c10b8c3c5346c29b1b4fa45165c9fc65beeb9f04d681834dd38007def",
+  "notes": "Cumulative First System Setup UI crash repair. Fixes the OOBE shell NameError that prevented the account-creation window from rendering after Hotfix 26. OOBEShell.build now reads timezone, locale, and keyboard data from self.zones, self.locales, and self.keymaps instead of undefined local names. Adds a static regression check for the same class of error and ships the corrected source-owned OOBE shell directly to installed systems. Includes all Hotfix 26 graphical launcher recovery and Hotfix 25 update/account recovery fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.27-update.tar.zst",
+  "bundle_sha256": "228b1fb43c1db4668480b76c2fa2b3748fa5d7b1e4f1fcc93dfd4ed66e9b2f3f",
   "requires_reboot": true
 }
