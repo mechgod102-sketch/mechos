@@ -1,0 +1,62 @@
+name: Validate MechOS Hotfix 30
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/mechscope-session-v20.sh'
+      - 'overlay/rootfs/usr/local/bin/mechscope-session'
+      - 'scripts/mechos-hotfix-0.3.0-30-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-30.sh'
+      - 'scripts/validate-hotfix-0.3.0-30.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-30.yml'
+  push:
+    branches:
+      - 'hotfix/0.3.0-30-hardware-python-crash-loop'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-mechos-hotfix-30-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-hotfix-30:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 30 source contracts
+        run: bash scripts/validate-hotfix-0.3.0-30.sh
+      - name: Build cumulative Hotfix 30 bundle
+        run: bash scripts/build-hotfix-0.3.0-30.sh
+      - name: Validate Hotfix 30 bundle
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.30-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.30-update.tar.zst.sha256)
+          tar --zstd -tf "$B" | grep -Fx './usr/local/bin/mechscope-session'
+          tar --zstd -tf "$B" | grep -Fx './usr/local/libexec/mechos-hotfix-0.3.0-30-apply'
+          tar --zstd -tf "$B" | grep -Fx './usr/lib/systemd/system/mechos-hotfix-0.3.0-30.service'
+          rm -rf /tmp/hf30-check && mkdir -p /tmp/hf30-check
+          tar --zstd -xpf "$B" -C /tmp/hf30-check
+          grep -Fq 'MECHOS_MECHSCOPE_SESSION_V21' /tmp/hf30-check/usr/local/bin/mechscope-session
+          grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' /tmp/hf30-check/usr/local/bin/mechscope-session
+          grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' /tmp/hf30-check/usr/local/bin/mechscope-session
+          grep -Fq 'crashes >= 3' /tmp/hf30-check/usr/local/bin/mechscope-session
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          b=Path('updates/bundles/MechOS-0.3.0-hotfix.30-update.tar.zst')
+          d=json.loads(Path('updates/stable.json').read_text())
+          assert d['version']=='0.3.0-hotfix.30'
+          assert d['requires_reboot'] is True
+          assert hashlib.sha256(b.read_bytes()).hexdigest()==d['bundle_sha256']
+          PY

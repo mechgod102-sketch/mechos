@@ -1,49 +1,87 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_MECHSCOPE_SESSION_V20
+# MECHOS_MECHSCOPE_SESSION_V21
 
 MODE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
-LOG_FILE="$STATE_DIR/mechscope-session-v20.log"
-MECHSCOPE=/usr/local/bin/mechscope
+LOG_FILE="$STATE_DIR/mechscope-session-v21.log"
+CRASH_MARKER="$STATE_DIR/mechscope-crash-loop-v30"
+PUBLIC_MECHSCOPE=/usr/local/bin/mechscope
+PERSISTENT_RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23
+PRESERVED_OWNER=/usr/local/libexec/mechscope-owner-v23.py
+RAW_MECHSCOPE=/usr/local/bin/mechscope.real
+MECHSCOPE_TARGET=''
+declare -a MECHSCOPE_COMMAND=()
 mkdir -p "$(dirname "$MODE_FILE")" "$STATE_DIR"
 
-log(){ printf '[%s] [mechscope-session-v20] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG_FILE"; }
+log(){ printf '[%s] [mechscope-session-v21] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG_FILE"; }
 mode(){ if [[ -r "$MODE_FILE" ]]; then tr -d '\r\n[:space:]' <"$MODE_FILE"; else printf 'gaming'; fi; }
 gaming_requested(){ [[ "$(mode)" == gaming ]]; }
 
-MODE="$(mode)"
-if [[ "$MODE" == desktop ]]; then exec /usr/bin/startplasma-wayland; fi
-if [[ ! -x "$MECHSCOPE" ]]; then exec /usr/bin/startplasma-wayland; fi
-
-import_user_environment(){
-  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION >/dev/null 2>&1 || true
+is_python_target(){
+  local target="$1" first
+  first="$(head -n1 "$target" 2>/dev/null || true)"
+  case "$first" in *python*) return 0 ;; esac
+  grep -Eq '^[[:space:]]*(from|import)[[:space:]]+[A-Za-z0-9_\.]+' "$target" 2>/dev/null
+}
+python_source_check(){
+  local target="$1"
+  /usr/bin/python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); compile(p.read_text(encoding='utf-8'),str(p),'exec')
+PY
+}
+actual_mechscope(){
+  if [[ -f "$PERSISTENT_RUNTIME" && -f "$PRESERVED_OWNER" ]]; then printf '%s\n' "$PERSISTENT_RUNTIME"
+  elif [[ -f "$PUBLIC_MECHSCOPE" ]]; then printf '%s\n' "$PUBLIC_MECHSCOPE"
+  elif [[ -f "$RAW_MECHSCOPE" ]]; then printf '%s\n' "$RAW_MECHSCOPE"
+  else return 1; fi
+}
+resolve_mechscope_command(){
+  local target
+  target="$(actual_mechscope)" || return 1
+  MECHSCOPE_TARGET="$target"
+  if is_python_target "$target"; then
+    python_source_check "$target" >>"$LOG_FILE" 2>&1 || return 1
+    MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")
+  else
+    [[ -x "$target" ]] || return 1
+    MECHSCOPE_COMMAND=("$target")
+  fi
+  log "resolved MechScope target=$MECHSCOPE_TARGET interpreter=${MECHSCOPE_COMMAND[0]}"
+}
+safe_desktop_fallback(){
+  local reason="$1"
+  printf 'desktop\n' >"$MODE_FILE"
+  printf '%s\n' "$reason" >"$CRASH_MARKER"
+  log "SAFE FALLBACK: $reason"
+  if command -v kdialog >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    kdialog --title 'MechScope Recovery' --error 'MechScope crashed repeatedly. MechOS stopped the restart loop and switched this session to Desktop Mode. See ~/.local/state/mechos/mechscope-session-v21.log.' >/dev/null 2>&1 || true
+  fi
 }
 
+MODE="$(mode)"
+if [[ "$MODE" == desktop ]]; then exec /usr/bin/startplasma-wayland; fi
+if ! resolve_mechscope_command; then printf 'desktop\n' >"$MODE_FILE"; exec /usr/bin/startplasma-wayland; fi
+
+import_user_environment(){ systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION >/dev/null 2>&1 || true; }
 plasma_mechscope_supervisor(){
   local crashes=0 rc=0
   sleep 2
   while gaming_requested; do
     import_user_environment
-    log "Plasma fallback: starting supervised MechScope attempt=$((crashes+1))"
-    set +e; "$MECHSCOPE" >>"$LOG_FILE" 2>&1; rc=$?; set -e
-    if ! gaming_requested; then
-      log "MechScope exited rc=$rc after intentional mode transition mode=$(mode)"
-      return 0
-    fi
-    crashes=$((crashes+1))
-    log "MechScope exited rc=$rc while Gaming Mode remains active; restart=$crashes"
-    sleep $(( crashes < 5 ? crashes : 5 ))
+    log "Plasma fallback: starting supervised MechScope attempt=$((crashes+1)) target=$MECHSCOPE_TARGET"
+    set +e; "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1; rc=$?; set -e
+    if ! gaming_requested; then return 0; fi
+    crashes=$((crashes+1)); log "MechScope exited rc=$rc while Gaming Mode remains active; restart=$crashes"
+    if (( crashes >= 3 )); then safe_desktop_fallback "MechScope target $MECHSCOPE_TARGET exited three consecutive times (last rc=$rc)"; return 0; fi
+    sleep "$crashes"
   done
 }
-
 start_plasma_mechscope(){
-  export MECHOS_DISABLE_GAMESCOPE=1
-  export MECHOS_SESSION_SUPERVISED=1
-  export XDG_SESSION_TYPE=wayland
-  export XDG_CURRENT_DESKTOP=KDE
-  export XDG_SESSION_DESKTOP=KDE
-  export DESKTOP_SESSION=plasma
+  export MECHOS_DISABLE_GAMESCOPE=1 MECHOS_SESSION_SUPERVISED=1 XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE DESKTOP_SESSION=plasma
   plasma_mechscope_supervisor &
   exec /usr/bin/startplasma-wayland
 }
@@ -55,17 +93,8 @@ if [[ -n "$VIRT" && "$VIRT" != none ]]; then
 fi
 if [[ ! -x /usr/bin/gamescope ]]; then start_plasma_mechscope; fi
 
-export XDG_SESSION_TYPE=wayland
-export XDG_CURRENT_DESKTOP=gamescope
-export XDG_SESSION_DESKTOP=MechScope
-export DESKTOP_SESSION=mechscope
-export MECHOS_SESSION_SUPERVISED=1
-export STEAM_ALLOW_DRIVE_UNMOUNT=1
-export STEAM_GAMESCOPE_TEARING_SUPPORTED=1
-export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
-export STEAM_GAMESCOPE_COLOR_MANAGED=1
-export STEAM_MULTIPLE_XWAYLANDS=1
-export STEAM_DISABLE_AUDIO_DEVICE_SWITCHING=1
+export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=gamescope XDG_SESSION_DESKTOP=MechScope DESKTOP_SESSION=mechscope MECHOS_SESSION_SUPERVISED=1
+export STEAM_ALLOW_DRIVE_UNMOUNT=1 STEAM_GAMESCOPE_TEARING_SUPPORTED=1 STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1 STEAM_GAMESCOPE_COLOR_MANAGED=1 STEAM_MULTIPLE_XWAYLANDS=1 STEAM_DISABLE_AUDIO_DEVICE_SWITCHING=1
 export STEAM_UPDATEUI_PNG_BACKGROUND=/usr/share/backgrounds/mechos/mechscope-loading.png
 [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && export STEAM_GAMESCOPE_VRR_SUPPORTED=1
 if [[ "${MECHOS_HDR:-0}" == 1 ]]; then export STEAM_GAMESCOPE_HDR_SUPPORTED=1 STEAM_GAMESCOPE_VIRTUAL_WHITE=1; fi
@@ -74,16 +103,12 @@ if lspci 2>/dev/null | grep -qi nvidia; then export GBM_BACKEND=nvidia-drm __GLX
 run_gamescope(){
   local label="$1"; shift
   local rc=0
-  log "starting Gamescope attempt=$label args=$*"
-  set +e; /usr/bin/gamescope "$@" -- "$MECHSCOPE" >>"$LOG_FILE" 2>&1; rc=$?; set -e
-  if ! gaming_requested; then
-    log "Gamescope attempt=$label exited rc=$rc after intentional mode transition mode=$(mode)"
-    return 0
-  fi
+  log "starting Gamescope attempt=$label target=$MECHSCOPE_TARGET interpreter=${MECHSCOPE_COMMAND[0]}"
+  set +e; /usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1; rc=$?; set -e
+  if ! gaming_requested; then return 0; fi
   log "Gamescope attempt=$label exited rc=$rc while Gaming Mode remains active; treating as recoverable failure"
   return 90
 }
-
 ARGS=(-e -f)
 [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync)
 [[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)
