@@ -17,8 +17,13 @@ for f in "$SESSION" "$OVERLAY"; do
   grep -Fq 'PERSISTENT_RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23' "$f"
   grep -Fq 'RAW_MECHSCOPE=/usr/local/bin/mechscope.real' "$f"
   grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' "$f"
-  grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' "$f"
-  grep -Fq '"${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE"' "$f"
+  if grep -Fq 'MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER' "$f"; then
+    grep -Fq '/usr/bin/gamescope "$@" -- /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"' "$f"
+    grep -Fq '/usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"' "$f"
+  else
+    grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' "$f"
+    grep -Fq '"${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE"' "$f"
+  fi
   grep -Fq 'crashes >= 3' "$f"
   grep -Fq 'safe_desktop_fallback' "$f"
   grep -Fq "printf 'desktop\\n' >\"\$MODE_FILE\"" "$f"
