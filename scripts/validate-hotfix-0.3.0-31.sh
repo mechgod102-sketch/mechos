@@ -38,7 +38,7 @@ from pathlib import Path
 print('HF31_RAW_PYTHON_OK')
 PY
 chmod 0755 "$tmp/mechscope.real"
-out="$(HOME="$tmp/home" XDG_STATE_HOME="$tmp/state" MECHOS_MECHSCOPE_TARGET="$tmp/mechscope.real" "$SAFE")"
+out="$(HOME="$tmp/home" XDG_STATE_HOME="$tmp/state" MECHOS_MECHSCOPE_TARGET="$tmp/mechscope.real" bash "$SAFE")"
 [ "$out" = 'HF31_RAW_PYTHON_OK' ] || { echo "safe-launch raw Python test failed: $out" >&2; exit 1; }
 grep -Fq 'interpreter=/usr/bin/python3' "$tmp/state/mechos/mechscope-safe-launch-v31.log"
 
