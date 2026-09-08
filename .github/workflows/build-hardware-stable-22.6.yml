@@ -11,6 +11,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'build-iso.sh'
       - 'scripts/**'
       - 'updates/stable.json'
       - 'updates/bundles/MechOS-0.3.0-hotfix.*-update.tar.zst'
@@ -48,6 +49,8 @@ jobs:
           set -euo pipefail
           ./scripts/validate-project.sh
           bash scripts/validate-hotfix-0.3.0-22.sh
+          bash -n build-iso.sh
+          grep -Fq 'MECHOS_HARDWARE_TARGET_VERSION=${MECHOS_HARDWARE_TARGET_VERSION:-}' build-iso.sh
           bash -n scripts/mechos-hardware-verify-v22.sh
           bash -n scripts/mechos-hardware-stable-seed-v22.sh
           bash -n scripts/mechos-hardware-prepare-stable.sh
@@ -90,7 +93,6 @@ jobs:
               assert builder.is_file(), f'{bundle} missing and {builder} does not exist'
               print(f'hardware stable target: {version}; bundle will be generated from {builder}')
 
-          # Explicitly regression-test the version parser that HF27 will use.
           def key(v):
               m = re.fullmatch(r'0\.3\.0-hotfix\.(\d+(?:\.\d+)*)', v)
               assert m, v
@@ -187,7 +189,7 @@ jobs:
           Stable selection:
           - updates/stable.json remains the normal source of truth.
           - workflow_dispatch can explicitly request a target such as 0.3.0-hotfix.27 once its build script exists.
-          - pushes touching scripts, the stable manifest, or hotfix bundles retrigger this hardware workflow.
+          - pushes touching build-iso.sh, scripts, the stable manifest, or hotfix bundles retrigger this hardware workflow.
           - if the manifest points to a target whose bundle has not yet been generated, the hardware build can generate it from the exact matching build-hotfix script.
           - the build refuses a target older than 0.3.0-hotfix.22.6.
           - the stable bundle SHA256 must match the resolved manifest before it is packed into the installed payload.
