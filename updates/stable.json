@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.6",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 6",
+  "version": "0.3.0-hotfix.28",
+  "release_name": "MechOS v0.3.0 Hotfix 28",
   "published_at": "2026-09-08",
-  "notes": "Hotfix 22 cumulative revision 6 fixes a Creator Mode transition crash observed after MechScope recovery. Hotfix16 could SourceFileLoader-import Creator Mode inside the already-running MechScope QApplication, causing Qt6 Wayland to attempt GUI platform initialization again and abort the MechScope Python process. Creator is now a deliberate exception to the single-shell model: MechScope intercepts Creator routes and hands them to the proven external Creator launcher, while the mode launcher and shell router enforce the same process boundary. Unified Store, Performance, Updates and Recovery remain embedded. Hotfix22.5 MechScope reference compatibility and all prior cumulative recovery fixes remain active.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst",
-  "bundle_sha256": "54a2192bdcf93556ca5a9d24b7f450b2c58ca60f71acce55eef0bac9540cb5fe",
+  "notes": "Cumulative VMware/VM MechScope launch repair. Replaces stale VM runtimes that executed raw Python /usr/local/bin/mechscope.real as shell code, causing from/import command-not-found errors and failed Wayland/X11 retries. VM mode changes now route directly through the current Plasma-hosted runtime, prefer the persistent Hotfix 22.6+ MechScope runtime when its owner exists, explicitly invoke Python targets through /usr/bin/python3, retain Wayland/XWayland fallback, and restore the Return to MechScope launcher. Includes all Hotfix 27 OOBE UI crash fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst",
+  "bundle_sha256": "2f6a38fc5940cae3d3fe404c84494c633d4edcd2583d5785ffd85f126c611735",
   "requires_reboot": true
 }
