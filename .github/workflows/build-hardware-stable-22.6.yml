@@ -64,7 +64,7 @@ jobs:
           grep -Fq 'mechos-oobe-finish-reboot' scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq '99-mechos-final-user.conf' scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq 'EXPECTED_VERSION=0.3.0-hotfix.22.6' scripts/mechos-hardware-stable-seed-v22.sh
-          grep -Fq 'EXPECTED_SHA=0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106' scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'EXPECTED_SHA=54a2192bdcf93556ca5a9d24b7f450b2c58ca60f71acce55eef0bac9540cb5fe' scripts/mechos-hardware-stable-seed-v22.sh
           bash -n scripts/mechos-live-installer-final-hardening.sh
           grep -Fq 'MECHOS_LIVE_INSTALLER_FINAL_HARDENING_V1' scripts/mechos-live-installer-final-hardening.sh
           grep -Fq 'mechos-live-installer-final-hardening.sh' scripts/mechos-hotfix13-stability-integration.sh
