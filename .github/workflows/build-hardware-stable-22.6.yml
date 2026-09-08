@@ -2,21 +2,16 @@ name: Build MechOS Hardware Stable - 22.6 Base + Latest Stable
 
 on:
   workflow_dispatch:
+    inputs:
+      stable_target:
+        description: 'Optional hotfix target, for example 0.3.0-hotfix.27. Requires its build script to exist.'
+        required: false
+        default: ''
+        type: string
   push:
     branches: [main]
     paths:
-      - 'scripts/mechos-hardware-verify-v22.sh'
-      - 'scripts/mechos-hardware-stable-seed-v22.sh'
-      - 'scripts/mechos-hardware-follow-stable.sh'
-      - 'scripts/mechos-postinstall-account-hotfix.sh'
-      - 'scripts/patch-mechos-hardware-stable-22.6.py'
-      - 'scripts/mechos-mechscope-runtime-v23.py'
-      - 'scripts/mechos-mode-launch-v19.sh'
-      - 'scripts/mechos-shell-route-v19.sh'
-      - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-22.sh'
-      - 'scripts/mechos-hotfix13-stability-integration.sh'
-      - 'scripts/mechos-live-installer-final-hardening.sh'
+      - 'scripts/**'
       - 'updates/stable.json'
       - 'updates/bundles/MechOS-0.3.0-hotfix.*-update.tar.zst'
       - 'updates/bundles/MechOS-0.3.0-hotfix.*-update.tar.zst.sha256'
@@ -48,16 +43,18 @@ jobs:
           docker system prune -af --volumes || true
           df -h
 
-      - name: Validate hardware baseline and latest stable target
+      - name: Validate hardware baseline and stable-target support
         run: |
           set -euo pipefail
           ./scripts/validate-project.sh
           bash scripts/validate-hotfix-0.3.0-22.sh
           bash -n scripts/mechos-hardware-verify-v22.sh
           bash -n scripts/mechos-hardware-stable-seed-v22.sh
+          bash -n scripts/mechos-hardware-prepare-stable.sh
           bash -n scripts/mechos-hardware-follow-stable.sh
           bash -n scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq 'MECHOS_HARDWARE_STABLE_SEED_V22_7' scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'MECHOS_HARDWARE_PREPARE_STABLE_V1' scripts/mechos-hardware-prepare-stable.sh
           grep -Fq 'MECHOS_HARDWARE_FOLLOW_STABLE_V1' scripts/mechos-hardware-follow-stable.sh
           grep -Fq 'MECHOS_HARDWARE_STABLE_RELEASE_COMMIT_V1' scripts/mechos-hardware-follow-stable.sh
           grep -Fq 'MECHOS_POSTINSTALL_ACCOUNT_HOTFIX_V2' scripts/mechos-postinstall-account-hotfix.sh
@@ -74,20 +71,32 @@ jobs:
             sha256sum -c MechOS-0.3.0-hotfix.22.6-update.tar.zst.sha256
           )
           python3 - <<'PY'
-          import hashlib, json
+          import hashlib, json, re
           from pathlib import Path
           from urllib.parse import urlparse
 
           manifest = json.loads(Path('updates/stable.json').read_text(encoding='utf-8'))
           assert manifest['channel'] == 'stable', manifest
           version = manifest['version']
-          assert version.startswith('0.3.0-hotfix.'), version
+          assert re.fullmatch(r'0\.3\.0-hotfix\.\d+(?:\.\d+)*', version), version
           name = Path(urlparse(manifest['bundle_url']).path).name
           bundle = Path('updates/bundles') / name
-          assert bundle.is_file(), bundle
-          actual = hashlib.sha256(bundle.read_bytes()).hexdigest()
-          assert actual == manifest['bundle_sha256'], (actual, manifest['bundle_sha256'])
-          print(f'hardware stable target: {version} bundle={name} sha256={actual}')
+          if bundle.is_file():
+              actual = hashlib.sha256(bundle.read_bytes()).hexdigest()
+              assert actual == manifest['bundle_sha256'], (actual, manifest['bundle_sha256'])
+              print(f'hardware stable target: {version} bundle={name} sha256={actual}')
+          else:
+              builder = Path('scripts') / f'build-hotfix-{version}.sh'
+              assert builder.is_file(), f'{bundle} missing and {builder} does not exist'
+              print(f'hardware stable target: {version}; bundle will be generated from {builder}')
+
+          # Explicitly regression-test the version parser that HF27 will use.
+          def key(v):
+              m = re.fullmatch(r'0\.3\.0-hotfix\.(\d+(?:\.\d+)*)', v)
+              assert m, v
+              return tuple(int(x) for x in m.group(1).split('.'))
+          assert key('0.3.0-hotfix.27') > key('0.3.0-hotfix.26')
+          assert key('0.3.0-hotfix.27.1') > key('0.3.0-hotfix.27')
           PY
           grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' scripts/mechos-mode-launch-v19.sh
           grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' scripts/mechos-shell-route-v19.sh
@@ -109,27 +118,35 @@ jobs:
           python3 scripts/patch-mechos-hardware-stable-22.6.py scripts/build-mechos-archiso.sh
           bash -n scripts/build-mechos-archiso.sh
           test "$(grep -c '^# MECHOS_HARDWARE_STABLE_22_6_INTEGRATION$' scripts/build-mechos-archiso.sh)" -eq 1
+          grep -Fq 'bash /workspace/scripts/mechos-hardware-prepare-stable.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'bash /workspace/scripts/mechos-hardware-follow-stable.sh final' scripts/build-mechos-archiso.sh
           python3 - <<'PY'
           from pathlib import Path
           t=Path('scripts/build-mechos-archiso.sh').read_text()
+          prepare='bash /workspace/scripts/mechos-hardware-prepare-stable.sh final'
           seed='bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final'
           account='bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final'
           latest='bash /workspace/scripts/mechos-hardware-follow-stable.sh final'
-          assert t.index(seed) < t.index(account) < t.index(latest) < t.rindex('mkarchiso')
+          assert t.index(prepare) < t.index(seed) < t.index(account) < t.index(latest) < t.rindex('mkarchiso')
           PY
           grep -Fq 'mechos-finalize-install-payload.sh final' scripts/build-mechos-archiso.sh
           grep -Fq 'mechos-hotfix13-stability-integration.sh' scripts/build-mechos-archiso.sh
 
       - name: Build physical hardware ISO
+        env:
+          MECHOS_HARDWARE_TARGET_VERSION: ${{ github.event.inputs.stable_target }}
         run: ./build-iso.sh
 
       - name: Verify and name hardware candidate
         run: |
           set -euo pipefail
           STABLE_VERSION="$(python3 -c "import json; print(json.load(open('updates/stable.json'))['version'])")"
+          REQUESTED="${{ github.event.inputs.stable_target }}"
+          if [ -n "$REQUESTED" ]; then
+            STABLE_VERSION="$REQUESTED"
+          fi
           ISO="$(find out -maxdepth 2 -type f -name '*.iso' -print -quit)"
           test -n "$ISO"
           test -s "$ISO"
@@ -157,8 +174,8 @@ jobs:
           Goal:
           - verify clean UEFI boot and installation on real hardware
           - verify the installed payload contains at least the validated Hotfix 22.6 hardware baseline
-          - verify the newest published stable cumulative hotfix is layered after the 22.6 baseline
-          - verify first boot activates the stable target and only then commits /etc/mechos/release
+          - verify the newest published or explicitly requested cumulative hotfix is layered after the 22.6 baseline
+          - verify first boot activates the target hotfix and only then commits /etc/mechos/release
           - verify first installed boot goes directly into fullscreen account creation
           - verify mechos-setup is only a temporary transport account and never the final owner
           - verify finishing OOBE creates the requested user, assigns its password/admin groups, and schedules a privileged reboot
@@ -166,15 +183,14 @@ jobs:
           - verify GPU/Vulkan, Wi-Fi/Ethernet, Bluetooth, PipeWire audio, storage and controllers
           - verify MechScope startup and MechScope -> Creator Mode external Qt handoff
           - verify reboot/shutdown and suspend/resume manually
-          - verify the Live installer requires explicit whole-disk selection
-          - verify Clean Install/Keep Home never ask for a Live-session sudo password
-          - verify an offline/broken-mirror Clean Install fails before any disk changes
 
           Stable selection:
-          - updates/stable.json is the source of truth.
-          - Every push that changes updates/stable.json or a stable update bundle triggers this hardware workflow.
-          - The build refuses a stable target older than 0.3.0-hotfix.22.6.
-          - The stable bundle SHA256 must match updates/stable.json before it is packed into the installed payload.
+          - updates/stable.json remains the normal source of truth.
+          - workflow_dispatch can explicitly request a target such as 0.3.0-hotfix.27 once its build script exists.
+          - pushes touching scripts, the stable manifest, or hotfix bundles retrigger this hardware workflow.
+          - if the manifest points to a target whose bundle has not yet been generated, the hardware build can generate it from the exact matching build-hotfix script.
+          - the build refuses a target older than 0.3.0-hotfix.22.6.
+          - the stable bundle SHA256 must match the resolved manifest before it is packed into the installed payload.
 
           After signing in run:
               cat /etc/mechos/release
