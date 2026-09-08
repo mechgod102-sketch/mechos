@@ -241,6 +241,7 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
         return style
 
     def _layout_recent_widgets(self):
+        # MECHOS_RESPONSIVE_RECENT_GAMES_V1
         # MECHOS_RESPONSIVE_RECENT_GAMES_V2
         if not self.recent_widgets or not hasattr(self, 'recent_host'):
             return
@@ -252,8 +253,6 @@ QPushButton:hover,QPushButton:focus{border:3px solid #bba4ff}
 
         for child in self.recent_widgets:
             if bool(child.property('mechosRecentEmpty')):
-                # Keep the empty-state card compact so the panel does not read
-                # like an oversized disabled control at 1080p.
                 y = max(0, int(round(23 * sy)))
                 h = max(1, min(host_h-y, int(round(154 * sy))))
                 child.setGeometry(0, y, host_w, h)
