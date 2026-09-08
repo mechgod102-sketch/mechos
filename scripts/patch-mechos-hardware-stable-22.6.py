@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# MECHOS_HARDWARE_STABLE_PATCHER_V22_9
+# MECHOS_HARDWARE_STABLE_PATCHER_V22_10
 from __future__ import annotations
 
 import re
@@ -12,6 +12,7 @@ SEED_CALL = "bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final"
 ACCOUNT_CALL = "bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final"
 FOLLOW_STABLE_CALL = "bash /workspace/scripts/mechos-hardware-follow-stable.sh final"
 CREATOR_FINAL_CALL = "bash /workspace/scripts/mechos-hardware-creator-final.sh final"
+CREATOR_ICONS_CALL = "bash /workspace/scripts/mechos-hardware-creator-icons.sh final"
 
 
 def ensure_existing_patch(text: str) -> str:
@@ -38,6 +39,12 @@ def ensure_existing_patch(text: str) -> str:
             raise SystemExit("could not place hardware Creator repair after latest-stable overlay")
         text = text.replace(anchor, anchor + CREATOR_FINAL_CALL + "\n", 1)
 
+    if CREATOR_ICONS_CALL not in text:
+        anchor = CREATOR_FINAL_CALL + "\n"
+        if anchor not in text:
+            raise SystemExit("could not place Creator icon pass after responsive Creator repair")
+        text = text.replace(anchor, anchor + CREATOR_ICONS_CALL + "\n", 1)
+
     return text
 
 
@@ -48,6 +55,7 @@ def validate_order(text: str) -> None:
         (ACCOUNT_CALL, "postinstall account hotfix"),
         (FOLLOW_STABLE_CALL, "latest stable follower"),
         (CREATOR_FINAL_CALL, "hardware Creator final repair"),
+        (CREATOR_ICONS_CALL, "hardware Creator icon pass"),
     ):
         if text.count(call) != 1:
             raise SystemExit(f"{label} must appear exactly once")
@@ -58,9 +66,10 @@ def validate_order(text: str) -> None:
         < text.index(ACCOUNT_CALL)
         < text.index(FOLLOW_STABLE_CALL)
         < text.index(CREATOR_FINAL_CALL)
+        < text.index(CREATOR_ICONS_CALL)
     ):
         raise SystemExit(
-            "hardware build order must be stable preparation -> 22.6 seed -> account repair -> newest stable overlay -> Creator final repair"
+            "hardware build order must be stable preparation -> 22.6 seed -> account repair -> newest stable overlay -> Creator final repair -> Creator icon pass"
         )
 
 
@@ -82,12 +91,13 @@ def patch(path: Path) -> None:
         "# Prepare the newest published stable target, seed Hotfix 22.6 as the\n"
         "# validated physical-hardware minimum, apply the final account repair,\n"
         "# overlay the selected cumulative stable bundle, then reassert hardware\n"
-        "# Creator Mode from current source so an older cumulative UI cannot win.\n"
+        "# Creator Mode and its responsive icon pass from current source.\n"
         f"{PREPARE_CALL}\n"
         f"{SEED_CALL}\n"
         f"{ACCOUNT_CALL}\n"
         f"{FOLLOW_STABLE_CALL}\n"
-        f"{CREATOR_FINAL_CALL}\n\n"
+        f"{CREATOR_FINAL_CALL}\n"
+        f"{CREATOR_ICONS_CALL}\n\n"
     )
     text = text[: match.start()] + block + text[match.start() :]
     path.write_text(text, encoding="utf-8")
