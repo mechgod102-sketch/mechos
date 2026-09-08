@@ -19,6 +19,26 @@ grep -Fq "QTimer.singleShot(1000, self.owner.showFullScreen)" "$SHELL" || fail "
 grep -Fq "virtual/test storage" "$SHELL" || fail "VM storage labeling missing"
 grep -Fq "Mask only the demo-data regions" "$SHELL" || fail "reference demo-data masking missing"
 
+# Footer actions must render their own visible Qt surface. The former design
+# used invisible hit rectangles over baked PNG buttons, allowing the visual and
+# clickable positions to drift apart on the Live installer.
+grep -Fq "def action_button(self, title, rect, fn, primary=False):" "$SHELL" \
+  || fail "source-owned installer action-button primitive missing"
+grep -Fq "self.repair_button = self.action_button('Repair'" "$SHELL" \
+  || fail "Repair is not a source-rendered/click-aligned action button"
+grep -Fq "self.install_button = self.action_button('Install Now'" "$SHELL" \
+  || fail "Install Now is not a source-rendered/click-aligned action button"
+grep -Fq 'QPushButton[role="action-primary"]' "$SHELL" \
+  || fail "primary installer action visual style missing"
+grep -Fq 'QPushButton[role="action-secondary"]' "$SHELL" \
+  || fail "secondary installer action visual style missing"
+if grep -Fq "self.hotspot('Repair'" "$SHELL"; then
+  fail "Repair regressed to an invisible reference-art hotspot"
+fi
+if grep -Fq "self.hotspot('Install Now'" "$SHELL"; then
+  fail "Install Now regressed to an invisible reference-art hotspot"
+fi
+
 if grep -Fq "QLabel[role=\"live\"]" "$SHELL"; then
   fail "legacy floating live overlay style returned"
 fi
@@ -29,4 +49,4 @@ if grep -Fq "#a88cff" "$SHELL"; then
   fail "legacy purple debug focus outline returned"
 fi
 
-echo "[validate-installer-reference-runtime] OK: approved reference chrome is retained while fake demo hardware/drives/version are replaced by real runtime data and fullscreen is enforced"
+echo "[validate-installer-reference-runtime] OK: approved reference chrome is retained, fake demo data is replaced by runtime data, and footer actions render exactly where they receive input"
