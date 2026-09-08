@@ -2,23 +2,8 @@
 # MECHOS_MECHSCOPE_RUNTIME_V23
 # MECHOS_MECHSCOPE_RUNTIME_V25
 # MECHOS_MECHSCOPE_RUNTIME_V26
-"""Stable MechScope entrypoint for patched generated owners.
-
-The generated MechScope owner can be modified by cumulative hotfix layers. This
-runtime deliberately imports that owner as a module and owns QApplication.exec()
-itself, so a stale or missing __main__ block cannot make Gaming Mode exit 0
-immediately after startup.
-
-Hotfix 22.5 restores source-owned exact-reference helpers in memory when a
-generated owner kept calls to them but lost their definitions.
-
-Hotfix 22.6 also prevents Creator Mode from being imported into the live
-MechScope interpreter. Creator owns its own QApplication; loading it through the
-Hotfix 16 SourceFileLoader path can make Qt/Wayland initialize a second GUI
-application in the existing process and abort. Creator requests are therefore
-handed to the proven external Creator launcher while other unified-shell pages
-remain in-process.
-"""
+# MECHOS_MECHSCOPE_VM_LIFETIME_V29
+"""Stable MechScope entrypoint for patched generated owners."""
 from __future__ import annotations
 
 import importlib.util
@@ -32,9 +17,8 @@ DEFAULT_COMPAT = Path("/usr/local/share/mechos/ui/mechscope_reference_compat_v25
 DEFAULT_CREATOR_LAUNCHER = Path("/usr/local/libexec/mechos-creator-launch-v19")
 OWNER = Path(os.environ.get("MECHOS_MECHSCOPE_OWNER", str(DEFAULT_OWNER)))
 COMPAT = Path(os.environ.get("MECHOS_MECHSCOPE_COMPAT", str(DEFAULT_COMPAT)))
-CREATOR_LAUNCHER = Path(
-    os.environ.get("MECHOS_CREATOR_LAUNCHER", str(DEFAULT_CREATOR_LAUNCHER))
-)
+CREATOR_LAUNCHER = Path(os.environ.get("MECHOS_CREATOR_LAUNCHER", str(DEFAULT_CREATOR_LAUNCHER)))
+MODE_FILE = Path.home() / ".config/mechos/session-mode"
 LOG = Path(os.environ.get(
     "MECHOS_MECHSCOPE_RUNTIME_LOG",
     str(Path.home() / ".local/state/mechos/mechscope-runtime-v23.log"),
@@ -53,26 +37,18 @@ def log(message: str) -> None:
 def load_owner(path: Path):
     if not path.is_file():
         raise RuntimeError(f"MechScope owner missing: {path}")
-
-    # Never try to create __pycache__ next to root-owned MechOS executables.
     sys.dont_write_bytecode = True
-
     spec = importlib.util.spec_from_file_location("mechos_mechscope_owner_v23", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load MechScope owner: {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-
     try:
         spec.loader.exec_module(module)
     except SystemExit as exc:
-        # Some historical owners contain top-level/legacy exit paths. A clean
-        # exit is exactly the regression this wrapper is designed to bypass.
-        code = exc.code
-        if code not in (None, 0):
+        if exc.code not in (None, 0):
             raise
-        log(f"ignored legacy clean SystemExit while importing owner: {code!r}")
-
+        log(f"ignored legacy clean SystemExit while importing owner: {exc.code!r}")
     return module
 
 
@@ -93,7 +69,6 @@ def install_owner_compat(module) -> None:
     missing = [name for name in required if not hasattr(module, name)]
     if not missing:
         return
-
     compat = load_compat(COMPAT)
     installed = []
     for name in missing:
@@ -102,63 +77,108 @@ def install_owner_compat(module) -> None:
             raise RuntimeError(f"MechScope compatibility module does not provide {name}")
         setattr(module, name, value)
         installed.append(name)
-
     log("installed MechScope reference compatibility: " + ", ".join(installed))
 
 
 def install_creator_external_handoff(module) -> None:
-    """Keep Creator Mode out of the active MechScope QApplication process."""
     mechscope_class = getattr(module, "MechScope", None)
     if mechscope_class is None:
         raise RuntimeError("MechScope class missing while installing Creator handoff")
-
     original = getattr(mechscope_class, "_mechos_shell_route_v16", None)
     if not callable(original):
-        # Owners that predate the single-shell patch already use process-level
-        # launchers and do not need this compatibility override.
         log("Creator external handoff not needed; v16 shell route is absent")
         return
-
     if getattr(mechscope_class, "_mechos_creator_external_handoff_v26", False):
         return
 
     def route_with_external_creator(self, key):
         value = str(key).strip().lower()
         aliases = {
-            "mechscope": "gaming",
-            "update": "updates",
-            "performance-center": "performance",
-            "recovery-center": "recovery",
+            "mechscope": "gaming", "update": "updates",
+            "performance-center": "performance", "recovery-center": "recovery",
         }
         value = aliases.get(value, value)
         if value != "creator":
             return original(self, key)
-
-        # A stale queued Creator route must not be consumed again by the v16
-        # poller after the external process is launched.
         route_file = getattr(self, "_mechos_shell_route_file_v16", None)
         if route_file is not None:
             try:
                 route_file.unlink(missing_ok=True)
             except Exception:
                 pass
-
         if not CREATOR_LAUNCHER.is_file() or not os.access(CREATOR_LAUNCHER, os.X_OK):
             raise RuntimeError(f"MechOS Creator launcher missing: {CREATOR_LAUNCHER}")
-
         from PyQt6.QtCore import QProcess
-
         result = QProcess.startDetached(str(CREATOR_LAUNCHER), ["creator"])
         started = result[0] if isinstance(result, tuple) else bool(result)
         if not started:
             raise RuntimeError("MechOS Creator external handoff failed to start")
-
         log(f"Creator Mode handed off externally via {CREATOR_LAUNCHER}")
         return True
 
     mechscope_class._mechos_shell_route_v16 = route_with_external_creator
     mechscope_class._mechos_creator_external_handoff_v26 = True
     log("installed Creator external Qt handoff for v16 unified-shell routes")
+
+
+def gaming_mode_active() -> bool:
+    try:
+        if MODE_FILE.is_file():
+            return MODE_FILE.read_text(encoding="utf-8", errors="ignore").strip() == "gaming"
+    except Exception:
+        pass
+    return True
+
+
+def install_vm_lifetime_guard(app, window) -> None:
+    """Keep the VMware gaming shell resident until a real mode switch occurs.
+
+    Some mixed-version owners briefly hide/close their top-level window while
+    restoring the gaming surface. Qt normally quits when the last window closes,
+    which looks like MechScope starts and then immediately stops. In VM gaming
+    mode, disable that implicit quit and restore the primary window while the
+    session-mode file still says gaming. Creator/Desktop transitions change that
+    file and are therefore never fought by this guard.
+    """
+    if os.environ.get("MECHOS_VM_MODE") != "1":
+        return
+
+    from PyQt6.QtCore import QTimer
+
+    app.setQuitOnLastWindowClosed(False)
+    state = {"hidden": False}
+
+    def keepalive() -> None:
+        if not gaming_mode_active():
+            return
+        try:
+            visible = bool(window.isVisible())
+        except RuntimeError:
+            log("VM lifetime guard: primary MechScope QObject was destroyed")
+            return
+        if visible:
+            state["hidden"] = False
+            return
+        if not state["hidden"]:
+            log("VM lifetime guard: MechScope became hidden while Gaming Mode remained active; restoring window")
+            state["hidden"] = True
+        try:
+            window.showFullScreen()
+            window.raise_()
+            window.activateWindow()
+        except Exception:
+            log("VM lifetime guard restore failed:\n" + traceback.format_exc())
+
+    timer = QTimer(app)
+    timer.setInterval(750)
+    timer.timeout.connect(keepalive)
+    timer.start()
+    setattr(app, "_mechos_vm_lifetime_timer_v29", timer)
+    app.aboutToQuit.connect(lambda: log(
+        "QApplication aboutToQuit; mode=" +
+        (MODE_FILE.read_text(encoding="utf-8", errors="ignore").strip() if MODE_FILE.is_file() else "unknown")
+    ))
+    log("installed VMware MechScope lifetime guard")
 
 
 def main() -> int:
@@ -179,18 +199,23 @@ def main() -> int:
             raise RuntimeError(f"{class_name} class missing from MechScope owner")
 
         window = window_class()
-        # Hold a reference for the lifetime of the event loop.
         setattr(app, "_mechos_primary_window_v23", window)
         setattr(app, "_mechos_primary_window_v25", window)
         setattr(app, "_mechos_primary_window_v26", window)
+        setattr(app, "_mechos_primary_window_v29", window)
 
         try:
             window.showFullScreen()
         except Exception:
             window.show()
 
+        if not store_only:
+            install_vm_lifetime_guard(app, window)
+
         log(f"running {class_name} from owner={OWNER}")
-        return int(app.exec())
+        rc = int(app.exec())
+        log(f"QApplication exited rc={rc} mode={'gaming' if gaming_mode_active() else 'non-gaming'}")
+        return rc
     except Exception:
         log("MechScope runtime failed:\n" + traceback.format_exc())
         raise
