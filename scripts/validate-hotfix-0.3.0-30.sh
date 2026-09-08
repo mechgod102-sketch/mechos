@@ -14,22 +14,27 @@ for f in "$SESSION" "$OVERLAY"; do
   grep -Fq 'actual_mechscope' "$f"
   grep -Fq 'is_python_target' "$f"
   grep -Fq 'python_source_check' "$f"
-  grep -Fq 'PERSISTENT_RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23' "$f"
-  grep -Fq 'RAW_MECHSCOPE=/usr/local/bin/mechscope.real' "$f"
+  if grep -Fq 'MECHOS_MECHSCOPE_SESSION_V23_SOURCE_RUNTIME' "$f"; then
+    grep -Fq 'SOURCE_RUNTIME=/usr/local/libexec/mechos-mechscope-source-runtime-v33' "$f"
+    if grep -Fq 'RAW_MECHSCOPE=/usr/local/bin/mechscope.real' "$f"; then
+      echo "V33 session regressed to automatic raw .real fallback: $f" >&2; exit 1
+    fi
+  else
+    grep -Fq 'PERSISTENT_RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23' "$f"
+    grep -Fq 'RAW_MECHSCOPE=/usr/local/bin/mechscope.real' "$f"
+  fi
   grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' "$f"
   if grep -Fq 'MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER' "$f"; then
     grep -Fq '/usr/bin/gamescope "$@" -- /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"' "$f"
     grep -Fq '/usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"' "$f"
   else
     grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' "$f"
-    grep -Fq '"${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE"' "$f"
   fi
   grep -Fq 'crashes >= 3' "$f"
   grep -Fq 'safe_desktop_fallback' "$f"
   grep -Fq "printf 'desktop\\n' >\"\$MODE_FILE\"" "$f"
   if grep -Eq 'gamescope .*-- .*\$MECHSCOPE([[:space:]";]|$)' "$f"; then
-    echo "raw MechScope executable is still passed directly to Gamescope: $f" >&2
-    exit 1
+    echo "raw MechScope executable is still passed directly to Gamescope: $f" >&2; exit 1
   fi
 done
 
@@ -44,5 +49,4 @@ grep -Fq 'MechOS-0.3.0-hotfix.30-update.tar.zst' "$BUILD"
 grep -Fq 'mechscope-session-v20.sh' "$BUILD"
 grep -Fq "'version':'0.3.0-hotfix.30'" "$BUILD"
 grep -Fq 'requires_reboot' "$BUILD"
-
 printf 'Hotfix 30 hardware Python/crash-loop regression validation passed.\n'
