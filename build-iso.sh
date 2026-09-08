@@ -27,6 +27,7 @@ mkdir -p "$OUT"
 docker run --rm --privileged \
   -e "MECHOS_HOST_UID=$(id -u)" \
   -e "MECHOS_HOST_GID=$(id -g)" \
+  -e "MECHOS_HARDWARE_TARGET_VERSION=${MECHOS_HARDWARE_TARGET_VERSION:-}" \
   -v "$BASE:/workspace" \
   -w /workspace \
   "$IMAGE" \
