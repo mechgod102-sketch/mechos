@@ -1,0 +1,37 @@
+name: Validate MechOS v0.3.0 Hotfix 27
+
+on:
+  pull_request:
+    paths:
+      - 'src/mechos_ui/oobe_shell.py'
+      - 'scripts/mechos-hotfix-0.3.0-27-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-27.sh'
+      - 'scripts/validate-hotfix-0.3.0-27.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-27.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-27.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/mechos_ui/oobe_shell.py'
+      - 'scripts/mechos-hotfix-0.3.0-27-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-27.sh'
+      - 'scripts/validate-hotfix-0.3.0-27.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-27.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-27.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Hotfix 27 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-27.sh
+      - name: Confirm OOBE instance data ownership
+        run: |
+          set -euo pipefail
+          grep -Fq 'self.zone.addItems(self.zones)' src/mechos_ui/oobe_shell.py
+          grep -Fq 'self.locale.addItems(self.locales)' src/mechos_ui/oobe_shell.py
+          grep -Fq 'for label,code in self.keymaps:' src/mechos_ui/oobe_shell.py
