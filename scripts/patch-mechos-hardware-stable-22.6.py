@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# MECHOS_HARDWARE_STABLE_PATCHER_V22_8
+# MECHOS_HARDWARE_STABLE_PATCHER_V22_9
 from __future__ import annotations
 
 import re
@@ -11,6 +11,7 @@ PREPARE_CALL = "bash /workspace/scripts/mechos-hardware-prepare-stable.sh final"
 SEED_CALL = "bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final"
 ACCOUNT_CALL = "bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final"
 FOLLOW_STABLE_CALL = "bash /workspace/scripts/mechos-hardware-follow-stable.sh final"
+CREATOR_FINAL_CALL = "bash /workspace/scripts/mechos-hardware-creator-final.sh final"
 
 
 def ensure_existing_patch(text: str) -> str:
@@ -31,6 +32,12 @@ def ensure_existing_patch(text: str) -> str:
             raise SystemExit("could not place latest-stable follower after account hotfix")
         text = text.replace(anchor, anchor + FOLLOW_STABLE_CALL + "\n", 1)
 
+    if CREATOR_FINAL_CALL not in text:
+        anchor = FOLLOW_STABLE_CALL + "\n"
+        if anchor not in text:
+            raise SystemExit("could not place hardware Creator repair after latest-stable overlay")
+        text = text.replace(anchor, anchor + CREATOR_FINAL_CALL + "\n", 1)
+
     return text
 
 
@@ -40,6 +47,7 @@ def validate_order(text: str) -> None:
         (SEED_CALL, "hardware stable seed"),
         (ACCOUNT_CALL, "postinstall account hotfix"),
         (FOLLOW_STABLE_CALL, "latest stable follower"),
+        (CREATOR_FINAL_CALL, "hardware Creator final repair"),
     ):
         if text.count(call) != 1:
             raise SystemExit(f"{label} must appear exactly once")
@@ -49,9 +57,10 @@ def validate_order(text: str) -> None:
         < text.index(SEED_CALL)
         < text.index(ACCOUNT_CALL)
         < text.index(FOLLOW_STABLE_CALL)
+        < text.index(CREATOR_FINAL_CALL)
     ):
         raise SystemExit(
-            "hardware build order must be stable preparation -> 22.6 seed -> account repair -> newest stable overlay"
+            "hardware build order must be stable preparation -> 22.6 seed -> account repair -> newest stable overlay -> Creator final repair"
         )
 
 
@@ -70,14 +79,15 @@ def patch(path: Path) -> None:
     match = matches[-1]
     block = (
         f"{MARKER}\n"
-        "# Prepare the newest published stable target (including source-first\n"
-        "# future hotfixes such as HF27), seed Hotfix 22.6 as the validated\n"
-        "# physical-hardware minimum, apply the final account repair, then\n"
-        "# overlay the selected cumulative stable bundle.\n"
+        "# Prepare the newest published stable target, seed Hotfix 22.6 as the\n"
+        "# validated physical-hardware minimum, apply the final account repair,\n"
+        "# overlay the selected cumulative stable bundle, then reassert hardware\n"
+        "# Creator Mode from current source so an older cumulative UI cannot win.\n"
         f"{PREPARE_CALL}\n"
         f"{SEED_CALL}\n"
         f"{ACCOUNT_CALL}\n"
-        f"{FOLLOW_STABLE_CALL}\n\n"
+        f"{FOLLOW_STABLE_CALL}\n"
+        f"{CREATOR_FINAL_CALL}\n\n"
     )
     text = text[: match.start()] + block + text[match.start() :]
     path.write_text(text, encoding="utf-8")
