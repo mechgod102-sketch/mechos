@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.12",
-  "release_name": "MechOS v0.3.0 Hotfix 12",
+  "version": "0.3.0-hotfix.22.6",
+  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 6",
   "published_at": "2026-09-08",
-  "notes": "MechScope permission hotfix. Fixes the Oracle VirtualBox runtime rc=1 failure caused by the launcher health check attempting to write Python bytecode into root-owned /usr/local/bin/__pycache__. Runtime validation now compiles MechScope source entirely in memory with no filesystem writes, while retaining Hotfix 11 Qt backend fallbacks and VM diagnostics.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.12-update.tar.zst",
-  "bundle_sha256": "24543011aaa73a0c9eb2c0f73ba7a8a7ede430a5a4fbded586f9c1e6f2ec0d81",
+  "notes": "Hotfix 22 cumulative revision 6 fixes a Creator Mode transition crash observed after MechScope recovery. Hotfix16 could SourceFileLoader-import Creator Mode inside the already-running MechScope QApplication, causing Qt6 Wayland to attempt GUI platform initialization again and abort the MechScope Python process. Creator is now a deliberate exception to the single-shell model: MechScope intercepts Creator routes and hands them to the proven external Creator launcher, while the mode launcher and shell router enforce the same process boundary. Unified Store, Performance, Updates and Recovery remain embedded. Hotfix22.5 MechScope reference compatibility and all prior cumulative recovery fixes remain active.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst",
+  "bundle_sha256": "54a2192bdcf93556ca5a9d24b7f450b2c58ca60f71acce55eef0bac9540cb5fe",
   "requires_reboot": true
 }
