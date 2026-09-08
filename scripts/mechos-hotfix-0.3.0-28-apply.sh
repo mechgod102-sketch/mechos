@@ -19,7 +19,7 @@ fail(){ printf '[MechOS Hotfix 28] ERROR: %s\n' "$*" >&2; exit 1; }
 [ -x "$LAUNCHER" ] || fail "mode launcher missing: $LAUNCHER"
 
 grep -Fq 'MECHOS_VM_MECHSCOPE_PERSISTENT_RUNTIME_V5' "$RUNTIME" || fail 'new VM MechScope runtime is not installed'
-grep -Fq 'MECHOS_HOTFIX5_VM_DIRECT_ROUTER_V1' "$LAUNCHER" || fail 'VM direct mode router is not installed'
+grep -Fq 'MECHOS_MODE_LAUNCH_VM_DIRECT_V28' "$LAUNCHER" || fail 'v19 VM direct mode router is not installed'
 bash -n "$RUNTIME"
 bash -n "$LAUNCHER"
 
@@ -76,16 +76,6 @@ EOF
 chmod 0644 /usr/share/applications/mechos-return-gaming.desktop
 
 grep -Fq 'Exec=/usr/local/bin/mechos-mode-launch gaming' /usr/share/applications/mechos-return-gaming.desktop
-
-# Remove stale failed user-service state where possible. The repaired launcher
-# directly handles the visible Wayland/XWayland attempts in the logged-in user.
-if [ -n "${SUDO_USER:-}" ] && id "$SUDO_USER" >/dev/null 2>&1; then
-  uid="$(id -u "$SUDO_USER")"
-  if [ -S "/run/user/$uid/bus" ]; then
-    runuser -u "$SUDO_USER" -- env XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
-      systemctl --user reset-failed mechos-vm-mechscope.service >/dev/null 2>&1 || true
-  fi
-fi
 
 mkdir -p "$STATE"
 touch "$MARKER"
