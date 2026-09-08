@@ -190,6 +190,7 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
         self.repair_button = self.action_button('Repair', QRect(1280, 930, 250, 96), self.owner.recovery)
         self.install_button = self.action_button('Install Now', QRect(1540, 930, 330, 96), self.owner.install, primary=True)
 
+        # Mask only the demo-data regions; preserve approved reference chrome.
         # Real target panel. This replaces the fake WD/Samsung/Seagate devices
         # embedded in the design reference.
         self.runtime_label('SELECT INSTALL TARGET', QRect(430, 300, 520, 34), 12, True, 'runtime-accent')
