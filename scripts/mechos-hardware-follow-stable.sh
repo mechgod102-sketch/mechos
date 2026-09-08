@@ -204,6 +204,64 @@ EOF
   cp -f "$MANIFEST" "$tree/usr/share/mechos/hardware-test/stable.json"
 done
 
+# Make the hardware verifier follow this build's selected stable target while
+# still accepting later hotfixes installed through the normal update channel.
+python3 - "$STAGE/usr/local/bin/mechos-hardware-verify" "$ROOT/usr/local/bin/mechos-hardware-verify" <<'PY'
+from pathlib import Path
+import sys
+
+for name in sys.argv[1:]:
+    p = Path(name)
+    if not p.is_file():
+        raise SystemExit(f"hardware verifier missing: {p}")
+    text = p.read_text(encoding="utf-8")
+    old = 'EXPECTED_VERSION="0.3.0-hotfix.22.6"'
+    new = '''BASELINE_VERSION="0.3.0-hotfix.22.6"
+EXPECTED_VERSION="$BASELINE_VERSION"
+if [ -r /etc/mechos/hardware-test-build ]; then
+  stable_target="$(sed -n 's/^stable_target=//p' /etc/mechos/hardware-test-build | tail -n1)"
+  [ -z "$stable_target" ] || EXPECTED_VERSION="$stable_target"
+fi
+
+version_ge(){
+  python3 - "$1" "$2" <<'PYVER'
+import re,sys
+pat=re.compile(r'^0\.3\.0-hotfix\.(\d+(?:\.\d+)*)$')
+def key(v):
+    m=pat.fullmatch(v)
+    if not m:
+        raise SystemExit(2)
+    return tuple(int(x) for x in m.group(1).split('.'))
+raise SystemExit(0 if key(sys.argv[1]) >= key(sys.argv[2]) else 1)
+PYVER
+}'''
+    if old not in text and 'BASELINE_VERSION="0.3.0-hotfix.22.6"' not in text:
+        raise SystemExit(f"hardware verifier version anchor missing: {p}")
+    if old in text:
+        text = text.replace(old, new, 1)
+
+    old_check = '''  if [ "$current" = "$EXPECTED_VERSION" ]; then
+    pass "installed release is $current"
+  else
+    fail "installed release is '${current:-unknown}', expected $EXPECTED_VERSION"
+  fi'''
+    new_check = '''  if [ "$current" = "$EXPECTED_VERSION" ]; then
+    pass "installed release is $current"
+  elif [ -n "$current" ] && version_ge "$current" "$EXPECTED_VERSION"; then
+    pass "installed release $current is newer than hardware-build target $EXPECTED_VERSION"
+  else
+    fail "installed release is '${current:-unknown}', expected $EXPECTED_VERSION or newer"
+  fi'''
+    if old_check in text:
+        text = text.replace(old_check, new_check, 1)
+    elif 'expected $EXPECTED_VERSION or newer' not in text:
+        raise SystemExit(f"hardware verifier release-check anchor missing: {p}")
+
+    p.write_text(text, encoding="utf-8")
+PY
+bash -n "$STAGE/usr/local/bin/mechos-hardware-verify"
+bash -n "$ROOT/usr/local/bin/mechos-hardware-verify"
+
 TMP="$ARCHIVE.hardware-stable-current"
 tar --zstd -cpf "$TMP" -C "$STAGE" .
 mv -f "$TMP" "$ARCHIVE"
