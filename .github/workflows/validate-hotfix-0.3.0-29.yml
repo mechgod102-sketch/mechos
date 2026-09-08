@@ -1,0 +1,101 @@
+name: Validate MechOS Hotfix 29
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/mechscope-session-v20.sh'
+      - 'scripts/mechos-mechscope-runtime-v23.py'
+      - 'scripts/mechos-vm-mode-runtime-hotfix5.sh'
+      - 'scripts/mechos-vm-mode-runtime-hotfix6.sh'
+      - 'scripts/mechos-vm-mechscope-watchdog-v29.sh'
+      - 'scripts/mechos-hotfix-0.3.0-29-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-29.sh'
+      - 'scripts/validate-hotfix-0.3.0-29.sh'
+      - 'src/mechos_ui/fixed_canvas.py'
+      - 'src/mechos_ui/creator_real_icons_v22.py'
+      - 'scripts/mechos-creator-real-icons-owner-v22-patch.py'
+      - 'overlay/rootfs/usr/local/bin/mechscope-session'
+      - '.github/workflows/validate-hotfix-0.3.0-29.yml'
+  push:
+    branches:
+      - 'hotfix/0.3.0-29-mechscope-lifetime-creator-icons'
+    paths:
+      - 'scripts/**'
+      - 'src/mechos_ui/**'
+      - 'overlay/rootfs/usr/local/bin/mechscope-session'
+      - '.github/workflows/validate-hotfix-0.3.0-29.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-mechos-hotfix-29-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-hotfix-29:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Validate Hotfix 29 source contracts
+        run: bash scripts/validate-hotfix-0.3.0-29.sh
+
+      - name: Build cumulative Hotfix 29 bundle
+        run: bash scripts/build-hotfix-0.3.0-29.sh
+
+      - name: Validate Hotfix 29 bundle
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst
+          S="$B.sha256"
+          test -s "$B"
+          test -s "$S"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.29-update.tar.zst.sha256)
+
+          for path in \
+            ./usr/local/bin/mechscope-session \
+            ./usr/local/bin/mechos-vm-mode-runtime \
+            ./usr/local/libexec/mechos-vm-mode-runtime-v5 \
+            ./usr/local/libexec/mechos-vm-mechscope-watchdog-v29 \
+            ./usr/local/libexec/mechos-mechscope-runtime-v23 \
+            ./usr/local/share/mechos/ui/fixed_canvas.py \
+            ./usr/local/share/mechos/ui/creator_real_icons_v22.py \
+            ./usr/local/libexec/mechos-creator-real-icons-owner-v22-patch \
+            ./usr/local/libexec/mechos-hotfix-0.3.0-29-apply \
+            ./usr/share/wayland-sessions/mechscope.desktop \
+            ./usr/lib/systemd/system/mechos-hotfix-0.3.0-29.service; do
+            tar --zstd -tf "$B" | grep -Fx "$path"
+          done
+
+          rm -rf /tmp/hf29-check
+          mkdir -p /tmp/hf29-check
+          tar --zstd -xpf "$B" -C /tmp/hf29-check
+          grep -Fq 'MECHOS_MECHSCOPE_SESSION_V20' /tmp/hf29-check/usr/local/bin/mechscope-session
+          grep -Fq 'return 90' /tmp/hf29-check/usr/local/bin/mechscope-session
+          grep -Fq 'MECHOS_VM_MECHSCOPE_SUSTAINED_HEALTH_V6' /tmp/hf29-check/usr/local/bin/mechos-vm-mode-runtime
+          grep -Fq 'MECHOS_VM_MECHSCOPE_WATCHDOG_V29' /tmp/hf29-check/usr/local/libexec/mechos-vm-mechscope-watchdog-v29
+          grep -Fq 'MECHOS_MECHSCOPE_LIFETIME_V29' /tmp/hf29-check/usr/local/libexec/mechos-mechscope-runtime-v23
+          grep -Fq 'MECHOS_CREATOR_BUTTON_ICONS_V1' /tmp/hf29-check/usr/local/share/mechos/ui/fixed_canvas.py
+          grep -Fq 'MECHOS_HOTFIX29_MECHSCOPE_LIFETIME_CREATOR_ICONS_V1' /tmp/hf29-check/usr/local/libexec/mechos-hotfix-0.3.0-29-apply
+          grep -Fq 'Exec=/usr/local/bin/mechscope-session' /tmp/hf29-check/usr/share/wayland-sessions/mechscope.desktop
+
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          b=Path('updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst')
+          d=json.loads(Path('updates/stable.json').read_text(encoding='utf-8'))
+          assert d['channel']=='stable'
+          assert d['version']=='0.3.0-hotfix.29'
+          assert d['requires_reboot'] is True
+          sha=hashlib.sha256(b.read_bytes()).hexdigest()
+          assert sha==d['bundle_sha256'], (sha,d['bundle_sha256'])
+          print('Hotfix 29 bundle SHA256:',sha)
+          PY
