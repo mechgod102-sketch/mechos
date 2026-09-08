@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.31",
-  "release_name": "MechOS v0.3.0 Hotfix 31",
+  "version": "0.3.0-hotfix.32",
+  "release_name": "MechOS v0.3.0 Hotfix 32",
   "published_at": "2026-09-08",
-  "notes": "Cumulative public MechScope Python-wrapper recovery. Fixes physical-hardware systems where the first-run tutorial Bash wrapper still executed /usr/local/bin/mechscope.real directly even though that preserved target is Python source. A single interpreter-aware safe launcher now validates raw Python and invokes it through /usr/bin/python3. Hotfix 31 patches the installed tutorial wrapper in place without removing tutorial/OOBE behavior and replaces the legacy KDE autostart fallback so it cannot bypass the safe launch path. Future ISO tutorial postinstall integration also installs the same safe launcher. Includes all Hotfix 30 hardware session, crash-loop, Creator icon, VMware, OOBE and updater repairs.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.31-update.tar.zst",
-  "bundle_sha256": "2b8566e1108a25d5e3b9bda1edd4c0e3e30ae8c2e87ba2f3eb44a9df16d38b69",
+  "notes": "Cumulative physical-hardware MechScope single-owner recovery. Fixes a race where the supervised Gamescope/Plasma hardware session and the legacy KDE graphical autostart could both launch MechScope during Plasma startup, producing duplicate instances and an apparent crash/restart loop even after the Hotfix 31 Python-wrapper repair. The canonical hardware session now owns a shared flock lock, KDE fallback exits whenever a supervised MechScope session is active, the safe launcher suppresses duplicate owners, and historical duplicate system autostarts that directly spawn MechScope are disabled. Includes all Hotfix 31 Python wrapper, Hotfix 30 crash-loop, Creator icon, VMware, OOBE and updater repairs.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.32-update.tar.zst",
+  "bundle_sha256": "20ebad03608c0c3081875dff5d6ad9abb07fe3f23c4b67ad9f4b7801d2196c70",
   "requires_reboot": true
 }
