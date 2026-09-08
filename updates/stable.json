@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.32",
-  "release_name": "MechOS v0.3.0 Hotfix 32",
+  "version": "0.3.0-hotfix.33",
+  "release_name": "MechOS v0.3.0 Hotfix 33",
   "published_at": "2026-09-08",
-  "notes": "Cumulative physical-hardware MechScope single-owner recovery. Fixes a race where the supervised Gamescope/Plasma hardware session and the legacy KDE graphical autostart could both launch MechScope during Plasma startup, producing duplicate instances and an apparent crash/restart loop even after the Hotfix 31 Python-wrapper repair. The canonical hardware session now owns a shared flock lock, KDE fallback exits whenever a supervised MechScope session is active, the safe launcher suppresses duplicate owners, and historical duplicate system autostarts that directly spawn MechScope are disabled. Includes all Hotfix 31 Python wrapper, Hotfix 30 crash-loop, Creator icon, VMware, OOBE and updater repairs.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.32-update.tar.zst",
-  "bundle_sha256": "20ebad03608c0c3081875dff5d6ad9abb07fe3f23c4b67ad9f4b7801d2196c70",
+  "notes": "Cumulative source-owned MechScope runtime recovery. Fixes physical-hardware systems where the update bundle installed the persistent runtime but could not restore its generated mechscope-owner-v23.py dependency, causing the safe launcher to fall back to legacy mechscope.real and repeatedly restart it. Hotfix 33 ships a complete source-owned PyQt MechScope runtime plus the source-owned MechScope shell, makes both the hardware session and public safe launcher prefer that runtime, refuses automatic legacy .real fallback on installed systems, cleans stale per-user MechScope autostarts/services, preserves the single-owner lock, and keeps the three-crash Desktop Mode safety fallback. Includes all Hotfix 32 fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.33-update.tar.zst",
+  "bundle_sha256": "ad25c647fa8d360945c576a58c22630f069e2ab72931eb01e1c7a15f8c2dc328",
   "requires_reboot": true
 }
