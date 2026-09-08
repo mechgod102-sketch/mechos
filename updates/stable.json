@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.23",
-  "release_name": "MechOS v0.3.0 Hotfix 23",
-  "published_at": "2026-09-07",
-  "notes": "Cumulative post-install account-creation recovery update. Repairs systems that can reach the temporary mechos-setup session but do not complete the permanent-user handoff. The OOBE is forced fullscreen, the temporary account remains non-admin, completion creates or renames the permanent user and sets its password/admin groups, SDDM is cleared of stale mechos-setup autologin fragments, reboot is scheduled by the privileged OOBE helper, and the temporary setup account is removed before the final sign-in. Update Center also retains the restricted firstboot apply bridge so incomplete-OOBE systems can install manifest-pinned MechOS updates without giving mechos-setup general administrator access. Includes the complete Hotfix 22.6 cumulative runtime and transactional updater protections.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.23-update.tar.zst",
-  "bundle_sha256": "bfbd5e82988369f4990ef48e1f693ab93ee1eb61dd07adc80e6ca83ed1d2f435",
+  "version": "0.3.0-hotfix.24",
+  "release_name": "MechOS v0.3.0 Hotfix 24",
+  "published_at": "2026-09-08",
+  "notes": "Cumulative MechScope startup recovery update. Corrects the Hotfix 23 post-OOBE SDDM handoff from the obsolete mechos-gaming.desktop session name to the installed mechscope.desktop session, restores automatic MechScope startup after login, and replaces the affected VMware VM Gaming launcher with a direct graphical-session runtime that preserves Plasma as compositor, imports the active display environment, launches MechScope with software rendering on Wayland, and retries through X11 when needed. Includes the complete Hotfix 23 account-creation recovery and cumulative updater protections.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.24-update.tar.zst",
+  "bundle_sha256": "5aab7e1f1b9d39874029f618aa1181cc2ac2353cf0f4da93f4a5d69a572c4b81",
   "requires_reboot": true
 }
