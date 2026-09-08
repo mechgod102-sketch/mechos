@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MechOS Live Plasma Welcome Guard
+Comment=Prevent KDE Welcome Center from covering the MechOS installer
+Exec=/usr/bin/bash /usr/local/lib/mechos/live-plasma-welcome-guard.sh
+Terminal=false
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=1
+X-GNOME-Autostart-enabled=true
