@@ -41,8 +41,9 @@ bash -n "$STAGE/usr/local/bin/mechos-oobe-start"
 bash -n "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-26-apply"
 grep -Fq 'MECHOS_OOBE_START_V26' "$STAGE/usr/local/bin/mechos-oobe-start"
 grep -Fq 'systemctl --user show-environment' "$STAGE/usr/local/bin/mechos-oobe-start"
-grep -Fq 'QT_QPA_PLATFORM=wayland' "$STAGE/usr/local/bin/mechos-oobe-start"
-grep -Fq 'QT_QPA_PLATFORM=xcb' "$STAGE/usr/local/bin/mechos-oobe-start"
+grep -Fq 'QT_QPA_PLATFORM="$platform"' "$STAGE/usr/local/bin/mechos-oobe-start"
+grep -Fq 'run_candidate wayland' "$STAGE/usr/local/bin/mechos-oobe-start"
+grep -Fq 'run_candidate xcb' "$STAGE/usr/local/bin/mechos-oobe-start"
 grep -Fq 'MECHOS_HOTFIX26_OOBE_LAUNCHER_V1' "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-26-apply"
 
 for required in \
