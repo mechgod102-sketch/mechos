@@ -53,14 +53,14 @@ class OOBEShell(FixedCanvas):
         self.stack.addWidget(account)
 
         region=self.page_base('REGION & TIME','Set your local environment.','Choose the timezone and language/locale used by MechOS and creator applications.')
-        region.label('Timezone',QRect(70,300,300,34),12,True,'muted'); self.zone=region.reg(QComboBox(),QRect(70,338,650,60),14); self.zone.setEditable(True); self.zone.addItems(zones); self.zone.setCurrentText('America/New_York' if 'America/New_York' in zones else (zones[0] if zones else 'UTC'))
-        region.label('Language / locale',QRect(790,300,300,34),12,True,'muted'); self.locale=region.reg(QComboBox(),QRect(790,338,650,60),14); self.locale.addItems(locales); self.locale.setCurrentText('en_US.UTF-8')
+        region.label('Timezone',QRect(70,300,300,34),12,True,'muted'); self.zone=region.reg(QComboBox(),QRect(70,338,650,60),14); self.zone.setEditable(True); self.zone.addItems(self.zones); self.zone.setCurrentText('America/New_York' if 'America/New_York' in self.zones else (self.zones[0] if self.zones else 'UTC'))
+        region.label('Language / locale',QRect(790,300,300,34),12,True,'muted'); self.locale=region.reg(QComboBox(),QRect(790,338,650,60),14); self.locale.addItems(self.locales); self.locale.setCurrentText('en_US.UTF-8')
         region.label('These settings can be changed later from Desktop Mode.',QRect(70,456,1370,50),12,False,'muted')
         self.stack.addWidget(region)
 
         device=self.page_base('DEVICE','Name and identify this machine.','Choose the keyboard layout and local network name for the installed system.')
         device.label('Keyboard layout',QRect(70,300,300,34),12,True,'muted'); self.keyboard=device.reg(QComboBox(),QRect(70,338,650,60),14)
-        for label,code in keymaps: self.keyboard.addItem(label,code)
+        for label,code in self.keymaps: self.keyboard.addItem(label,code)
         device.label('Computer name',QRect(790,300,300,34),12,True,'muted'); self.hostname=device.reg(QLineEdit('mechos'),QRect(790,338,650,60),14); self.hostname.setPlaceholderText('example: gaming-rig')
         device.label('The computer name is used for local networking and diagnostics.',QRect(70,456,1370,50),12,False,'muted')
         self.stack.addWidget(device)
