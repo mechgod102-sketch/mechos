@@ -1,0 +1,109 @@
+name: Publish MechOS v0.3.0 Hotfix 25
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-update-transaction-v25.sh'
+      - 'scripts/mechos-update-helper-v25.sh'
+      - 'scripts/mechos-oobe-rearm-v25.sh'
+      - 'scripts/mechos-hotfix-0.3.0-25-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-25.sh'
+      - 'scripts/validate-hotfix-0.3.0-25.sh'
+      - '.github/workflows/publish-hotfix-0.3.0-25.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mechos-hotfix-25-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Validate Hotfix 25 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-25.sh
+
+      - name: Publish Hotfix 25 to Update Center stable channel
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+
+            bash scripts/validate-hotfix-0.3.0-25.sh
+            bash scripts/build-hotfix-0.3.0-25.sh
+
+            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.25-update.tar.zst
+            (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+            CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-25-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/lib/systemd/system/mechos-hotfix-0.3.0-25.service' <<< "$CONTENTS"
+            grep -Fxq './etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-25.service' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-oobe-rearm-v25' <<< "$CONTENTS"
+            grep -Fxq './usr/lib/systemd/system/mechos-oobe-rearm-v25.service' <<< "$CONTENTS"
+            grep -Fxq './etc/systemd/system/multi-user.target.wants/mechos-oobe-rearm-v25.service' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-update-transaction-v14' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-update-transaction-v13' <<< "$CONTENTS"
+            grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-24-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-23-apply' <<< "$CONTENTS"
+
+            tar --zstd -xOf "$BUNDLE" ./usr/local/libexec/mechos-update-transaction-v14 | \
+              grep -Fq 'MECHOS_UPDATE_TRANSACTION_V25_RELEASE_COMMIT_V1'
+            tar --zstd -xOf "$BUNDLE" ./usr/local/bin/mechos-update-helper | \
+              grep -Fq 'MECHOS_UPDATE_HELPER_V25_RELEASE_COMMIT_V1'
+            tar --zstd -xOf "$BUNDLE" ./usr/local/libexec/mechos-oobe-rearm-v25 | \
+              grep -Fq 'MECHOS_OOBE_REARM_V25'
+
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text())
+          assert data['version']=='0.3.0-hotfix.25', data
+          assert data['requires_reboot'] is True, data
+          assert data['bundle_url'].endswith('MechOS-0.3.0-hotfix.25-update.tar.zst'), data
+          assert 'Hotfix 21' in data['notes'], data
+          assert 'oobe-complete' in data['notes'], data
+          PY
+
+            git add \
+              updates/bundles/MechOS-0.3.0-hotfix.25-update.tar.zst \
+              updates/bundles/MechOS-0.3.0-hotfix.25-update.tar.zst.sha256 \
+              updates/stable.json
+
+            if git diff --cached --quiet; then
+              echo 'Hotfix 25 is already published.'
+              exit 0
+            fi
+
+            git commit -m 'Publish MechOS v0.3.0 Hotfix 25'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            echo "Publish race on attempt ${attempt}; rebuilding from latest main."
+            sleep $((attempt * 2))
+          done
+
+          echo 'Unable to publish Hotfix 25 after three synchronized rebuild attempts.' >&2
+          exit 1
