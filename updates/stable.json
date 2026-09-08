@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.29",
-  "release_name": "MechOS v0.3.0 Hotfix 29",
+  "version": "0.3.0-hotfix.30",
+  "release_name": "MechOS v0.3.0 Hotfix 30",
   "published_at": "2026-09-08",
-  "notes": "Cumulative MechScope lifetime and Creator icon recovery update. Creator Mode now receives source-owned responsive button icons through Update Center and re-applies the real installed application icon resolver to upgraded Creator owners. VMware Gaming Mode extends the prior short startup probe to sustained health verification and runs a mode-aware recovery watchdog. Physical hardware Gaming Mode no longer treats an early Gamescope/MechScope rc=0 exit as a successful session while Gaming Mode remains selected; it retries Gamescope and falls back to a supervised Plasma-hosted MechScope loop. The persistent Qt runtime also prevents last-window-close from silently ending supervised Gaming Mode on both VM and hardware. Includes all Hotfix 28 cumulative repairs.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst",
-  "bundle_sha256": "4009ebdd90f2a2412786374e5103ee085277689c046b0a81e1ebd62b7555f74c",
+  "notes": "Cumulative hardware MechScope Python-target and crash-loop recovery update. Physical-hardware Gaming Mode now resolves the persistent MechScope runtime or legacy mechscope.real target before launch, detects raw Python source, validates it, and invokes it through /usr/bin/python3 instead of executing Python as shell code. Gamescope and Plasma fallback both use the resolved command. Repeated MechScope crashes are capped at three attempts, then MechOS records the failure and safely switches the active session to Desktop Mode instead of flashing/restarting forever. Includes all Hotfix 29 Creator icon, VMware supervision, OOBE and updater repairs.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.30-update.tar.zst",
+  "bundle_sha256": "c3f7c36d1a4342374d4feba04a94d8b4ce4d245bd344695890c3529794cafae0",
   "requires_reboot": true
 }
