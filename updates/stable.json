@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.33",
-  "release_name": "MechOS v0.3.0 Hotfix 33",
+  "version": "0.3.0-hotfix.34",
+  "release_name": "MechOS v0.3.0 Hotfix 34",
   "published_at": "2026-09-08",
-  "notes": "Cumulative source-owned MechScope runtime recovery. Fixes physical-hardware systems where the update bundle installed the persistent runtime but could not restore its generated mechscope-owner-v23.py dependency, causing the safe launcher to fall back to legacy mechscope.real and repeatedly restart it. Hotfix 33 ships a complete source-owned PyQt MechScope runtime plus the source-owned MechScope shell, makes both the hardware session and public safe launcher prefer that runtime, refuses automatic legacy .real fallback on installed systems, cleans stale per-user MechScope autostarts/services, preserves the single-owner lock, and keeps the three-crash Desktop Mode safety fallback. Includes all Hotfix 32 fixes.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.33-update.tar.zst",
-  "bundle_sha256": "ad25c647fa8d360945c576a58c22630f069e2ab72931eb01e1c7a15f8c2dc328",
+  "notes": "Cumulative MechScope responsive UI cleanup. Fixes dark hero/header text on the source-owned shell, long GPU names wrapping into the temperature row, clipped two-line Quick Actions and chevrons, and an oversized Recent Games empty state. Quick Actions are now single-line rows with separate right-side chevrons, long status strings elide cleanly with full tooltip text, and the layout keeps readable dimensions across 720p, 900p and 1080p. The Hotfix 33 source-owned MechScope runtime, single-owner hardware session, safe launcher and crash recovery remain unchanged. Includes all Hotfix 33 fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.34-update.tar.zst",
+  "bundle_sha256": "dd0c6b44eeb29b9d267b70162d692352c44b90d9173978500c169dccb395064f",
   "requires_reboot": true
 }
