@@ -68,7 +68,6 @@ def _mechos_surface_v8_recovery_build(self):
     }
     ui = shell.RecoveryShell(self, actions, self)
     self.setCentralWidget(ui); self._mechos_source_ui = ui
-    self.root_combo = ui.root_combo; self.esp_combo = ui.esp_combo; self.output = ui.output
     self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
     self.setWindowState(Qt.WindowState.WindowFullScreen)
 Recovery.build_ui = _mechos_surface_v8_recovery_build
@@ -116,12 +115,21 @@ QuickActions.build = _mechos_surface_v8_quick_build
 ''',
     "creator": r'''
 # MECHOS_HOTFIX8_SURFACE_OWNER_CREATOR
+# MECHOS_CREATOR_RESPONSIVE_FULLSCREEN_V15
 '''+LOADER+r'''
 def _mechos_surface_v8_creator_build(self):
     from PyQt6.QtCore import QTimer as _QTimer
     shell = _mechos_surface_v8_module('creator_shell.py', 'mechos_creator_shell_v8')
     ui = shell.CreatorShell(self, self)
     self.setCentralWidget(ui); self._mechos_source_ui = ui
+    # The generated Creator owner historically carried a 1180x720 minimum
+    # size. In 720p, VMware-scaled, handheld and underscan sessions that
+    # constraint can be larger than the actual logical screen and Qt clips the
+    # bottom mode bar/right column even after showFullScreen(). Clear every
+    # legacy size constraint before entering fullscreen; FixedCanvas then scales
+    # the complete 1920x1080 composition into the available logical viewport.
+    self.setMinimumSize(1, 1)
+    self.setMaximumSize(16777215, 16777215)
     self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
     self.setWindowState(Qt.WindowState.WindowFullScreen)
     _QTimer.singleShot(0, self.showFullScreen)
@@ -133,6 +141,19 @@ Creator.build = _mechos_surface_v8_creator_build
 CLASSES = {"recovery": "Recovery", "quick": "QuickActions", "creator": "Creator"}
 
 
+def _strip_override(text: str, marker: str, assignment: str) -> str:
+    start = text.find(marker)
+    if start < 0:
+        return text
+    end = text.find(assignment, start)
+    if end < 0:
+        fail(f"existing override marker found without assignment: {marker}")
+    end = text.find("\n", end + len(assignment))
+    if end < 0:
+        end = len(text)
+    return text[:start] + text[end + 1:]
+
+
 def main() -> int:
     if len(sys.argv) != 3 or sys.argv[2] not in OVERRIDES:
         fail("usage: mechos-final-surface-owner-v8-patch.py <owner.py> {recovery|quick|creator}")
@@ -142,17 +163,26 @@ def main() -> int:
     text = path.read_text(encoding="utf-8")
     marker = f"MECHOS_HOTFIX8_SURFACE_OWNER_{kind.upper()}"
     if marker in text:
-        # Hotfix 9 needs to refresh the Quick Actions override even if the v8
-        # marker already exists on an upgraded system. Replace the injected
-        # block by stripping the old one only for quick actions.
-        if kind != 'quick' or 'MECHOS_VISUAL_SURFACES_V9_QUICK_ACTIONS_WIRING' in text:
+        if kind == 'quick':
+            if 'MECHOS_VISUAL_SURFACES_V9_QUICK_ACTIONS_WIRING' in text:
+                return 0
+            text = _strip_override(
+                text,
+                '# MECHOS_HOTFIX8_SURFACE_OWNER_QUICK',
+                'QuickActions.build = _mechos_surface_v8_quick_build',
+            )
+        elif kind == 'creator':
+            # Refresh older Creator owner injections so hardware/stable overlays
+            # cannot preserve the old 1180x720 minimum-size clipping behavior.
+            if 'MECHOS_CREATOR_RESPONSIVE_FULLSCREEN_V15' in text:
+                return 0
+            text = _strip_override(
+                text,
+                '# MECHOS_HOTFIX8_SURFACE_OWNER_CREATOR',
+                'Creator.build = _mechos_surface_v8_creator_build',
+            )
+        else:
             return 0
-        start = text.find('# MECHOS_HOTFIX8_SURFACE_OWNER_QUICK')
-        end = text.find('\nQuickActions.build = _mechos_surface_v8_quick_build', start)
-        if start >= 0 and end >= 0:
-            end = text.find('\n', end + 1)
-            if end < 0: end = len(text)
-            text = text[:start] + text[end+1:]
     class_pos = text.find(f"class {CLASSES[kind]}(")
     if class_pos < 0:
         fail(f"class {CLASSES[kind]} not found in {path}")
