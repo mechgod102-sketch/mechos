@@ -95,6 +95,10 @@ QPushButton[role="hotspot"]:hover,QPushButton[role="hotspot"]:focus{background:r
 QPushButton[role="mode"]{color:#eef5ff;text-align:left;padding:12px 16px;border-radius:12px;background:#0b1423;border:1px solid #2c4263;font-weight:700}
 QPushButton[role="mode"]:hover,QPushButton[role="mode"]:focus{background:#101d31;border:2px solid #51c9ff}
 QPushButton[role="mode"]:checked{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #173a70,stop:1 #26184c);border:2px solid #5ab9ff}
+QPushButton[role="action-secondary"]{color:#eef5ff;padding:12px 18px;border-radius:14px;background:#0b1423;border:1px solid #375272;font-weight:800}
+QPushButton[role="action-secondary"]:hover,QPushButton[role="action-secondary"]:focus{background:#13223a;border:2px solid #58c7ff}
+QPushButton[role="action-primary"]{color:#ffffff;padding:12px 18px;border-radius:14px;background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #1d74c9,stop:0.55 #3159c9,stop:1 #713db3);border:2px solid #65d7ff;font-weight:900}
+QPushButton[role="action-primary"]:hover,QPushButton[role="action-primary"]:focus{border:3px solid #caa7ff;background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #258be9,stop:0.55 #496de1,stop:1 #8b4bd3)}
 QLabel[role="runtime-title"]{color:#eef5ff;background:transparent}
 QLabel[role="runtime-muted"]{color:#91a6c6;background:transparent}
 QLabel[role="runtime-accent"]{color:#58bfff;background:transparent}
@@ -117,6 +121,28 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
         q.setCursor(Qt.CursorShape.PointingHandCursor)
         if fn:
             q.clicked.connect(fn)
+        return q
+
+    def action_button(self, title, rect, fn, primary=False):
+        """Render the action and its hit target as the same Qt widget.
+
+        The old Live installer used invisible hotspots over buttons baked into
+        the reference PNG. Any artwork/runtime geometry drift could therefore
+        make a button look clickable in one place while the real hit target sat
+        somewhere else. These source-owned buttons make visual and input
+        geometry identical at every FixedCanvas scale.
+        """
+        q = self.reg(QPushButton(title), rect, 13)
+        q.setProperty('role', 'action-primary' if primary else 'action-secondary')
+        q.setProperty('mechosTitle', title)
+        q.setProperty('mechosSubtitle', '')
+        q.setAccessibleName(title)
+        q.setCursor(Qt.CursorShape.PointingHandCursor)
+        q.clicked.connect(fn)
+        f = QFont('Sans Serif', 13)
+        f.setBold(True)
+        q.setFont(f)
+        self._font_sizes[q] = 13
         return q
 
     def runtime_label(self, text, rect, size=12, bold=False, role='runtime-title'):
@@ -145,9 +171,9 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
         return b
 
     def _build(self):
-        # Reference-backed navigation: transparent hit targets only. The broad
-        # purple debug-style focus boxes from the previous implementation are
-        # intentionally removed.
+        # Reference-backed navigation remains a transparent hit layer. The
+        # primary footer actions below are source-rendered so their visual and
+        # clickable rectangles can never drift apart.
         for row in range(9):
             self.hotspot(
                 f'Installer step {row + 1}',
@@ -155,8 +181,8 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
                 lambda _=False, r=row: self.owner.nav_selected(r),
             )
 
-        self.hotspot('Repair', QRect(1280, 930, 250, 96), self.owner.recovery)
-        self.hotspot('Install Now', QRect(1540, 930, 330, 96), self.owner.install)
+        self.repair_button = self.action_button('Repair', QRect(1280, 930, 250, 96), self.owner.recovery)
+        self.install_button = self.action_button('Install Now', QRect(1540, 930, 330, 96), self.owner.install, primary=True)
 
         # Real target panel. This replaces the fake WD/Samsung/Seagate devices
         # embedded in the design reference.
@@ -259,9 +285,11 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
             painter.drawText(target, Qt.AlignmentFlag.AlignCenter, 'Approved MechOS installer reference artwork is missing')
             return
 
-        # Mask only the demo-data regions of the approved artwork. Static chrome,
-        # framing, branding, buttons and spacing remain reference pixels.
+        # Mask demo-data regions plus the old baked footer actions. Static
+        # chrome/branding remains reference-backed, while Repair and Install Now
+        # are painted by the same Qt widgets that receive pointer/controller input.
         self.panel(painter, QRect(400, 285, 770, 505), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1270, 225, 560, 385), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1270, 615, 560, 290), '#07101c', '#263a59', 16, 1)
+        self.panel(painter, QRect(1260, 916, 630, 122), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(48, 952, 500, 86), '#07101c', '#1f3554', 12, 1)
