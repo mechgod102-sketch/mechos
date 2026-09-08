@@ -45,27 +45,28 @@ jobs:
             # Never allow this legacy maintenance publisher to replace a newer
             # stable channel. This check runs BEFORE build-hotfix-0.3.0-22.sh,
             # because that builder intentionally rewrites updates/stable.json.
-            python3 - <<'PY'
+            decision="$(python3 - <<'PY'
           import json, re
           from pathlib import Path
 
           target=(0, 3, 0, 22, 6)
           p=Path('updates/stable.json')
-          if p.is_file():
-              data=json.loads(p.read_text(encoding='utf-8'))
-              value=str(data.get('version',''))
-              m=re.fullmatch(r'(\d+)\.(\d+)\.(\d+)-hotfix\.(\d+)(?:\.(\d+))?', value)
-              if m:
-                  current=tuple(int(x or 0) for x in m.groups())
-                  if current > target:
-                      print(f'Newer stable version {value} is already published; refusing 22.6 rollback.')
-                      raise SystemExit(78)
+          if not p.is_file():
+              print('ALLOW')
+              raise SystemExit
+          data=json.loads(p.read_text(encoding='utf-8'))
+          value=str(data.get('version',''))
+          m=re.fullmatch(r'(\d+)\.(\d+)\.(\d+)-hotfix\.(\d+)(?:\.(\d+))?', value)
+          if not m:
+              print('ALLOW')
+              raise SystemExit
+          current=tuple(int(x or 0) for x in m.groups())
+          print('BLOCK_ROLLBACK' if current > target else 'ALLOW')
           PY
-            guard_rc=$?
-            if [ "$guard_rc" -eq 78 ]; then
+            )"
+            if [ "$decision" = BLOCK_ROLLBACK ]; then
+              echo 'A newer stable hotfix is already published; refusing 22.6 rollback.'
               exit 0
-            elif [ "$guard_rc" -ne 0 ]; then
-              exit "$guard_rc"
             fi
 
             bash scripts/validate-hotfix-0.3.0-22.sh
