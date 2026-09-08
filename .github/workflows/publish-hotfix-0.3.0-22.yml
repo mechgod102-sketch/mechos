@@ -1,23 +1,10 @@
 name: Publish MechOS v0.3.0 Hotfix 22.6
 
+# Legacy publisher retained only for an explicit maintenance rebuild.
+# Newer hotfixes share several MechScope/Creator source files with 22.6, so an
+# automatic push trigger here can race a newer publisher and roll stable back.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/mechos_ui/creator_real_icons_v22.py'
-      - 'src/mechos_ui/mechscope_reference_compat_v25.py'
-      - 'scripts/mechos-creator-real-icons-owner-v22-patch.py'
-      - 'scripts/mechos-mechscope-runtime-v23.py'
-      - 'scripts/mechos-mode-launch-v19.sh'
-      - 'scripts/mechos-shell-route-v19.sh'
-      - 'scripts/mechos-update-helper-v19.sh'
-      - 'scripts/mechos-update-center-reference-v8.py'
-      - 'scripts/mechos-hotfix-0.3.0-15-apply.sh'
-      - 'scripts/mechos-hotfix-0.3.0-22-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-22.sh'
-      - 'scripts/validate-hotfix-0.3.0-22.sh'
-      - '.github/workflows/publish-hotfix-0.3.0-22.yml'
 
 permissions:
   contents: write
@@ -54,6 +41,32 @@ jobs:
           for attempt in 1 2 3; do
             git fetch origin main
             git reset --hard origin/main
+
+            # Never allow this legacy maintenance publisher to replace a newer
+            # stable channel. This check runs BEFORE build-hotfix-0.3.0-22.sh,
+            # because that builder intentionally rewrites updates/stable.json.
+            python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          target=(0, 3, 0, 22, 6)
+          p=Path('updates/stable.json')
+          if p.is_file():
+              data=json.loads(p.read_text(encoding='utf-8'))
+              value=str(data.get('version',''))
+              m=re.fullmatch(r'(\d+)\.(\d+)\.(\d+)-hotfix\.(\d+)(?:\.(\d+))?', value)
+              if m:
+                  current=tuple(int(x or 0) for x in m.groups())
+                  if current > target:
+                      print(f'Newer stable version {value} is already published; refusing 22.6 rollback.')
+                      raise SystemExit(78)
+          PY
+            guard_rc=$?
+            if [ "$guard_rc" -eq 78 ]; then
+              exit 0
+            elif [ "$guard_rc" -ne 0 ]; then
+              exit "$guard_rc"
+            fi
 
             bash scripts/validate-hotfix-0.3.0-22.sh
             bash scripts/build-hotfix-0.3.0-22.sh
