@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# MECHOS_HARDWARE_STABLE_PATCHER_V22_6
+# MECHOS_HARDWARE_STABLE_PATCHER_V22_7
 from __future__ import annotations
 
 import re
@@ -9,6 +9,7 @@ from pathlib import Path
 MARKER = "# MECHOS_HARDWARE_STABLE_22_6_INTEGRATION"
 SEED_CALL = "bash /workspace/scripts/mechos-hardware-stable-seed-v22.sh final"
 ACCOUNT_CALL = "bash /workspace/scripts/mechos-postinstall-account-hotfix.sh final"
+FOLLOW_STABLE_CALL = "bash /workspace/scripts/mechos-hardware-follow-stable.sh final"
 
 
 def patch(path: Path) -> None:
@@ -18,6 +19,22 @@ def patch(path: Path) -> None:
             raise SystemExit("hardware stable marker exists without seed integration call")
         if ACCOUNT_CALL not in text:
             raise SystemExit("hardware stable marker exists without postinstall account hotfix call")
+        if FOLLOW_STABLE_CALL not in text:
+            # Upgrade an already-patched 22.6 build script in place.
+            anchor = ACCOUNT_CALL + "\n"
+            if anchor not in text:
+                raise SystemExit("could not place latest-stable follower after account hotfix")
+            text = text.replace(anchor, anchor + FOLLOW_STABLE_CALL + "\n", 1)
+            path.write_text(text, encoding="utf-8")
+        check = path.read_text(encoding="utf-8")
+        if not (
+            check.index(SEED_CALL)
+            < check.index(ACCOUNT_CALL)
+            < check.index(FOLLOW_STABLE_CALL)
+        ):
+            raise SystemExit(
+                "hardware build order must be 22.6 seed -> account repair -> newest stable overlay"
+            )
         return
 
     matches = list(re.finditer(r"(?m)^[ \t]*(?:sudo[ \t]+)?mkarchiso\b[^\n]*$", text))
@@ -27,12 +44,13 @@ def patch(path: Path) -> None:
     match = matches[-1]
     block = (
         f"{MARKER}\n"
-        "# Seed the verified current stable cumulative payload only after the\n"
-        "# normal final install-payload synchronization. Then apply the account\n"
-        "# creation repair as the absolute-final firstboot/OOBE authority so no\n"
-        "# older integration layer can relock or bypass the setup account.\n"
+        "# Seed Hotfix 22.6 as the physical-hardware minimum, apply the final\n"
+        "# account repair, then overlay the newest published cumulative stable\n"
+        "# bundle selected by updates/stable.json. This keeps new hardware ISOs\n"
+        "# current without dropping the validated 22.6 hardware baseline.\n"
         f"{SEED_CALL}\n"
-        f"{ACCOUNT_CALL}\n\n"
+        f"{ACCOUNT_CALL}\n"
+        f"{FOLLOW_STABLE_CALL}\n\n"
     )
     text = text[: match.start()] + block + text[match.start() :]
     path.write_text(text, encoding="utf-8")
@@ -44,8 +62,16 @@ def patch(path: Path) -> None:
         raise SystemExit("hardware stable seed was not inserted exactly once")
     if check.count(ACCOUNT_CALL) != 1:
         raise SystemExit("postinstall account hotfix was not inserted exactly once")
-    if check.index(SEED_CALL) > check.index(ACCOUNT_CALL):
-        raise SystemExit("postinstall account hotfix must run after the hardware payload seed")
+    if check.count(FOLLOW_STABLE_CALL) != 1:
+        raise SystemExit("latest stable follower was not inserted exactly once")
+    if not (
+        check.index(SEED_CALL)
+        < check.index(ACCOUNT_CALL)
+        < check.index(FOLLOW_STABLE_CALL)
+    ):
+        raise SystemExit(
+            "hardware build order must be 22.6 seed -> account repair -> newest stable overlay"
+        )
 
 
 def main() -> None:
