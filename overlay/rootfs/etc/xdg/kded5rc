@@ -1,0 +1,6 @@
+# MechOS owns the first-run/live welcome flow.
+# Prevent KDE Plasma Welcome Center from autostarting and stealing focus
+# from the MechOS installer/OOBE. The application remains installed and can
+# still be launched manually if needed.
+[Module-plasma-welcome]
+autoload=false
