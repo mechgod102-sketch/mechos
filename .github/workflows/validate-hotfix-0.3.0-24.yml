@@ -1,0 +1,35 @@
+name: Validate MechOS v0.3.0 Hotfix 24
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-24-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-24.sh'
+      - 'scripts/validate-hotfix-0.3.0-24.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-24.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-24.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-hotfix-0.3.0-24-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-24.sh'
+      - 'scripts/validate-hotfix-0.3.0-24.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-24.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-24.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Hotfix 24 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-24.sh
+      - name: Confirm MechScope session correction
+        run: |
+          set -euo pipefail
+          grep -Fq 'Session=mechscope.desktop' scripts/mechos-hotfix-0.3.0-24-apply.sh
+          grep -Fq 'MECHOS_VM_MODE_RUNTIME_V24' scripts/mechos-hotfix-0.3.0-24-apply.sh
+          grep -Fq 'MECHOS_SESSION_AUTOSTART_V24' scripts/mechos-hotfix-0.3.0-24-apply.sh
