@@ -1,0 +1,67 @@
+name: Publish MechOS Hotfix 31
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-hotfix-31.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-mechos-hotfix-31
+  cancel-in-progress: false
+
+jobs:
+  publish-hotfix-31:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install bundle tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 31 sources
+        run: bash scripts/validate-hotfix-0.3.0-31.sh
+      - name: Build cumulative Hotfix 31 bundle
+        run: bash scripts/build-hotfix-0.3.0-31.sh
+      - name: Verify Hotfix 31 publication files
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.31-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.31-update.tar.zst.sha256)
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-mechscope-safe-launch-v31'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-session-autostart-v31'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-hotfix-0.3.0-31-apply'
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('updates/stable.json')
+          data=json.loads(p.read_text())
+          assert data['channel']=='stable'
+          assert data['version']=='0.3.0-hotfix.31'
+          assert data['requires_reboot'] is True
+          b=Path('updates/bundles/MechOS-0.3.0-hotfix.31-update.tar.zst')
+          assert hashlib.sha256(b.read_bytes()).hexdigest()==data['bundle_sha256']
+          PY
+      - name: Commit stable Hotfix 31
+        run: |
+          set -euo pipefail
+          git config user.name 'MechOS Hotfix Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add updates/stable.json \
+            updates/bundles/MechOS-0.3.0-hotfix.31-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.31-update.tar.zst.sha256
+          if git diff --cached --quiet; then
+            echo 'Hotfix 31 publication files are already committed.'
+            exit 0
+          fi
+          git commit -m 'release: publish MechOS Hotfix 31'
+          git push origin HEAD:main
