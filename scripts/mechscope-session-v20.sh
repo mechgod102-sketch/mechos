@@ -1,21 +1,90 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_MECHSCOPE_SESSION_V20
+# MECHOS_MECHSCOPE_SESSION_V21
 # Hardware-first MechScope session. Gaming Mode remains authoritative until the
-# user actually changes session-mode; a clean child exit while still in gaming
-# is treated as an early shell failure instead of a successful SDDM session end.
+# user actually changes session-mode. Hotfix 30 also resolves raw Python
+# MechScope targets through python3 and breaks repeated crash/relaunch loops.
 
 MODE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
-LOG_FILE="$STATE_DIR/mechscope-session-v20.log"
-MECHSCOPE=/usr/local/bin/mechscope
+LOG_FILE="$STATE_DIR/mechscope-session-v21.log"
+CRASH_MARKER="$STATE_DIR/mechscope-crash-loop-v30"
+PUBLIC_MECHSCOPE=/usr/local/bin/mechscope
+PERSISTENT_RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23
+PRESERVED_OWNER=/usr/local/libexec/mechscope-owner-v23.py
+RAW_MECHSCOPE=/usr/local/bin/mechscope.real
+MECHSCOPE_TARGET=''
+declare -a MECHSCOPE_COMMAND=()
 mkdir -p "$(dirname "$MODE_FILE")" "$STATE_DIR"
 
-log(){ printf '[%s] [mechscope-session-v20] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG_FILE"; }
+log(){ printf '[%s] [mechscope-session-v21] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG_FILE"; }
 mode(){
   if [[ -r "$MODE_FILE" ]]; then tr -d '\r\n[:space:]' <"$MODE_FILE"; else printf 'gaming'; fi
 }
 gaming_requested(){ [[ "$(mode)" == gaming ]]; }
+
+is_python_target(){
+  local target="$1" first
+  first="$(head -n1 "$target" 2>/dev/null || true)"
+  case "$first" in *python*) return 0 ;; esac
+  grep -Eq '^[[:space:]]*(from|import)[[:space:]]+[A-Za-z0-9_\.]+' "$target" 2>/dev/null
+}
+
+python_source_check(){
+  local target="$1"
+  /usr/bin/python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+source = p.read_text(encoding='utf-8')
+compile(source, str(p), 'exec')
+PY
+}
+
+actual_mechscope(){
+  # Prefer the source-owned persistent runtime when its preserved owner exists.
+  # Mixed-version installs may leave mechscope.real as raw Python without a
+  # shebang; never execute that file through /bin/sh.
+  if [[ -f "$PERSISTENT_RUNTIME" && -f "$PRESERVED_OWNER" ]]; then
+    printf '%s\n' "$PERSISTENT_RUNTIME"
+  elif [[ -f "$PUBLIC_MECHSCOPE" ]]; then
+    printf '%s\n' "$PUBLIC_MECHSCOPE"
+  elif [[ -f "$RAW_MECHSCOPE" ]]; then
+    printf '%s\n' "$RAW_MECHSCOPE"
+  else
+    return 1
+  fi
+}
+
+resolve_mechscope_command(){
+  local target
+  target="$(actual_mechscope)" || { log 'MechScope target missing'; return 1; }
+  MECHSCOPE_TARGET="$target"
+  if is_python_target "$target"; then
+    if ! python_source_check "$target" >>"$LOG_FILE" 2>&1; then
+      log "Python source validation failed target=$target"
+      return 1
+    fi
+    MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")
+  else
+    [[ -x "$target" ]] || { log "MechScope target is not executable target=$target"; return 1; }
+    MECHSCOPE_COMMAND=("$target")
+  fi
+  log "resolved MechScope target=$MECHSCOPE_TARGET interpreter=${MECHSCOPE_COMMAND[0]}"
+}
+
+safe_desktop_fallback(){
+  local reason="$1"
+  printf 'desktop\n' >"$MODE_FILE"
+  printf '%s\n' "$reason" >"$CRASH_MARKER"
+  log "SAFE FALLBACK: $reason; session-mode changed to desktop to stop restart loop"
+  if command -v kdialog >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    kdialog --title 'MechScope Recovery' --error \
+      'MechScope crashed repeatedly. MechOS stopped the restart loop and switched this session to Desktop Mode. The crash details are saved in ~/.local/state/mechos/mechscope-session-v21.log.' \
+      >/dev/null 2>&1 || true
+  fi
+}
 
 MODE="$(mode)"
 if [[ "$MODE" == desktop ]]; then
@@ -23,8 +92,9 @@ if [[ "$MODE" == desktop ]]; then
   exec /usr/bin/startplasma-wayland
 fi
 
-if [[ ! -x "$MECHSCOPE" ]]; then
-  log 'MechScope executable missing; falling back to Plasma'
+if ! resolve_mechscope_command; then
+  log 'MechScope could not be resolved; falling back to Plasma'
+  printf 'desktop\n' >"$MODE_FILE"
   exec /usr/bin/startplasma-wayland
 fi
 
@@ -40,9 +110,9 @@ plasma_mechscope_supervisor(){
   sleep 2
   while gaming_requested; do
     import_user_environment
-    log "Plasma fallback: starting supervised MechScope attempt=$((crashes+1))"
+    log "Plasma fallback: starting supervised MechScope attempt=$((crashes+1)) target=$MECHSCOPE_TARGET"
     set +e
-    "$MECHSCOPE" >>"$LOG_FILE" 2>&1
+    "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1
     rc=$?
     set -e
 
@@ -53,7 +123,11 @@ plasma_mechscope_supervisor(){
 
     crashes=$((crashes+1))
     log "MechScope exited rc=$rc while Gaming Mode remains active; restart=$crashes"
-    sleep $(( crashes < 5 ? crashes : 5 ))
+    if (( crashes >= 3 )); then
+      safe_desktop_fallback "MechScope target $MECHSCOPE_TARGET exited three consecutive times (last rc=$rc)"
+      return 0
+    fi
+    sleep "$crashes"
   done
   log "Plasma fallback supervisor stopping mode=$(mode)"
 }
@@ -114,9 +188,9 @@ fi
 run_gamescope(){
   local label="$1"; shift
   local rc=0
-  log "starting Gamescope attempt=$label args=$*"
+  log "starting Gamescope attempt=$label args=$* target=$MECHSCOPE_TARGET interpreter=${MECHSCOPE_COMMAND[0]}"
   set +e
-  /usr/bin/gamescope "$@" -- "$MECHSCOPE" >>"$LOG_FILE" 2>&1
+  /usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1
   rc=$?
   set -e
 
@@ -125,9 +199,6 @@ run_gamescope(){
     return 0
   fi
 
-  # rc=0 is NOT success if the user never left Gaming Mode. It means the
-  # compositor/MechScope child disappeared and SDDM would otherwise tear down
-  # the whole gaming session.
   log "Gamescope attempt=$label exited rc=$rc while Gaming Mode remains active; treating as recoverable failure"
   return 90
 }
@@ -139,15 +210,11 @@ ARGS=(-e -f)
 if run_gamescope primary "${ARGS[@]}"; then
   exit 0
 fi
-
-# Only retry if Gaming Mode is still requested; otherwise the first attempt
-# already completed a legitimate mode switch.
 if gaming_requested; then
   if run_gamescope conservative -f; then
     exit 0
   fi
 fi
-
 if gaming_requested; then
   log 'Gamescope ended while Gaming Mode remained active; switching to supervised Plasma fallback'
   start_plasma_mechscope
