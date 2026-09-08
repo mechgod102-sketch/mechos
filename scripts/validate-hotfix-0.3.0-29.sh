@@ -76,14 +76,18 @@ grep -Fq 'install -m0755 "$RUNTIME" "$PUBLIC"' "$APPLY"
 grep -Fq "printf '0.3.0-hotfix.29" "$APPLY"
 grep -Fq 'touch "$MARKER"' "$APPLY"
 
-# Canonical session is MechScope only; never revive the historical broken name.
+# Canonical session is MechScope only; never revive the historical broken name
+# in a shipped session/config. The root apply is allowed to reference the old
+# string solely so it can detect and migrate stale installed SDDM files.
 grep -Fq 'Exec=/usr/local/bin/mechscope-session' "$BUILD"
 grep -Fq 'usr/share/wayland-sessions/mechscope.desktop' "$BUILD"
 if grep -R -nF 'Session=mechos-gaming.desktop' \
-  "$SESSION" "$RUNTIME" "$VM" "$WATCHDOG" "$CANVAS" "$APPLY" "$BUILD"; then
+  "$SESSION" "$RUNTIME" "$VM" "$WATCHDOG" "$CANVAS" "$BUILD"; then
   echo 'Hotfix 29 source reintroduced obsolete mechos-gaming.desktop session name' >&2
   exit 1
 fi
+grep -Fq "grep -Fq 'Session=mechos-gaming.desktop'" "$APPLY"
+grep -Fq "sed -i 's/Session=mechos-gaming\\.desktop/Session=mechscope.desktop/g'" "$APPLY"
 
 # Build must remain cumulative from Hotfix 28 and include all new recovery parts.
 grep -Fq 'MechOS-0.3.0-hotfix.28-update.tar.zst' "$BUILD"
