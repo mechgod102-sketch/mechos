@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.22.6",
-  "release_name": "MechOS v0.3.0 Hotfix 22 Cumulative Revision 6",
+  "version": "0.3.0-hotfix.29",
+  "release_name": "MechOS v0.3.0 Hotfix 29",
   "published_at": "2026-09-08",
-  "notes": "Hotfix 22 cumulative revision 6 fixes a Creator Mode transition crash observed after MechScope recovery. Hotfix16 could SourceFileLoader-import Creator Mode inside the already-running MechScope QApplication, causing Qt6 Wayland to attempt GUI platform initialization again and abort the MechScope Python process. Creator is now a deliberate exception to the single-shell model: MechScope intercepts Creator routes and hands them to the proven external Creator launcher, while the mode launcher and shell router enforce the same process boundary. Unified Store, Performance, Updates and Recovery remain embedded. Hotfix22.5 MechScope reference compatibility and all prior cumulative recovery fixes remain active.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst",
-  "bundle_sha256": "8979bc1bca814195c87c034fff6995c1484a1248ffde7c6e313326c8b590396b",
+  "notes": "Cumulative MechScope lifetime and Creator icon recovery update. Creator Mode now receives source-owned responsive button icons through Update Center and re-applies the real installed application icon resolver to upgraded Creator owners. VMware Gaming Mode extends the prior short startup probe to sustained health verification and runs a mode-aware recovery watchdog. Physical hardware Gaming Mode no longer treats an early Gamescope/MechScope rc=0 exit as a successful session while Gaming Mode remains selected; it retries Gamescope and falls back to a supervised Plasma-hosted MechScope loop. The persistent Qt runtime also prevents last-window-close from silently ending supervised Gaming Mode on both VM and hardware. Includes all Hotfix 28 cumulative repairs.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst",
+  "bundle_sha256": "4009ebdd90f2a2412786374e5103ee085277689c046b0a81e1ebd62b7555f74c",
   "requires_reboot": true
 }
