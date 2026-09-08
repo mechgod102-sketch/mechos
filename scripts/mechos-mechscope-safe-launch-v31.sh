@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_MECHSCOPE_SAFE_LAUNCH_V31
+# MECHOS_MECHSCOPE_SINGLE_OWNER_V32
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
 LOG="$STATE_DIR/mechscope-safe-launch-v31.log"
+LOCK="$STATE_DIR/mechscope-owner-v32.lock"
 mkdir -p "$STATE_DIR"
 log(){ printf '[%s] [mechscope-safe-launch-v31] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG"; }
+
+# One MechScope owner per graphical user. HF29-HF31 can leave both the
+# supervised hardware session and the KDE fallback active while Plasma starts.
+# Keep the lock fd open across exec so a second launcher cannot create another
+# MechScope process while the first one is alive.
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  log "duplicate launch suppressed pid=$$ supervisor=${MECHOS_SESSION_SUPERVISED:-0}"
+  exit 0
+fi
 
 is_python_target(){
   local target="$1" first
@@ -32,9 +44,6 @@ resolve_target(){
     return 0
   fi
 
-  # Prefer the source-owned persistent runtime when its generated owner exists.
-  # Otherwise fall back to the preserved tutorial target. Never fall back to
-  # /usr/local/bin/mechscope here because that public wrapper calls this helper.
   if [ -f /usr/local/libexec/mechos-mechscope-runtime-v23 ] && \
      [ -f /usr/local/libexec/mechscope-owner-v23.py ]; then
     printf '%s\n' /usr/local/libexec/mechos-mechscope-runtime-v23
