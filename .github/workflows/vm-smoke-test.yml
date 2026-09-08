@@ -2,7 +2,9 @@ name: VM Lifecycle Test MechOS ISO
 
 on:
   workflow_run:
-    workflows: ["Build MechOS Arch ISO"]
+    workflows:
+      - "Build MechOS Arch ISO"
+      - "Build MechOS Hardware Stable - 22.6 Base + Latest Stable"
     types: [completed]
 
 permissions:
