@@ -2,14 +2,16 @@
 set -Eeuo pipefail
 # MECHOS_MECHSCOPE_SESSION_V20
 # MECHOS_MECHSCOPE_SESSION_V21
+# MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER
 # Hardware-first MechScope session. Gaming Mode remains authoritative until the
-# user actually changes session-mode. Hotfix 30 also resolves raw Python
-# MechScope targets through python3 and breaks repeated crash/relaunch loops.
+# user actually changes session-mode. V22 also makes the hardware session the
+# single MechScope owner so KDE/manual fallback paths cannot race it.
 
 MODE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
 LOG_FILE="$STATE_DIR/mechscope-session-v21.log"
 CRASH_MARKER="$STATE_DIR/mechscope-crash-loop-v30"
+LOCK_FILE="$STATE_DIR/mechscope-owner-v32.lock"
 PUBLIC_MECHSCOPE=/usr/local/bin/mechscope
 PERSISTENT_RUNTIME=/usr/local/libexec/mechos-mechscope-runtime-v23
 PRESERVED_OWNER=/usr/local/libexec/mechscope-owner-v23.py
@@ -43,9 +45,6 @@ PY
 }
 
 actual_mechscope(){
-  # Prefer the source-owned persistent runtime when its preserved owner exists.
-  # Mixed-version installs may leave mechscope.real as raw Python without a
-  # shebang; never execute that file through /bin/sh.
   if [[ -f "$PERSISTENT_RUNTIME" && -f "$PRESERVED_OWNER" ]]; then
     printf '%s\n' "$PERSISTENT_RUNTIME"
   elif [[ -f "$PUBLIC_MECHSCOPE" ]]; then
@@ -102,7 +101,12 @@ import_user_environment(){
   systemctl --user import-environment \
     DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS \
     XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION \
+    MECHOS_SESSION_SUPERVISED \
     >/dev/null 2>&1 || true
+}
+
+run_locked_mechscope(){
+  /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"
 }
 
 plasma_mechscope_supervisor(){
@@ -110,9 +114,9 @@ plasma_mechscope_supervisor(){
   sleep 2
   while gaming_requested; do
     import_user_environment
-    log "Plasma fallback: starting supervised MechScope attempt=$((crashes+1)) target=$MECHSCOPE_TARGET"
+    log "Plasma fallback: starting single-owner MechScope attempt=$((crashes+1)) target=$MECHSCOPE_TARGET"
     set +e
-    "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1
+    run_locked_mechscope >>"$LOG_FILE" 2>&1
     rc=$?
     set -e
 
@@ -188,9 +192,9 @@ fi
 run_gamescope(){
   local label="$1"; shift
   local rc=0
-  log "starting Gamescope attempt=$label args=$* target=$MECHSCOPE_TARGET interpreter=${MECHSCOPE_COMMAND[0]}"
+  log "starting single-owner Gamescope attempt=$label args=$* target=$MECHSCOPE_TARGET interpreter=${MECHSCOPE_COMMAND[0]}"
   set +e
-  /usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1
+  /usr/bin/gamescope "$@" -- /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}" >>"$LOG_FILE" 2>&1
   rc=$?
   set -e
 
