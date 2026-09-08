@@ -47,10 +47,15 @@ jobs:
           tar --zstd -tf "$B" | grep -Fx './usr/lib/systemd/system/mechos-hotfix-0.3.0-30.service'
           rm -rf /tmp/hf30-check && mkdir -p /tmp/hf30-check
           tar --zstd -xpf "$B" -C /tmp/hf30-check
-          grep -Fq 'MECHOS_MECHSCOPE_SESSION_V21' /tmp/hf30-check/usr/local/bin/mechscope-session
-          grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' /tmp/hf30-check/usr/local/bin/mechscope-session
-          grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' /tmp/hf30-check/usr/local/bin/mechscope-session
-          grep -Fq 'crashes >= 3' /tmp/hf30-check/usr/local/bin/mechscope-session
+          S=/tmp/hf30-check/usr/local/bin/mechscope-session
+          grep -Fq 'MECHOS_MECHSCOPE_SESSION_V21' "$S"
+          grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' "$S"
+          if grep -Fq 'MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER' "$S"; then
+            grep -Fq '/usr/bin/gamescope "$@" -- /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"' "$S"
+          else
+            grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' "$S"
+          fi
+          grep -Fq 'crashes >= 3' "$S"
           python3 - <<'PY'
           import hashlib,json
           from pathlib import Path
