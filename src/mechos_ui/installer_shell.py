@@ -285,9 +285,10 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
             painter.drawText(target, Qt.AlignmentFlag.AlignCenter, 'Approved MechOS installer reference artwork is missing')
             return
 
-        # Mask demo-data regions plus the old baked footer actions. Static
-        # chrome/branding remains reference-backed, while Repair and Install Now
-        # are painted by the same Qt widgets that receive pointer/controller input.
+        # Mask only the demo-data regions of the approved artwork, plus the
+        # legacy baked footer actions. Static chrome/branding remains reference-
+        # backed, while Repair and Install Now are painted by the same Qt widgets
+        # that receive pointer/controller input.
         self.panel(painter, QRect(400, 285, 770, 505), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1270, 225, 560, 385), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1270, 615, 560, 290), '#07101c', '#263a59', 16, 1)
