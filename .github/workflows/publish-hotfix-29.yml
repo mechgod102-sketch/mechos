@@ -1,0 +1,80 @@
+name: Publish MechOS Hotfix 29
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-hotfix-29.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-mechos-hotfix-29
+  cancel-in-progress: false
+
+jobs:
+  publish-hotfix-29:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install bundle tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Validate Hotfix 29 sources
+        run: bash scripts/validate-hotfix-0.3.0-29.sh
+
+      - name: Build cumulative Hotfix 29 bundle
+        run: bash scripts/build-hotfix-0.3.0-29.sh
+
+      - name: Verify Hotfix 29 publication files
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst
+          S="$B.sha256"
+          test -s "$B"
+          test -s "$S"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.29-update.tar.zst.sha256)
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('updates/stable.json')
+          data=json.loads(p.read_text(encoding='utf-8'))
+          assert data['channel']=='stable'
+          assert data['version']=='0.3.0-hotfix.29'
+          assert data['requires_reboot'] is True
+          bundle=Path('updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst')
+          actual=hashlib.sha256(bundle.read_bytes()).hexdigest()
+          assert actual==data['bundle_sha256'], (actual,data['bundle_sha256'])
+          print('HF29 sha256='+actual)
+          PY
+          tar --zstd -tf "$B" | grep -F './usr/local/bin/mechscope-session'
+          tar --zstd -tf "$B" | grep -F './usr/local/bin/mechos-vm-mode-runtime'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-vm-mechscope-watchdog-v29'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-mechscope-runtime-v23'
+          tar --zstd -tf "$B" | grep -F './usr/local/share/mechos/ui/fixed_canvas.py'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-hotfix-0.3.0-29-apply'
+          tar --zstd -tf "$B" | grep -F './usr/share/wayland-sessions/mechscope.desktop'
+          tar --zstd -tf "$B" | grep -F './usr/lib/systemd/system/mechos-hotfix-0.3.0-29.service'
+
+      - name: Commit stable Hotfix 29
+        run: |
+          set -euo pipefail
+          git config user.name 'MechOS Hotfix Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add updates/stable.json \
+            updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.29-update.tar.zst.sha256
+          if git diff --cached --quiet; then
+            echo 'Hotfix 29 publication files are already committed.'
+            exit 0
+          fi
+          git commit -m 'release: publish MechOS Hotfix 29'
+          git push origin HEAD:main
