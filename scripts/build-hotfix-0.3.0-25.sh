@@ -96,7 +96,7 @@ for required in \
   "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-23-apply" \
   "$STAGE/usr/local/bin/mechos-update-center" \
   "$STAGE/usr/local/bin/mechos-reboot" \
-  "$STAGE/usr/local/bin/mechscope" \
+  "$STAGE/usr/local/bin/mechscope-session" \
   "$STAGE/usr/local/libexec/mechos-oobe-apply"; do
   [ -e "$required" ] || { echo "Cumulative component missing: $required" >&2; exit 1; }
 done
