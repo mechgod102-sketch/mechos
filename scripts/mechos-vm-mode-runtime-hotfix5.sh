@@ -4,6 +4,7 @@ set -Eeuo pipefail
 # MECHOS_VM_MECHSCOPE_PYTHON_EXEC_V2
 # MECHOS_VM_MECHSCOPE_QPA_FALLBACK_V3
 # MECHOS_VM_MECHSCOPE_NO_PYCACHE_HEALTHCHECK_V4
+# MECHOS_VM_MECHSCOPE_PERSISTENT_RUNTIME_V5
 MODE="${1:-boot}"
 STATE=/var/lib/mechos
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
@@ -50,10 +51,6 @@ if [ -e "$STATE/installed" ] && [ ! -e "$STATE/oobe-complete" ]; then
   exit 20
 fi
 
-# VMs deliberately avoid Gamescope and hardware OpenGL. Qt Widgets still need
-# a real visible QPA backend, so launch_mechscope() can retry between the
-# session default, X11/XWayland (xcb) and native Wayland instead of failing the
-# first time one backend is unhappy with the virtual GPU.
 export MECHOS_VM_MODE=1
 export MECHOS_DISABLE_GAMESCOPE=1
 export QT_OPENGL=software
@@ -93,10 +90,16 @@ wait_for_graphics(){
 }
 
 actual_mechscope(){
-  if [ -f /usr/local/bin/mechscope.real ]; then
-    printf '%s\n' /usr/local/bin/mechscope.real
+  # Mixed-version upgrades can leave /usr/local/bin/mechscope.real as raw Python
+  # source without a shebang. Prefer the source-owned persistent runtime when
+  # Hotfix 22.6+ installed it and its preserved owner is present.
+  if [ -f /usr/local/libexec/mechos-mechscope-runtime-v23 ] && \
+     [ -f /usr/local/libexec/mechscope-owner-v23.py ]; then
+    printf '%s\n' /usr/local/libexec/mechos-mechscope-runtime-v23
   elif [ -f /usr/local/bin/mechscope ]; then
     printf '%s\n' /usr/local/bin/mechscope
+  elif [ -f /usr/local/bin/mechscope.real ]; then
+    printf '%s\n' /usr/local/bin/mechscope.real
   else
     return 1
   fi
@@ -109,11 +112,6 @@ is_python_target(){
   grep -Eq '^[[:space:]]*(from|import)[[:space:]]+[A-Za-z0-9_\.]+' "$target" 2>/dev/null
 }
 
-# Runtime validation must never try to write __pycache__ beside a root-owned
-# /usr/local/bin target. py_compile writes a .pyc even with
-# PYTHONDONTWRITEBYTECODE set, which made ordinary users fail with EACCES before
-# MechScope was ever launched. compile() checks the same source syntax entirely
-# in memory and performs no filesystem writes.
 python_source_check(){
   local target="$1"
   /usr/bin/python3 - "$target" <<'PY'
@@ -139,7 +137,7 @@ python_health_check(){
 }
 
 mechscope_running(){
-  pgrep -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1
+  pgrep -u "$(id -u)" -f '(/usr/bin/python3[[:space:]]+)?/usr/local/(bin/mechscope(\.real)?|libexec/mechos-mechscope-runtime-v23)([[:space:]]|$)' >/dev/null 2>&1
 }
 
 run_mechscope_attempt(){
@@ -156,16 +154,13 @@ run_mechscope_attempt(){
 
   {
     echo
-    echo "=== attempt=$label qpa=$qpa virt=$virt session=${XDG_SESSION_TYPE:-unknown} wayland=${WAYLAND_DISPLAY:-none} display=${DISPLAY:-none} ==="
+    echo "=== attempt=$label qpa=$qpa virt=$virt session=${XDG_SESSION_TYPE:-unknown} wayland=${WAYLAND_DISPLAY:-none} display=${DISPLAY:-none} command=${command[*]} ==="
   } >>"$APP_LOG"
   log "MechScope VM launch attempt=$label qpa=$qpa command=${command[*]}"
 
   nohup "${envcmd[@]}" "${command[@]}" >>"$APP_LOG" 2>&1 </dev/null &
   pid=$!
 
-  # A one-second survival check was too optimistic: Qt can initialize and then
-  # die while constructing the first fullscreen surface. Require three seconds
-  # before treating the launch as healthy.
   for i in $(seq 1 40); do
     sleep 0.1
     if ! kill -0 "$pid" >/dev/null 2>&1; then
@@ -208,20 +203,14 @@ launch_mechscope(){
     [ -x "$target" ] || { log "MechScope target is not executable target=$target"; return 1; }
     command=("$target")
   fi
+  log "resolved MechScope target=$target interpreter=${command[0]}"
 
-  # Attempt 1: let Qt follow the current Plasma session.
   if run_mechscope_attempt session auto "${command[@]}"; then return 0; fi
 
-  # Attempt 2: VirtualBox/VMware Plasma Wayland sessions commonly still expose
-  # XWayland. xcb avoids virtual-GPU Wayland/EGL startup failures while keeping
-  # the window visible on the same desktop.
   if [ -n "${DISPLAY:-}" ]; then
     if run_mechscope_attempt xwayland xcb "${command[@]}"; then return 0; fi
   fi
 
-  # Attempt 3: if a native Wayland socket exists, explicitly try it. This also
-  # covers VMs where Qt auto-selected xcb first but the compositor prefers
-  # native Wayland.
   if [ -n "${WAYLAND_DISPLAY:-}" ]; then
     if run_mechscope_attempt wayland wayland "${command[@]}"; then return 0; fi
   fi
@@ -259,13 +248,13 @@ case "$MODE" in
     ;;
   creator)
     printf 'creator\n' >"$MODE_FILE"
-    pkill -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1 || true
+    pkill -u "$(id -u)" -f '(/usr/bin/python3[[:space:]]+)?/usr/local/(bin/mechscope(\.real)?|libexec/mechos-mechscope-runtime-v23)([[:space:]]|$)' >/dev/null 2>&1 || true
     launch_creator
     ;;
   desktop)
     printf 'desktop\n' >"$MODE_FILE"
     systemctl --user stop mechos-vm-mechscope.service mechos-vm-creator.service >/dev/null 2>&1 || true
-    pkill -u "$(id -u)" -f '/usr/local/bin/mechscope(\.real)?([[:space:]]|$)' >/dev/null 2>&1 || true
+    pkill -u "$(id -u)" -f '(/usr/bin/python3[[:space:]]+)?/usr/local/(bin/mechscope(\.real)?|libexec/mechos-mechscope-runtime-v23)([[:space:]]|$)' >/dev/null 2>&1 || true
     ;;
   stop)
     systemctl --user stop mechos-vm-mechscope.service mechos-vm-creator.service >/dev/null 2>&1 || true
