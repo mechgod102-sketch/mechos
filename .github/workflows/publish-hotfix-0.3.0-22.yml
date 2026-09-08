@@ -42,30 +42,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Never allow this legacy maintenance publisher to replace a newer
-            # stable channel. This check runs BEFORE build-hotfix-0.3.0-22.sh,
-            # because that builder intentionally rewrites updates/stable.json.
-            decision="$(python3 - <<'PY'
-          import json, re
-          from pathlib import Path
-
-          target=(0, 3, 0, 22, 6)
-          p=Path('updates/stable.json')
-          if not p.is_file():
-              print('ALLOW')
-              raise SystemExit
-          data=json.loads(p.read_text(encoding='utf-8'))
-          value=str(data.get('version',''))
-          m=re.fullmatch(r'(\d+)\.(\d+)\.(\d+)-hotfix\.(\d+)(?:\.(\d+))?', value)
-          if not m:
-              print('ALLOW')
-              raise SystemExit
-          current=tuple(int(x or 0) for x in m.groups())
-          print('BLOCK_ROLLBACK' if current > target else 'ALLOW')
-          PY
-            )"
-            if [ "$decision" = BLOCK_ROLLBACK ]; then
-              echo 'A newer stable hotfix is already published; refusing 22.6 rollback.'
+            # The 22.6 workflow is a legacy maintenance publisher. It must
+            # never replace any other stable release. Check BEFORE running the
+            # 22.6 builder because that builder intentionally rewrites stable.
+            current_version=""
+            if [ -f updates/stable.json ]; then
+              current_version="$(python3 -c "import json; print(json.load(open('updates/stable.json')).get('version',''))")"
+            fi
+            if [ -n "$current_version" ] && [ "$current_version" != '0.3.0-hotfix.22.6' ]; then
+              echo "Stable is $current_version; refusing legacy 22.6 rollback."
               exit 0
             fi
 
