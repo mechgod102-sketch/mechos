@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.30",
-  "release_name": "MechOS v0.3.0 Hotfix 30",
+  "version": "0.3.0-hotfix.31",
+  "release_name": "MechOS v0.3.0 Hotfix 31",
   "published_at": "2026-09-08",
-  "notes": "Cumulative hardware MechScope Python-target and crash-loop recovery update. Physical-hardware Gaming Mode now resolves the persistent MechScope runtime or legacy mechscope.real target before launch, detects raw Python source, validates it, and invokes it through /usr/bin/python3 instead of executing Python as shell code. Gamescope and Plasma fallback both use the resolved command. Repeated MechScope crashes are capped at three attempts, then MechOS records the failure and safely switches the active session to Desktop Mode instead of flashing/restarting forever. Includes all Hotfix 29 Creator icon, VMware supervision, OOBE and updater repairs.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.30-update.tar.zst",
-  "bundle_sha256": "c3f7c36d1a4342374d4feba04a94d8b4ce4d245bd344695890c3529794cafae0",
+  "notes": "Cumulative public MechScope Python-wrapper recovery. Fixes physical-hardware systems where the first-run tutorial Bash wrapper still executed /usr/local/bin/mechscope.real directly even though that preserved target is Python source. A single interpreter-aware safe launcher now validates raw Python and invokes it through /usr/bin/python3. Hotfix 31 patches the installed tutorial wrapper in place without removing tutorial/OOBE behavior and replaces the legacy KDE autostart fallback so it cannot bypass the safe launch path. Future ISO tutorial postinstall integration also installs the same safe launcher. Includes all Hotfix 30 hardware session, crash-loop, Creator icon, VMware, OOBE and updater repairs.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.31-update.tar.zst",
+  "bundle_sha256": "2b8566e1108a25d5e3b9bda1edd4c0e3e30ae8c2e87ba2f3eb44a9df16d38b69",
   "requires_reboot": true
 }
