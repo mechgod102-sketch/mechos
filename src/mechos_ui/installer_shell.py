@@ -91,7 +91,7 @@ class InstallerShell(FixedCanvas):
         self.setStyleSheet('''
 QWidget#mechosFixedCanvas{background:#030711;color:#eef5ff}
 QPushButton[role="hotspot"]{background:transparent;border:0;color:transparent;padding:0;margin:0}
-QPushButton[role="hotspot"]:hover,QPushButton[role="hotspot"]:focus{background:rgba(36,141,255,10);border:1px solid rgba(102,220,255,90);border-radius:12px}
+QPushButton[role="hotspot"]:hover{background:rgba(36,141,255,10);border:1px solid rgba(102,220,255,90);border-radius:12px}
 QPushButton[role="mode"]{color:#eef5ff;text-align:left;padding:12px 16px;border-radius:12px;background:#0b1423;border:1px solid #2c4263;font-weight:700}
 QPushButton[role="mode"]:hover,QPushButton[role="mode"]:focus{background:#101d31;border:2px solid #51c9ff}
 QPushButton[role="mode"]:checked{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #173a70,stop:1 #26184c);border:2px solid #5ab9ff}
@@ -118,6 +118,10 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
         q.setProperty('role', 'hotspot')
         q.setToolTip(name)
         q.setAccessibleName(name)
+        # Transparent reference-backed navigation is pointer-only. Keeping
+        # these buttons out of the keyboard focus chain prevents a stray focus
+        # border from revealing an invisible hitbox over the artwork.
+        q.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         q.setCursor(Qt.CursorShape.PointingHandCursor)
         if fn:
             q.clicked.connect(fn)
@@ -171,13 +175,15 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
         return b
 
     def _build(self):
-        # Reference-backed navigation remains a transparent hit layer. The
-        # primary footer actions below are source-rendered so their visual and
-        # clickable rectangles can never drift apart.
-        for row in range(9):
+        # The approved artwork has exactly eight visible navigation rows.
+        # Their reference-space card bounds are x=72..486, y=192..278, with
+        # 90 authored pixels between row starts. The previous 28/154/318/66
+        # geometry was visibly up/left of the artwork and also created a ninth
+        # invisible hitbox with no corresponding step.
+        for row in range(8):
             self.hotspot(
                 f'Installer step {row + 1}',
-                QRect(28, 154 + row * 78, 318, 66),
+                QRect(72, 192 + row * 90, 414, 86),
                 lambda _=False, r=row: self.owner.nav_selected(r),
             )
 
@@ -285,12 +291,15 @@ QProgressBar::chunk{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #248df
             painter.drawText(target, Qt.AlignmentFlag.AlignCenter, 'Approved MechOS installer reference artwork is missing')
             return
 
-        # Mask only the demo-data regions of the approved artwork, plus the
-        # legacy baked footer actions. Static chrome/branding remains reference-
-        # backed, while Repair and Install Now are painted by the same Qt widgets
-        # that receive pointer/controller input.
-        self.panel(painter, QRect(400, 285, 770, 505), '#07101c', '#263a59', 16, 1)
+        # Mask all demo/reference-only interactive-looking content. The center
+        # workspace is intentionally widened to the real right-column boundary
+        # and extended through the old baked cards so no non-operational image
+        # control is left looking clickable behind the real Qt widgets.
+        self.panel(painter, QRect(400, 285, 870, 620), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1270, 225, 560, 385), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1270, 615, 560, 290), '#07101c', '#263a59', 16, 1)
         self.panel(painter, QRect(1260, 916, 630, 122), '#07101c', '#263a59', 16, 1)
+        # Remove the baked bottom-center/back control from the reference image;
+        # it has no runtime action and must not appear interactive.
+        self.panel(painter, QRect(548, 916, 712, 122), '#030711', '#030711', 0, 0)
         self.panel(painter, QRect(48, 952, 500, 86), '#07101c', '#1f3554', 12, 1)
