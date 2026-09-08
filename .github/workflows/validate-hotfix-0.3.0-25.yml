@@ -1,0 +1,46 @@
+name: Validate MechOS v0.3.0 Hotfix 25
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-update-transaction-v25.sh'
+      - 'scripts/mechos-update-helper-v25.sh'
+      - 'scripts/mechos-oobe-rearm-v25.sh'
+      - 'scripts/mechos-hotfix-0.3.0-25-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-25.sh'
+      - 'scripts/validate-hotfix-0.3.0-25.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-25.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-25.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-update-transaction-v25.sh'
+      - 'scripts/mechos-update-helper-v25.sh'
+      - 'scripts/mechos-oobe-rearm-v25.sh'
+      - 'scripts/mechos-hotfix-0.3.0-25-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-25.sh'
+      - 'scripts/validate-hotfix-0.3.0-25.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-25.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-25.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Hotfix 25 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-25.sh
+      - name: Confirm stuck-update bootstrap repair
+        run: |
+          set -euo pipefail
+          grep -Fq 'MECHOS_UPDATE_TRANSACTION_V25_RELEASE_COMMIT_V1' scripts/mechos-update-transaction-v25.sh
+          grep -Fq 'mv -f "$RELEASE_TMP" "$RELEASE"' scripts/mechos-update-transaction-v25.sh
+          grep -Fq 'MECHOS_RELEASE_COMMITTED=' scripts/mechos-update-helper-v25.sh
+      - name: Confirm persistent OOBE recovery
+        run: |
+          set -euo pipefail
+          grep -Fq 'MECHOS_OOBE_REARM_V25' scripts/mechos-oobe-rearm-v25.sh
+          grep -Fq 'ConditionPathExists=!/var/lib/mechos/oobe-complete' scripts/build-hotfix-0.3.0-25.sh
