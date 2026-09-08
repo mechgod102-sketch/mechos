@@ -2,7 +2,7 @@
 # MECHOS_MECHSCOPE_RUNTIME_V23
 # MECHOS_MECHSCOPE_RUNTIME_V25
 # MECHOS_MECHSCOPE_RUNTIME_V26
-# MECHOS_MECHSCOPE_VM_LIFETIME_V29
+# MECHOS_MECHSCOPE_LIFETIME_V29
 """Stable MechScope entrypoint for patched generated owners."""
 from __future__ import annotations
 
@@ -130,17 +130,21 @@ def gaming_mode_active() -> bool:
     return True
 
 
-def install_vm_lifetime_guard(app, window) -> None:
-    """Keep the VMware gaming shell resident until a real mode switch occurs.
+def install_lifetime_guard(app, window) -> None:
+    """Keep the gaming shell resident until a real mode switch occurs.
 
-    Some mixed-version owners briefly hide/close their top-level window while
-    restoring the gaming surface. Qt normally quits when the last window closes,
-    which looks like MechScope starts and then immediately stops. In VM gaming
-    mode, disable that implicit quit and restore the primary window while the
-    session-mode file still says gaming. Creator/Desktop transitions change that
-    file and are therefore never fought by this guard.
+    Mixed-version owners can briefly hide/close their top-level window while
+    restoring a page. Qt's default behavior quits when the last window closes,
+    which looks like MechScope starts and then stops. VM and hardware session
+    wrappers mark supervised Gaming Mode explicitly, so only those sessions
+    disable implicit quit. Creator/Desktop transitions change session-mode and
+    are never fought by the guard.
     """
-    if os.environ.get("MECHOS_VM_MODE") != "1":
+    supervised = (
+        os.environ.get("MECHOS_VM_MODE") == "1"
+        or os.environ.get("MECHOS_SESSION_SUPERVISED") == "1"
+    )
+    if not supervised:
         return
 
     from PyQt6.QtCore import QTimer
@@ -154,31 +158,31 @@ def install_vm_lifetime_guard(app, window) -> None:
         try:
             visible = bool(window.isVisible())
         except RuntimeError:
-            log("VM lifetime guard: primary MechScope QObject was destroyed")
+            log("lifetime guard: primary MechScope QObject was destroyed")
             return
         if visible:
             state["hidden"] = False
             return
         if not state["hidden"]:
-            log("VM lifetime guard: MechScope became hidden while Gaming Mode remained active; restoring window")
+            log("lifetime guard: MechScope became hidden while Gaming Mode remained active; restoring window")
             state["hidden"] = True
         try:
             window.showFullScreen()
             window.raise_()
             window.activateWindow()
         except Exception:
-            log("VM lifetime guard restore failed:\n" + traceback.format_exc())
+            log("lifetime guard restore failed:\n" + traceback.format_exc())
 
     timer = QTimer(app)
     timer.setInterval(750)
     timer.timeout.connect(keepalive)
     timer.start()
-    setattr(app, "_mechos_vm_lifetime_timer_v29", timer)
+    setattr(app, "_mechos_lifetime_timer_v29", timer)
     app.aboutToQuit.connect(lambda: log(
         "QApplication aboutToQuit; mode=" +
         (MODE_FILE.read_text(encoding="utf-8", errors="ignore").strip() if MODE_FILE.is_file() else "unknown")
     ))
-    log("installed VMware MechScope lifetime guard")
+    log("installed MechScope lifetime guard for supervised Gaming Mode")
 
 
 def main() -> int:
@@ -210,7 +214,7 @@ def main() -> int:
             window.show()
 
         if not store_only:
-            install_vm_lifetime_guard(app, window)
+            install_lifetime_guard(app, window)
 
         log(f"running {class_name} from owner={OWNER}")
         rc = int(app.exec())
