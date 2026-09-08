@@ -1,0 +1,85 @@
+name: Publish MechOS v0.3.0 Hotfix 27
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/mechos_ui/oobe_shell.py'
+      - 'scripts/mechos-hotfix-0.3.0-27-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-27.sh'
+      - 'scripts/validate-hotfix-0.3.0-27.sh'
+      - '.github/workflows/publish-hotfix-0.3.0-27.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mechos-hotfix-27-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install bundle tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 27 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-27.sh
+      - name: Publish Hotfix 27 to Update Center stable channel
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            bash scripts/validate-hotfix-0.3.0-27.sh
+            bash scripts/build-hotfix-0.3.0-27.sh
+
+            BUNDLE=updates/bundles/MechOS-0.3.0-hotfix.27-update.tar.zst
+            (cd "$(dirname "$BUNDLE")" && sha256sum -c "$(basename "$BUNDLE").sha256")
+            CONTENTS="$(tar --zstd -tf "$BUNDLE")"
+            grep -Fxq './usr/local/share/mechos/ui/oobe_shell.py' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-27-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/lib/systemd/system/mechos-hotfix-0.3.0-27.service' <<< "$CONTENTS"
+            grep -Fxq './etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-27.service' <<< "$CONTENTS"
+            grep -Fxq './usr/local/bin/mechos-oobe-start' <<< "$CONTENTS"
+            grep -Fxq './usr/local/libexec/mechos-hotfix-0.3.0-26-apply' <<< "$CONTENTS"
+            grep -Fxq './usr/local/bin/mechos-update-helper' <<< "$CONTENTS"
+
+            tar --zstd -xOf "$BUNDLE" ./usr/local/share/mechos/ui/oobe_shell.py | grep -Fq 'self.zone.addItems(self.zones)'
+            tar --zstd -xOf "$BUNDLE" ./usr/local/share/mechos/ui/oobe_shell.py | grep -Fq 'self.locale.addItems(self.locales)'
+            tar --zstd -xOf "$BUNDLE" ./usr/local/share/mechos/ui/oobe_shell.py | grep -Fq 'for label,code in self.keymaps:'
+
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text())
+          assert data['version']=='0.3.0-hotfix.27', data
+          assert data['requires_reboot'] is True, data
+          assert data['bundle_url'].endswith('MechOS-0.3.0-hotfix.27-update.tar.zst'), data
+          assert 'NameError' in data['notes'], data
+          PY
+
+            git add updates/bundles/MechOS-0.3.0-hotfix.27-update.tar.zst updates/bundles/MechOS-0.3.0-hotfix.27-update.tar.zst.sha256 updates/stable.json
+            if git diff --cached --quiet; then
+              echo 'Hotfix 27 is already published.'
+              exit 0
+            fi
+            git commit -m 'Publish MechOS v0.3.0 Hotfix 27'
+            if git push origin HEAD:main; then exit 0; fi
+            echo "Publish race on attempt ${attempt}; rebuilding from latest main."
+            sleep $((attempt * 2))
+          done
+          echo 'Unable to publish Hotfix 27 after three synchronized rebuild attempts.' >&2
+          exit 1
