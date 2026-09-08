@@ -36,11 +36,16 @@ WantedBy=multi-user.target
 EOF
 ln -sfn /usr/lib/systemd/system/mechos-hotfix-0.3.0-30.service "$STAGE/etc/systemd/system/multi-user.target.wants/mechos-hotfix-0.3.0-30.service"
 
-bash -n "$STAGE/usr/local/bin/mechscope-session" "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-30-apply"
-grep -Fq 'MECHOS_MECHSCOPE_SESSION_V21' "$STAGE/usr/local/bin/mechscope-session"
-grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' "$STAGE/usr/local/bin/mechscope-session"
-grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' "$STAGE/usr/local/bin/mechscope-session"
-grep -Fq 'crashes >= 3' "$STAGE/usr/local/bin/mechscope-session"
+SESSION="$STAGE/usr/local/bin/mechscope-session"
+bash -n "$SESSION" "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-30-apply"
+grep -Fq 'MECHOS_MECHSCOPE_SESSION_V21' "$SESSION"
+grep -Fq 'MECHSCOPE_COMMAND=(/usr/bin/python3 "$target")' "$SESSION"
+if grep -Fq 'MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER' "$SESSION"; then
+  grep -Fq '/usr/bin/gamescope "$@" -- /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"' "$SESSION"
+else
+  grep -Fq '/usr/bin/gamescope "$@" -- "${MECHSCOPE_COMMAND[@]}"' "$SESSION"
+fi
+grep -Fq 'crashes >= 3' "$SESSION"
 grep -Fq 'MECHOS_HOTFIX30_HARDWARE_PYTHON_CRASH_LOOP_V1' "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-30-apply"
 
 for required in \
