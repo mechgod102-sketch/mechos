@@ -1,0 +1,38 @@
+name: Validate MechOS v0.3.0 Hotfix 26
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-oobe-start-v26.sh'
+      - 'scripts/mechos-hotfix-0.3.0-26-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-26.sh'
+      - 'scripts/validate-hotfix-0.3.0-26.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-26.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-26.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mechos-oobe-start-v26.sh'
+      - 'scripts/mechos-hotfix-0.3.0-26-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-26.sh'
+      - 'scripts/validate-hotfix-0.3.0-26.sh'
+      - '.github/workflows/validate-hotfix-0.3.0-26.yml'
+      - '.github/workflows/publish-hotfix-0.3.0-26.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Hotfix 26 source
+        run: |
+          set -euo pipefail
+          bash scripts/validate-hotfix-0.3.0-26.sh
+      - name: Confirm graphical OOBE recovery
+        run: |
+          set -euo pipefail
+          grep -Fq 'systemctl --user show-environment' scripts/mechos-oobe-start-v26.sh
+          grep -Fq 'run_candidate wayland' scripts/mechos-oobe-start-v26.sh
+          grep -Fq 'run_candidate xcb' scripts/mechos-oobe-start-v26.sh
+          grep -Fq 'kdialog --error' scripts/mechos-oobe-start-v26.sh
