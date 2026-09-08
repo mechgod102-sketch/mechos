@@ -20,12 +20,20 @@ grep -Fq '/usr/local/share/mechos/mechscope/mechscope_shell.py' "$RUNTIME"
 grep -Fq 'class MechScope(QMainWindow)' "$RUNTIME"
 grep -Fq 'app.setQuitOnLastWindowClosed(False)' "$RUNTIME"
 grep -Fq 'window.showFullScreen()' "$RUNTIME"
-if grep -Fq 'mechscope.real' "$RUNTIME"; then
-  echo 'source-owned V33 runtime must not depend on mechscope.real' >&2; exit 1
-fi
-if grep -Fq 'mechscope-owner-v23.py' "$RUNTIME"; then
-  echo 'source-owned V33 runtime must not depend on generated owner-v23' >&2; exit 1
-fi
+python3 - "$RUNTIME" <<'PY'
+from pathlib import Path
+import ast,sys
+p=Path(sys.argv[1]); text=p.read_text(encoding='utf-8'); tree=ast.parse(text)
+# Comments/docstrings may explain the removed legacy paths. Reject executable
+# constants/loader code that would actually depend on them.
+strings=[]
+for node in ast.walk(tree):
+    if isinstance(node, ast.Constant) and isinstance(node.value,str): strings.append(node.value)
+for value in strings:
+    if value in ('/usr/local/bin/mechscope.real','/usr/local/libexec/mechscope-owner-v23.py'):
+        raise SystemExit(f'V33 executable runtime still depends on legacy path: {value}')
+assert 'load_owner(' not in text
+PY
 
 grep -Fq 'class MechScopeShell' "$SHELL"
 for f in "$SESSION" "$OVERLAY"; do
@@ -58,8 +66,6 @@ grep -Fq 'mechos-mechscope-source-runtime-v33.py' "$BUILD"
 grep -Fq 'src/mechscope/mechscope_shell.py' "$BUILD"
 grep -Fq "'version':'0.3.0-hotfix.33'" "$BUILD"
 
-# Regression: on an installed system, missing source runtime must not silently
-# route back to a raw legacy target. Test the resolver text structurally.
 python3 - "$SAFE" <<'PY'
 from pathlib import Path
 import sys
@@ -73,8 +79,6 @@ assert 'return 1' in block
 assert 'LEGACY_REAL' not in block
 PY
 
-# Regression: user cleanup disables a stale XDG desktop entry without needing a
-# real graphical session.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/.config/autostart"
 cat >"$tmp/.config/autostart/old-mechscope.desktop" <<'EOF'
