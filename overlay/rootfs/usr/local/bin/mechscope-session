@@ -1,61 +1,93 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-source /usr/local/lib/mechos/runtime.sh
+# MECHOS_MECHSCOPE_SESSION_V20
 
 MODE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode"
-mkdir -p "$(dirname "$MODE_FILE")"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
+LOG_FILE="$STATE_DIR/mechscope-session-v20.log"
+MECHSCOPE=/usr/local/bin/mechscope
+mkdir -p "$(dirname "$MODE_FILE")" "$STATE_DIR"
 
-if [[ -r "$MODE_FILE" ]]; then
-  MODE="$(cat "$MODE_FILE")"
-elif mechos_is_live; then
-  MODE=desktop
-else
-  MODE=gaming
-fi
+log(){ printf '[%s] [mechscope-session-v20] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG_FILE"; }
+mode(){ if [[ -r "$MODE_FILE" ]]; then tr -d '\r\n[:space:]' <"$MODE_FILE"; else printf 'gaming'; fi; }
+gaming_requested(){ [[ "$(mode)" == gaming ]]; }
 
-if [[ "$MODE" == "desktop" ]]; then
+MODE="$(mode)"
+if [[ "$MODE" == desktop ]]; then exec /usr/bin/startplasma-wayland; fi
+if [[ ! -x "$MECHSCOPE" ]]; then exec /usr/bin/startplasma-wayland; fi
+
+import_user_environment(){
+  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION >/dev/null 2>&1 || true
+}
+
+plasma_mechscope_supervisor(){
+  local crashes=0 rc=0
+  sleep 2
+  while gaming_requested; do
+    import_user_environment
+    log "Plasma fallback: starting supervised MechScope attempt=$((crashes+1))"
+    set +e; "$MECHSCOPE" >>"$LOG_FILE" 2>&1; rc=$?; set -e
+    if ! gaming_requested; then
+      log "MechScope exited rc=$rc after intentional mode transition mode=$(mode)"
+      return 0
+    fi
+    crashes=$((crashes+1))
+    log "MechScope exited rc=$rc while Gaming Mode remains active; restart=$crashes"
+    sleep $(( crashes < 5 ? crashes : 5 ))
+  done
+}
+
+start_plasma_mechscope(){
+  export MECHOS_DISABLE_GAMESCOPE=1
+  export MECHOS_SESSION_SUPERVISED=1
+  export XDG_SESSION_TYPE=wayland
+  export XDG_CURRENT_DESKTOP=KDE
+  export XDG_SESSION_DESKTOP=KDE
+  export DESKTOP_SESSION=plasma
+  plasma_mechscope_supervisor &
   exec /usr/bin/startplasma-wayland
+}
+
+VIRT="$(systemd-detect-virt 2>/dev/null || true)"
+if [[ -n "$VIRT" && "$VIRT" != none ]]; then
+  export MECHOS_VM_MODE=1 QT_OPENGL=software LIBGL_ALWAYS_SOFTWARE=1 QT_QUICK_BACKEND=software QSG_RHI_BACKEND=software
+  start_plasma_mechscope
 fi
+if [[ ! -x /usr/bin/gamescope ]]; then start_plasma_mechscope; fi
 
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=gamescope
+export XDG_SESSION_DESKTOP=MechScope
+export DESKTOP_SESSION=mechscope
+export MECHOS_SESSION_SUPERVISED=1
 export STEAM_ALLOW_DRIVE_UNMOUNT=1
-export STEAM_GAMESCOPE_VRR_SUPPORTED=1
 export STEAM_GAMESCOPE_TEARING_SUPPORTED=1
 export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
 export STEAM_GAMESCOPE_COLOR_MANAGED=1
 export STEAM_MULTIPLE_XWAYLANDS=1
 export STEAM_DISABLE_AUDIO_DEVICE_SWITCHING=1
 export STEAM_UPDATEUI_PNG_BACKGROUND=/usr/share/backgrounds/mechos/mechscope-loading.png
+[[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && export STEAM_GAMESCOPE_VRR_SUPPORTED=1
+if [[ "${MECHOS_HDR:-0}" == 1 ]]; then export STEAM_GAMESCOPE_HDR_SUPPORTED=1 STEAM_GAMESCOPE_VIRTUAL_WHITE=1; fi
+if lspci 2>/dev/null | grep -qi nvidia; then export GBM_BACKEND=nvidia-drm __GLX_VENDOR_LIBRARY_NAME=nvidia; fi
 
-# HDR remains opt-in because GPU/driver support differs, especially on NVIDIA.
-if [[ "${MECHOS_HDR:-0}" == "1" ]]; then
-  export STEAM_GAMESCOPE_HDR_SUPPORTED=1
-  export STEAM_GAMESCOPE_VIRTUAL_WHITE=1
-fi
-
-if lspci 2>/dev/null | grep -qi nvidia; then
-  export GBM_BACKEND=nvidia-drm
-  export __GLX_VENDOR_LIBRARY_NAME=nvidia
-fi
-
-APP_CMD=(/usr/local/bin/mechscope)
-GS_ARGS=(-e -f)
-[[ "${MECHOS_DISABLE_VRR:-0}" != "1" ]] && GS_ARGS+=(--adaptive-sync)
-[[ "${MECHOS_HDR:-0}" == "1" ]] && GS_ARGS+=(--hdr-enabled)
-
-if [[ ! -x /usr/bin/gamescope || ! -x /usr/local/bin/mechscope ]]; then
-  printf 'desktop\n' > "$MODE_FILE"
-  if command -v notify-send >/dev/null 2>&1; then
-    notify-send 'MechScope' 'Gamescope or the MechScope shell is not ready. Opening the safe desktop fallback.' || true
+run_gamescope(){
+  local label="$1"; shift
+  local rc=0
+  log "starting Gamescope attempt=$label args=$*"
+  set +e; /usr/bin/gamescope "$@" -- "$MECHSCOPE" >>"$LOG_FILE" 2>&1; rc=$?; set -e
+  if ! gaming_requested; then
+    log "Gamescope attempt=$label exited rc=$rc after intentional mode transition mode=$(mode)"
+    return 0
   fi
-  if command -v /usr/local/bin/mechscope >/dev/null 2>&1; then
-    (sleep 4; /usr/local/bin/mechscope >/dev/null 2>&1 &) || true
-  fi
-  exec /usr/bin/startplasma-wayland
-fi
+  log "Gamescope attempt=$label exited rc=$rc while Gaming Mode remains active; treating as recoverable failure"
+  return 90
+}
 
-# This legacy entry now agrees with the primary mechos-gaming-session: the
-# custom MechScope shell owns Gaming Mode. Steam Gamepad UI is launched from
-# MechScope when the user selects Steam Library rather than replacing the OS UI.
-exec /usr/bin/gamescope "${GS_ARGS[@]}" -- "${APP_CMD[@]}"
+ARGS=(-e -f)
+[[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync)
+[[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)
+if run_gamescope primary "${ARGS[@]}"; then exit 0; fi
+if gaming_requested && run_gamescope conservative -f; then exit 0; fi
+if gaming_requested; then start_plasma_mechscope; fi
+exit 0
