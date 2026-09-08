@@ -11,7 +11,7 @@ BUNDLE=/workspace/updates/bundles/MechOS-0.3.0-hotfix.22.6-update.tar.zst
 SUM="$BUNDLE.sha256"
 VERIFY=/workspace/scripts/mechos-hardware-verify-v22.sh
 EXPECTED_VERSION=0.3.0-hotfix.22.6
-EXPECTED_SHA=0e4f838d070be7343ab65ccbe5c3e06f75af84067ecd852cf87df9b13fc1e106
+EXPECTED_SHA=54a2192bdcf93556ca5a9d24b7f450b2c58ca60f71acce55eef0bac9540cb5fe
 
 log(){ printf '[MechOS Hardware Stable] %s\n' "$*"; }
 fail(){ printf '[MechOS Hardware Stable] ERROR: %s\n' "$*" >&2; exit 1; }
