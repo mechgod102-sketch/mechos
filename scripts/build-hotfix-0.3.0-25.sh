@@ -90,14 +90,15 @@ grep -Fq 'MECHOS_OOBE_REARM_V25' "$STAGE/usr/local/libexec/mechos-oobe-rearm-v25
 grep -Fq 'ConditionPathExists=!/var/lib/mechos/oobe-complete' \
   "$STAGE/usr/lib/systemd/system/mechos-oobe-rearm-v25.service"
 
-# Preserve all cumulative account/session/update repairs from Hotfix 24.
+# Preserve all cumulative account/session/update repairs from Hotfix 24. The
+# OOBE runtime itself is part of the installed-system image; Hotfix 23/25 repair
+# that installed runtime rather than duplicating the generated files in bundles.
 for required in \
   "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-24-apply" \
   "$STAGE/usr/local/libexec/mechos-hotfix-0.3.0-23-apply" \
   "$STAGE/usr/local/bin/mechos-update-center" \
   "$STAGE/usr/local/bin/mechos-reboot" \
-  "$STAGE/usr/local/bin/mechscope-session" \
-  "$STAGE/usr/local/libexec/mechos-oobe-apply"; do
+  "$STAGE/usr/local/bin/mechscope-session"; do
   [ -e "$required" ] || { echo "Cumulative component missing: $required" >&2; exit 1; }
 done
 
