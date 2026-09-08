@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.24",
-  "release_name": "MechOS v0.3.0 Hotfix 24",
+  "version": "0.3.0-hotfix.25",
+  "release_name": "MechOS v0.3.0 Hotfix 25",
   "published_at": "2026-09-08",
-  "notes": "Cumulative MechScope startup recovery update. Corrects the Hotfix 23 post-OOBE SDDM handoff from the obsolete mechos-gaming.desktop session name to the installed mechscope.desktop session, restores automatic MechScope startup after login, and replaces the affected VMware VM Gaming launcher with a direct graphical-session runtime that preserves Plasma as compositor, imports the active display environment, launches MechScope with software rendering on Wayland, and retries through X11 when needed. Includes the complete Hotfix 23 account-creation recovery and cumulative updater protections.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.24-update.tar.zst",
-  "bundle_sha256": "5aab7e1f1b9d39874029f618aa1181cc2ac2353cf0f4da93f4a5d69a572c4b81",
+  "notes": "Cumulative update completion and first-boot account recovery. Fixes successful updates that remained displayed as an older hotfix by atomically committing and verifying /etc/mechos/release only after the OS transaction passes postflight checks. The staged transaction is self-contained so systems stuck on Hotfix 21 can recover during the Hotfix 25 update itself while preserving the Hotfix 20 root-permission safety guard and rollback behavior. Also adds a persistent pre-login OOBE recovery guard that re-creates the temporary mechos-setup transport, SDDM route, narrow polkit authorization and graphical autostart on every boot until /var/lib/mechos/oobe-complete exists; completed systems are returned to the real-user MechScope sign-in path. Includes all Hotfix 24 fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.25-update.tar.zst",
+  "bundle_sha256": "ba7b0fb4017fc6fb667cebc68088ea7efdd0662560173ac4f9e188cb0c0da21c",
   "requires_reboot": true
 }
