@@ -1,0 +1,85 @@
+name: Publish MechOS Hotfix 28
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-hotfix-28.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-mechos-hotfix-28
+  cancel-in-progress: false
+
+jobs:
+  publish-hotfix-28:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install bundle tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Validate Hotfix 28 sources
+        run: |
+          set -euo pipefail
+          bash -n scripts/mechos-vm-mode-runtime-hotfix5.sh
+          bash -n scripts/mechos-mode-launch-v19.sh
+          bash -n scripts/mechos-hotfix-0.3.0-28-apply.sh
+          bash -n scripts/build-hotfix-0.3.0-28.sh
+          grep -Fq 'MECHOS_VM_MECHSCOPE_PERSISTENT_RUNTIME_V5' scripts/mechos-vm-mode-runtime-hotfix5.sh
+          grep -Fq 'command=(/usr/bin/python3 "$target")' scripts/mechos-vm-mode-runtime-hotfix5.sh
+          grep -Fq 'MECHOS_MODE_LAUNCH_VM_DIRECT_V28' scripts/mechos-mode-launch-v19.sh
+          grep -Fq 'MECHOS_HOTFIX28_VM_MECHSCOPE_LAUNCH_V1' scripts/mechos-hotfix-0.3.0-28-apply.sh
+
+      - name: Build cumulative Hotfix 28 bundle
+        run: bash scripts/build-hotfix-0.3.0-28.sh
+
+      - name: Verify Hotfix 28 publication files
+        run: |
+          set -euo pipefail
+          test -s updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst
+          test -s updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst.sha256
+          (
+            cd updates/bundles
+            sha256sum -c MechOS-0.3.0-hotfix.28-update.tar.zst.sha256
+          )
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('updates/stable.json')
+          data=json.loads(p.read_text(encoding='utf-8'))
+          assert data['channel']=='stable'
+          assert data['version']=='0.3.0-hotfix.28'
+          bundle=Path('updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst')
+          actual=hashlib.sha256(bundle.read_bytes()).hexdigest()
+          assert actual==data['bundle_sha256'], (actual,data['bundle_sha256'])
+          print('HF28 sha256='+actual)
+          PY
+          tar --zstd -tf updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst | grep -F './usr/local/bin/mechos-vm-mode-runtime'
+          tar --zstd -tf updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst | grep -F './usr/local/bin/mechos-mode-launch'
+          tar --zstd -tf updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst | grep -F './usr/local/libexec/mechos-hotfix-0.3.0-28-apply'
+          tar --zstd -tf updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst | grep -F './usr/lib/systemd/system/mechos-hotfix-0.3.0-28.service'
+
+      - name: Commit stable Hotfix 28
+        run: |
+          set -euo pipefail
+          git config user.name 'MechOS Hotfix Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add updates/stable.json \
+            updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst \
+            updates/bundles/MechOS-0.3.0-hotfix.28-update.tar.zst.sha256
+          if git diff --cached --quiet; then
+            echo 'Hotfix 28 publication files are already committed.'
+            exit 0
+          fi
+          git commit -m 'release: publish MechOS Hotfix 28'
+          git push origin HEAD:main
