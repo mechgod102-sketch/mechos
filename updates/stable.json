@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.27",
-  "release_name": "MechOS v0.3.0 Hotfix 27",
+  "version": "0.3.0-hotfix.12",
+  "release_name": "MechOS v0.3.0 Hotfix 12",
   "published_at": "2026-09-08",
-  "notes": "Cumulative First System Setup UI crash repair. Fixes the OOBE shell NameError that prevented the account-creation window from rendering after Hotfix 26. OOBEShell.build now reads timezone, locale, and keyboard data from self.zones, self.locales, and self.keymaps instead of undefined local names. Adds a static regression check for the same class of error and ships the corrected source-owned OOBE shell directly to installed systems. Includes all Hotfix 26 graphical launcher recovery and Hotfix 25 update/account recovery fixes.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.27-update.tar.zst",
-  "bundle_sha256": "228b1fb43c1db4668480b76c2fa2b3748fa5d7b1e4f1fcc93dfd4ed66e9b2f3f",
+  "notes": "MechScope permission hotfix. Fixes the Oracle VirtualBox runtime rc=1 failure caused by the launcher health check attempting to write Python bytecode into root-owned /usr/local/bin/__pycache__. Runtime validation now compiles MechScope source entirely in memory with no filesystem writes, while retaining Hotfix 11 Qt backend fallbacks and VM diagnostics.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.12-update.tar.zst",
+  "bundle_sha256": "24543011aaa73a0c9eb2c0f73ba7a8a7ede430a5a4fbded586f9c1e6f2ec0d81",
   "requires_reboot": true
 }
