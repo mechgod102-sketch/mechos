@@ -7,12 +7,55 @@ resolutions and VM fallback sessions keep the same composition.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QRect, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen
-from PyQt6.QtWidgets import QLabel, QPushButton, QWidget
+from PyQt6.QtCore import QRect, QSize, Qt
+from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen
+from PyQt6.QtWidgets import QLabel, QPushButton, QStyle, QWidget
 
 BASE_W = 1920
 BASE_H = 1080
+
+# MECHOS_CREATOR_BUTTON_ICONS_V1
+# This map is source-owned so Update Center installs receive the same icon
+# behavior as hardware ISO builds. App-specific Creator surfaces can replace
+# these theme icons with application-owned icons through creator_real_icons_v22.
+MECHOS_BUTTON_ICONS = {
+    'Dashboard': (('view-dashboard', 'applications-system'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Projects': (('folder-projects', 'folder-documents', 'folder'), QStyle.StandardPixmap.SP_DirIcon),
+    'Engines': (('applications-development', 'system-run'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Tools': (('configure', 'applications-utilities'), QStyle.StandardPixmap.SP_FileDialogDetailedView),
+    'Assets': (('folder-images', 'applications-graphics'), QStyle.StandardPixmap.SP_DirIcon),
+    'MechClip AI': (('camera-video', 'video-x-generic'), QStyle.StandardPixmap.SP_MediaPlay),
+    'Learn': (('help-contents', 'documentation'), QStyle.StandardPixmap.SP_DialogHelpButton),
+    'Community': (('system-users', 'im-user'), QStyle.StandardPixmap.SP_DirHomeIcon),
+    'Settings': (('settings-configure', 'configure'), QStyle.StandardPixmap.SP_FileDialogDetailedView),
+    'System Monitor': (('utilities-system-monitor', 'org.kde.plasma-systemmonitor'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'New Project': (('document-new',), QStyle.StandardPixmap.SP_FileIcon),
+    'Open Project': (('document-open', 'folder-open'), QStyle.StandardPixmap.SP_DialogOpenButton),
+    'Project Manager': (('folder-projects', 'folder-documents'), QStyle.StandardPixmap.SP_DirIcon),
+    'Creator Store': (('store', 'system-software-install'), QStyle.StandardPixmap.SP_DriveNetIcon),
+    'Asset Browser': (('folder-images', 'applications-graphics'), QStyle.StandardPixmap.SP_DirIcon),
+    'Creator Settings': (('settings-configure', 'configure'), QStyle.StandardPixmap.SP_FileDialogDetailedView),
+    'Performance': (('speedometer', 'utilities-system-monitor'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Optimization': (('speedometer', 'utilities-system-monitor'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Blender': (('blender', 'applications-graphics'), QStyle.StandardPixmap.SP_FileIcon),
+    'Unity Hub': (('unityhub', 'unity-hub', 'applications-development'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Unreal Engine': (('unreal-editor', 'unreal-engine', 'applications-development'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'VS Code': (('visual-studio-code', 'com.visualstudio.code', 'code', 'applications-development'), QStyle.StandardPixmap.SP_FileIcon),
+    'GitKraken': (('gitkraken', 'git', 'applications-development'), QStyle.StandardPixmap.SP_FileIcon),
+    'Krita': (('krita', 'applications-graphics'), QStyle.StandardPixmap.SP_FileIcon),
+    'OBS Studio': (('com.obsproject.Studio', 'obs', 'camera-video'), QStyle.StandardPixmap.SP_MediaPlay),
+    'Godot': (('godot', 'org.godotengine.Godot', 'applications-development'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'VRChat Creator': (('vrchat-creator-companion', 'applications-development'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Kdenlive': (('kdenlive', 'video-x-generic'), QStyle.StandardPixmap.SP_MediaPlay),
+    'Audacity': (('audacity', 'audio-x-generic'), QStyle.StandardPixmap.SP_MediaVolume),
+    'All 3D Tools': (('applications-graphics',), QStyle.StandardPixmap.SP_FileDialogDetailedView),
+    'Refresh Updates': (('view-refresh',), QStyle.StandardPixmap.SP_BrowserReload),
+    'View Updates': (('system-software-update', 'system-software-install'), QStyle.StandardPixmap.SP_ArrowForward),
+    'Gaming Mode': (('applications-games', 'input-gaming'), QStyle.StandardPixmap.SP_MediaPlay),
+    'Creator Mode': (('applications-graphics', 'applications-development'), QStyle.StandardPixmap.SP_ComputerIcon),
+    'Desktop Mode': (('user-desktop', 'computer'), QStyle.StandardPixmap.SP_DesktopIcon),
+    'MechScope': (('applications-games', 'utilities-system-monitor'), QStyle.StandardPixmap.SP_ComputerIcon),
+}
 
 
 class FixedCanvas(QWidget):
@@ -78,6 +121,21 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
         q.setProperty('role', 'danger' if danger else ('primary' if primary else 'action'))
         q.setProperty('mechosTitle', title)
         q.setProperty('mechosSubtitle', subtitle)
+        spec = MECHOS_BUTTON_ICONS.get(title)
+        if spec:
+            icon_names, fallback = spec
+            icon = QIcon()
+            for icon_name in icon_names:
+                candidate = QIcon.fromTheme(icon_name)
+                if not candidate.isNull():
+                    icon = candidate
+                    break
+            if icon.isNull() and fallback is not None:
+                icon = self.style().standardIcon(fallback)
+            if not icon.isNull():
+                q.setIcon(icon)
+                q.setIconSize(QSize(22, 22))
+                q.setProperty('mechosIconBase', 22)
         q.setCursor(Qt.CursorShape.PointingHandCursor)
         f = QFont('Sans Serif', size)
         f.setBold(True)
@@ -111,6 +169,10 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
                 compact_label = s < 0.72 and rect.width() <= 220 and rect.height() <= 70
                 widget.setWordWrap(not compact_label)
             if isinstance(widget, QPushButton) and widget.property('role') != 'hotspot':
+                icon_base = widget.property('mechosIconBase')
+                if icon_base:
+                    icon_px = max(12, int(round(int(icon_base) * s)))
+                    widget.setIconSize(QSize(icon_px, icon_px))
                 vpad = max(2, int(round(6 * s))); hpad = max(4, int(round(10 * s)))
                 widget.setStyleSheet(f'padding:{vpad}px {hpad}px;')
                 title_prop = widget.property('mechosTitle')
@@ -130,8 +192,6 @@ QPushButton[role="danger"]{border:1px solid #8e3852;background:#28111b}
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        # Explicitly paint every pixel dark. This prevents Qt/Plasma/VM style
-        # fallback from exposing a white backing surface in letterbox margins.
         p.fillRect(self.rect(), QColor('#020611'))
         self.paint_background(p)
 
