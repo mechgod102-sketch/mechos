@@ -1,0 +1,321 @@
+name: Publish MechOS Release
+
+run-name: Publish MechOS release from RC run ${{ inputs.release_candidate_run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_candidate_run_id:
+        description: 'Successful Build MechOS Release Candidate workflow run ID'
+        required: true
+        type: string
+      release_mode:
+        description: 'Publish as a prerelease first, or promote directly to the stable/latest release'
+        required: true
+        default: prerelease
+        type: choice
+        options:
+          - prerelease
+          - stable
+      confirm:
+        description: 'Type PUBLISH to approve this ISO for GitHub Releases'
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: mechos-release-${{ inputs.release_candidate_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish approved ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Require explicit approval
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM" != "PUBLISH" ]; then
+            echo "Release approval rejected: confirm must be exactly PUBLISH" >&2
+            exit 1
+          fi
+
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+
+      - name: Verify release-candidate workflow run
+        id: rc
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.release_candidate_run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          JSON="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
+          NAME="$(jq -r '.name' <<<"$JSON")"
+          STATUS="$(jq -r '.status' <<<"$JSON")"
+          CONCLUSION="$(jq -r '.conclusion' <<<"$JSON")"
+          BRANCH="$(jq -r '.head_branch' <<<"$JSON")"
+          SHA="$(jq -r '.head_sha' <<<"$JSON")"
+
+          case "$NAME" in
+            "Build MechOS Release Candidate - 22.6 Base + Latest Stable") ;;
+            *) echo "Refusing run $RUN_ID: unexpected workflow '$NAME'" >&2; exit 1 ;;
+          esac
+          test "$STATUS" = "completed"
+          test "$CONCLUSION" = "success"
+          test "$BRANCH" = "main"
+
+          echo "source_sha=$SHA" >>"$GITHUB_OUTPUT"
+          echo "Verified release-candidate run $RUN_ID at $SHA"
+
+      - name: Download approved release candidate
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.release_candidate_run_id }}
+          name: MechOS-release-candidate-latest-stable-x86_64
+          path: release-candidate
+
+      - name: Verify ISO and release metadata
+        id: package
+        run: |
+          set -euo pipefail
+          mapfile -t ISOS < <(find release-candidate -type f -name 'MechOS-v*-x86_64.iso' -print)
+          if [ "${#ISOS[@]}" -ne 1 ]; then
+            printf 'Expected exactly one MechOS release ISO, found %s\n' "${#ISOS[@]}" >&2
+            printf '%s\n' "${ISOS[@]}" >&2
+            exit 1
+          fi
+
+          ISO="${ISOS[0]}"
+          DIR="$(dirname "$ISO")"
+          BASE="$(basename "$ISO")"
+          VERSION="${BASE#MechOS-v}"
+          VERSION="${VERSION%-x86_64.iso}"
+          TAG="v${VERSION}"
+
+          test -s "$ISO"
+          test -s "$ISO.sha256"
+          test -s "$DIR/SHA256SUMS"
+          test -s "$DIR/RELEASE-CANDIDATE.txt"
+
+          (
+            cd "$DIR"
+            sha256sum -c "$(basename "$ISO").sha256"
+            sha256sum -c SHA256SUMS
+          )
+
+          if ! grep -Fq "$VERSION" "$DIR/RELEASE-CANDIDATE.txt"; then
+            echo "Release-candidate metadata does not name $VERSION" >&2
+            exit 1
+          fi
+
+          echo "iso=$ISO" >>"$GITHUB_OUTPUT"
+          echo "dir=$DIR" >>"$GITHUB_OUTPUT"
+          echo "base=$BASE" >>"$GITHUB_OUTPUT"
+          echo "version=$VERSION" >>"$GITHUB_OUTPUT"
+          echo "tag=$TAG" >>"$GITHUB_OUTPUT"
+          echo "Verified $BASE as $TAG"
+
+      - name: Prepare GitHub Release assets
+        id: assets
+        env:
+          ISO: ${{ steps.package.outputs.iso }}
+          DIR: ${{ steps.package.outputs.dir }}
+          BASE: ${{ steps.package.outputs.base }}
+          VERSION: ${{ steps.package.outputs.version }}
+          RUN_ID: ${{ inputs.release_candidate_run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p publish-assets
+
+          cp "$ISO.sha256" publish-assets/
+          cp "$DIR/SHA256SUMS" publish-assets/
+          cp "$DIR/RELEASE-CANDIDATE.txt" publish-assets/
+
+          # GitHub Release assets have a per-file size ceiling. Stay below it
+          # so large MechOS ISOs are automatically published as reassemblable parts.
+          LIMIT=$((1900 * 1024 * 1024))
+          SIZE="$(stat -c '%s' "$ISO")"
+          SPLIT=false
+
+          if [ "$SIZE" -le "$LIMIT" ]; then
+            cp "$ISO" publish-assets/
+          else
+            SPLIT=true
+            split -b 1900M -d -a 2 "$ISO" "publish-assets/${BASE}.part-"
+            sha256sum publish-assets/${BASE}.part-* >publish-assets/ISO-PARTS-SHA256SUMS
+
+            mapfile -t PARTS < <(find publish-assets -maxdepth 1 -type f -name "${BASE}.part-*" -printf '%f\n' | sort)
+            if [ "${#PARTS[@]}" -lt 2 ]; then
+              echo "Oversized ISO did not split into at least two parts" >&2
+              exit 1
+            fi
+
+            {
+              echo "MechOS $VERSION ISO reassembly"
+              echo
+              echo "The original ISO is larger than GitHub's per-release-asset limit, so it is published in numbered parts."
+              echo
+              echo "1. Download every ${BASE}.part-* file plus ${BASE}.sha256."
+              echo "2. Put all downloaded parts in the same directory."
+              echo
+              echo "Linux/macOS:"
+              echo "  cat ${BASE}.part-* > ${BASE}"
+              echo "  sha256sum -c ${BASE}.sha256"
+              echo
+              echo "Windows Command Prompt:"
+              printf '  copy /b '
+              first=1
+              for p in "${PARTS[@]}"; do
+                if [ "$first" -eq 1 ]; then
+                  printf '"%s"' "$p"
+                  first=0
+                else
+                  printf '+"%s"' "$p"
+                fi
+              done
+              printf ' "%s"\n' "$BASE"
+              echo "  certutil -hashfile ${BASE} SHA256"
+              echo "  Compare that value with ${BASE}.sha256."
+              echo
+              echo "Release-candidate workflow run: $RUN_ID"
+            } >publish-assets/REASSEMBLE-ISO.txt
+          fi
+
+          echo "split=$SPLIT" >>"$GITHUB_OUTPUT"
+          echo "size=$SIZE" >>"$GITHUB_OUTPUT"
+          ls -lh publish-assets
+
+      - name: Build release notes
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+          BASE: ${{ steps.package.outputs.base }}
+          SPLIT: ${{ steps.assets.outputs.split }}
+          RUN_ID: ${{ inputs.release_candidate_run_id }}
+          MODE: ${{ inputs.release_mode }}
+        run: |
+          set -euo pipefail
+          NOTES=""
+          if [ -f updates/stable.json ]; then
+            STABLE_VERSION="$(jq -r '.version // empty' updates/stable.json)"
+            if [ "$STABLE_VERSION" = "$VERSION" ]; then
+              NOTES="$(jq -r '.notes // empty' updates/stable.json)"
+            fi
+          fi
+
+          {
+            echo "# MechOS v$VERSION"
+            echo
+            if [ -n "$NOTES" ]; then
+              echo "$NOTES"
+              echo
+            fi
+            echo "## Installation image"
+            echo
+            echo "This release was promoted from successful MechOS release-candidate workflow run **$RUN_ID**."
+            echo
+            if [ "$SPLIT" = "true" ]; then
+              echo "The ISO is larger than GitHub's single-asset size limit, so it is provided as numbered parts. Download every \`${BASE}.part-*\` file and follow \`REASSEMBLE-ISO.txt\` to reconstruct \`$BASE\`."
+            else
+              echo "Download \`$BASE\` and verify it with \`${BASE}.sha256\` before writing it to installation media."
+            fi
+            echo
+            echo "The complete checksum list is also included as \`SHA256SUMS\`."
+            echo
+            echo "## Release state"
+            echo
+            if [ "$MODE" = "stable" ]; then
+              echo "This ISO was explicitly approved for the **stable/latest** MechOS release channel."
+            else
+              echo "This ISO was explicitly approved as a **pre-release** for final hardware validation."
+            fi
+          } >RELEASE-NOTES.md
+
+          cat RELEASE-NOTES.md
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.package.outputs.tag }}
+          VERSION: ${{ steps.package.outputs.version }}
+          SOURCE_SHA: ${{ steps.rc.outputs.source_sha }}
+          MODE: ${{ inputs.release_mode }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            RELEASE_ID="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.id')"
+            BODY="$(cat RELEASE-NOTES.md)"
+            if [ "$MODE" = "stable" ]; then
+              gh api --method PATCH "repos/$REPO/releases/$RELEASE_ID" \
+                -f name="MechOS v$VERSION" \
+                -f body="$BODY" \
+                -F draft=false \
+                -F prerelease=false \
+                -f make_latest=true >/dev/null
+            else
+              gh api --method PATCH "repos/$REPO/releases/$RELEASE_ID" \
+                -f name="MechOS v$VERSION" \
+                -f body="$BODY" \
+                -F draft=false \
+                -F prerelease=true \
+                -f make_latest=false >/dev/null
+            fi
+          else
+            ARGS=(release create "$TAG" --repo "$REPO" --target "$SOURCE_SHA" --title "MechOS v$VERSION" --notes-file RELEASE-NOTES.md)
+            if [ "$MODE" = "prerelease" ]; then
+              ARGS+=(--prerelease)
+            else
+              ARGS+=(--latest)
+            fi
+            gh "${ARGS[@]}"
+          fi
+
+          mapfile -t ASSETS < <(find publish-assets -maxdepth 1 -type f -printf '%p\n' | sort)
+          test "${#ASSETS[@]}" -gt 0
+          gh release upload "$TAG" "${ASSETS[@]}" --repo "$REPO" --clobber
+
+      - name: Verify published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.package.outputs.tag }}
+          MODE: ${{ inputs.release_mode }}
+          BASE: ${{ steps.package.outputs.base }}
+          SPLIT: ${{ steps.assets.outputs.split }}
+        run: |
+          set -euo pipefail
+          JSON="$(gh api "repos/$REPO/releases/tags/$TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = "false"
+          if [ "$MODE" = "stable" ]; then
+            test "$(jq -r '.prerelease' <<<"$JSON")" = "false"
+          else
+            test "$(jq -r '.prerelease' <<<"$JSON")" = "true"
+          fi
+
+          ASSET_NAMES="$(jq -r '.assets[].name' <<<"$JSON")"
+          grep -Fxq "${BASE}.sha256" <<<"$ASSET_NAMES"
+          grep -Fxq "SHA256SUMS" <<<"$ASSET_NAMES"
+          grep -Fxq "RELEASE-CANDIDATE.txt" <<<"$ASSET_NAMES"
+
+          if [ "$SPLIT" = "true" ]; then
+            grep -Fq "${BASE}.part-" <<<"$ASSET_NAMES"
+            grep -Fxq "ISO-PARTS-SHA256SUMS" <<<"$ASSET_NAMES"
+            grep -Fxq "REASSEMBLE-ISO.txt" <<<"$ASSET_NAMES"
+          else
+            grep -Fxq "$BASE" <<<"$ASSET_NAMES"
+          fi
+
+          echo "Published and verified $TAG"
+          gh release view "$TAG" --repo "$REPO"
