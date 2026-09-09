@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.34",
-  "release_name": "MechOS v0.3.0 Hotfix 34",
-  "published_at": "2026-09-08",
-  "notes": "Cumulative MechScope responsive UI cleanup. Fixes dark hero/header text on the source-owned shell, long GPU names wrapping into the temperature row, clipped two-line Quick Actions and chevrons, and an oversized Recent Games empty state. Quick Actions are now single-line rows with separate right-side chevrons, long status strings elide cleanly with full tooltip text, and the layout keeps readable dimensions across 720p, 900p and 1080p. The Hotfix 33 source-owned MechScope runtime, single-owner hardware session, safe launcher and crash recovery remain unchanged. Includes all Hotfix 33 fixes.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.34-update.tar.zst",
-  "bundle_sha256": "dd0c6b44eeb29b9d267b70162d692352c44b90d9173978500c169dccb395064f",
+  "version": "0.3.0-hotfix.35",
+  "release_name": "MechOS v0.3.0 Hotfix 35",
+  "published_at": "2026-09-09",
+  "notes": "Cumulative source-owned Unified Store release. Replaces the Store redirect behavior with a dedicated MechOS Unified Store page that displays Steam, Epic Games, GOG.com and Amazon Games sources in-app, keeps supported game search results inside MechOS, and adds installed/not-installed status plus Install/Launch controls for Steam, Heroic Games Launcher and Lutris. Launcher installation uses fixed MechOS launcher IDs only; Steam and Lutris use the system package path with PolicyKit approval and Heroic uses the existing user-scoped Flatpak bootstrap. Both the MechScope dashboard Store action and the legacy mechscope --store compatibility entry now prefer /usr/local/bin/mechos-unified-store before Discovery fallbacks. Includes all Hotfix 34 fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.35-update.tar.zst",
+  "bundle_sha256": "461a43894dc4b074db5499bb90ae96e1bc55bd55497f317d32bff541f0f0e6e8",
   "requires_reboot": true
 }
