@@ -1,10 +1,10 @@
-name: Build MechOS Hardware Stable - 22.6 Base + Latest Stable
+name: Build MechOS Release Candidate - 22.6 Base + Latest Stable
 
 on:
   workflow_dispatch:
     inputs:
       stable_target:
-        description: 'Optional hotfix target, for example 0.3.0-hotfix.27. Requires its build script to exist.'
+        description: 'Optional hotfix target, for example 0.3.0-hotfix.35. Requires its build script to exist.'
         required: false
         default: ''
         type: string
@@ -44,7 +44,7 @@ jobs:
           docker system prune -af --volumes || true
           df -h
 
-      - name: Validate hardware baseline and stable-target support
+      - name: Validate release baseline and stable-target support
         run: |
           set -euo pipefail
           ./scripts/validate-project.sh
@@ -64,7 +64,7 @@ jobs:
           grep -Fq 'mechos-oobe-finish-reboot' scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq '99-mechos-final-user.conf' scripts/mechos-postinstall-account-hotfix.sh
           grep -Fq 'EXPECTED_VERSION=0.3.0-hotfix.22.6' scripts/mechos-hardware-stable-seed-v22.sh
-          grep -Fq 'EXPECTED_SHA=54a2192bdcf93556ca5a9d24b7f450b2c58ca60f71acce55eef0bac9540cb5fe' scripts/mechos-hardware-stable-seed-v22.sh
+          grep -Fq 'EXPECTED_SHA=8979bc1bca814195c87c034fff6995c1484a1248ffde7c6e313326c8b590396b' scripts/mechos-hardware-stable-seed-v22.sh
           bash -n scripts/mechos-live-installer-final-hardening.sh
           grep -Fq 'MECHOS_LIVE_INSTALLER_FINAL_HARDENING_V1' scripts/mechos-live-installer-final-hardening.sh
           grep -Fq 'mechos-live-installer-final-hardening.sh' scripts/mechos-hotfix13-stability-integration.sh
@@ -87,23 +87,41 @@ jobs:
           if bundle.is_file():
               actual = hashlib.sha256(bundle.read_bytes()).hexdigest()
               assert actual == manifest['bundle_sha256'], (actual, manifest['bundle_sha256'])
-              print(f'hardware stable target: {version} bundle={name} sha256={actual}')
+              print(f'release stable target: {version} bundle={name} sha256={actual}')
           else:
               builder = Path('scripts') / f'build-hotfix-{version}.sh'
               assert builder.is_file(), f'{bundle} missing and {builder} does not exist'
-              print(f'hardware stable target: {version}; bundle will be generated from {builder}')
+              print(f'release stable target: {version}; bundle will be generated from {builder}')
 
           def key(v):
               m = re.fullmatch(r'0\.3\.0-hotfix\.(\d+(?:\.\d+)*)', v)
               assert m, v
               return tuple(int(x) for x in m.group(1).split('.'))
-          assert key('0.3.0-hotfix.27') > key('0.3.0-hotfix.26')
-          assert key('0.3.0-hotfix.27.1') > key('0.3.0-hotfix.27')
+          assert key(version) >= key('0.3.0-hotfix.22.6'), version
           PY
           grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' scripts/mechos-mode-launch-v19.sh
           grep -Fq 'MECHOS_CREATOR_EXTERNAL_QT_HANDOFF_V26' scripts/mechos-shell-route-v19.sh
           grep -Fq 'MECHOS_MECHSCOPE_RUNTIME_V26' scripts/mechos-mechscope-runtime-v23.py
           grep -Fq 'MECHOS_HOTFIX22_APPLY_V8' scripts/mechos-hotfix-0.3.0-22-apply.sh
+
+      - name: Validate latest stable release payload
+        run: |
+          set -euo pipefail
+          STABLE_VERSION="$(python3 -c "import json; print(json.load(open('updates/stable.json'))['version'])")"
+          STABLE_URL="$(python3 -c "import json; print(json.load(open('updates/stable.json'))['bundle_url'])")"
+          BUNDLE="updates/bundles/${STABLE_URL##*/}"
+          test -s "$BUNDLE"
+          if python3 - "$STABLE_VERSION" <<'PY'
+          import re,sys
+          m=re.fullmatch(r'0\.3\.0-hotfix\.(\d+(?:\.\d+)*)',sys.argv[1])
+          raise SystemExit(0 if m and tuple(map(int,m.group(1).split('.'))) >= (35,) else 1)
+          PY
+          then
+            tar --zstd -tf "$BUNDLE" | grep -F './usr/local/bin/mechos-unified-store'
+            tar --zstd -tf "$BUNDLE" | grep -F './usr/local/libexec/mechos-launcher-bootstrap-v35'
+            tar --zstd -tf "$BUNDLE" | grep -F './usr/local/libexec/mechos-hotfix-0.3.0-35-apply'
+            tar --zstd -tf "$BUNDLE" | grep -F './usr/local/libexec/mechos-mechscope-source-runtime-v33'
+          fi
 
       - name: Apply current MechOS integration stack
         run: |
@@ -141,10 +159,11 @@ jobs:
           MECHOS_HARDWARE_TARGET_VERSION: ${{ github.event.inputs.stable_target }}
         run: ./build-iso.sh
 
-      - name: Verify and name hardware candidate
+      - name: Verify and package release candidate
         run: |
           set -euo pipefail
           STABLE_VERSION="$(python3 -c "import json; print(json.load(open('updates/stable.json'))['version'])")"
+          STABLE_SHA="$(python3 -c "import json; print(json.load(open('updates/stable.json'))['bundle_sha256'])")"
           REQUESTED="${{ github.event.inputs.stable_target }}"
           if [ -n "$REQUESTED" ]; then
             STABLE_VERSION="$REQUESTED"
@@ -158,7 +177,7 @@ jobs:
             sha256sum -c "$(basename "$ISO").sha256"
           )
           DIR="$(dirname "$ISO")"
-          TARGET="$DIR/MechOS-v${STABLE_VERSION}-hardware-22.6-base-x86_64.iso"
+          TARGET="$DIR/MechOS-v${STABLE_VERSION}-x86_64.iso"
           if [ "$ISO" != "$TARGET" ]; then
             mv -f "$ISO" "$TARGET"
             rm -f "$ISO.sha256"
@@ -168,55 +187,51 @@ jobs:
             sha256sum "$(basename "$TARGET")" >"$(basename "$TARGET").sha256"
             sha256sum -c "$(basename "$TARGET").sha256"
           )
-          cat >out/HARDWARE-TEST-README.txt <<EOF
-          MechOS Hardware Validation ISO
+          cp -f "$TARGET.sha256" out/SHA256SUMS
+          cat >out/RELEASE-CANDIDATE.txt <<EOF
+          MechOS Release Candidate
+          Release: $STABLE_VERSION
+          Architecture: x86_64
           Hardware baseline: 0.3.0-hotfix.22.6
-          Stable target baked into this build: $STABLE_VERSION
+          Stable cumulative bundle SHA256: $STABLE_SHA
 
-          Goal:
-          - verify clean UEFI boot and installation on real hardware
-          - verify the installed payload contains at least the validated Hotfix 22.6 hardware baseline
-          - verify the newest published or explicitly requested cumulative hotfix is layered after the 22.6 baseline
-          - verify first boot activates the target hotfix and only then commits /etc/mechos/release
-          - verify first installed boot goes directly into fullscreen account creation
-          - verify mechos-setup is only a temporary transport account and never the final owner
-          - verify finishing OOBE creates the requested user, assigns its password/admin groups, and schedules a privileged reboot
-          - verify the next boot removes mechos-setup before SDDM starts and shows the real user sign-in
-          - verify GPU/Vulkan, Wi-Fi/Ethernet, Bluetooth, PipeWire audio, storage and controllers
-          - verify MechScope startup and MechScope -> Creator Mode external Qt handoff
-          - verify reboot/shutdown and suspend/resume manually
+          This candidate is packaged from the current stable MechOS source and
+          must pass final physical-hardware smoke testing before public release.
 
-          Stable selection:
-          - updates/stable.json remains the normal source of truth.
-          - workflow_dispatch can explicitly request a target such as 0.3.0-hotfix.27 once its build script exists.
-          - pushes touching build-iso.sh, scripts, the stable manifest, or hotfix bundles retrigger this hardware workflow.
-          - if the manifest points to a target whose bundle has not yet been generated, the hardware build can generate it from the exact matching build-hotfix script.
-          - the build refuses a target older than 0.3.0-hotfix.22.6.
-          - the stable bundle SHA256 must match the resolved manifest before it is packed into the installed payload.
+          Required release smoke test:
+          - UEFI boot reaches the MechOS Live environment
+          - Live installer opens without a password prompt
+          - Clean installation completes on the selected target drive
+          - first installed boot enters fullscreen account creation
+          - completing OOBE removes the temporary mechos-setup account
+          - real-user login starts MechScope
+          - Unified Store opens inside MechOS and shows store/launcher cards
+          - Steam, Heroic and Lutris Install/Launch controls work as expected
+          - Creator Mode opens and returns to MechScope
+          - Update Center reports $STABLE_VERSION after activation
+          - networking, Bluetooth, PipeWire audio, controller input and GPU/Vulkan work
+          - reboot, shutdown and suspend/resume complete normally
 
-          After signing in run:
+          After installation run:
               cat /etc/mechos/release
               cat /etc/mechos/hardware-test-build
-              id
               getent passwd mechos-setup || echo "mechos-setup removed"
-              cat /var/lib/mechos/system-user
               mechos-hardware-verify
 
-          Expected release after first-boot activation:
+          Expected installed release after first-boot activation:
               $STABLE_VERSION
-
-          Save the complete mechos-hardware-verify output when reporting a hardware issue.
           EOF
-          ls -lh "$TARGET" "$TARGET.sha256" out/HARDWARE-TEST-README.txt
+          ls -lh "$TARGET" "$TARGET.sha256" out/SHA256SUMS out/RELEASE-CANDIDATE.txt
 
-      - name: Upload hardware test ISO
+      - name: Upload MechOS release candidate
         uses: actions/upload-artifact@v4
         with:
-          name: MechOS-hardware-22.6-base-latest-stable-x86_64
+          name: MechOS-release-candidate-latest-stable-x86_64
           path: |
             out/**/*.iso
             out/**/*.iso.sha256
-            out/HARDWARE-TEST-README.txt
+            out/SHA256SUMS
+            out/RELEASE-CANDIDATE.txt
           if-no-files-found: error
           compression-level: 0
-          retention-days: 14
+          retention-days: 30
