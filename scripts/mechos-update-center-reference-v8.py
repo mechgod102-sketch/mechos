@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -52,6 +53,21 @@ def current_release() -> str:
         return value or "unknown"
     except Exception:
         return "unknown"
+
+
+def version_key(value: str):
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-hotfix\.([0-9]+(?:\.[0-9]+)*))?", value)
+    if not match:
+        return None
+    base = tuple(int(x) for x in match.group(1, 2, 3))
+    suffix = match.group(4)
+    return base + (((1,) + tuple(int(x) for x in suffix.split("."))) if suffix else (0,))
+
+
+def is_newer_release(current: str, candidate: str) -> bool:
+    current_key = version_key(current)
+    candidate_key = version_key(candidate)
+    return bool(current_key is not None and candidate_key is not None and candidate_key > current_key)
 
 
 def load_update_shell():
@@ -170,7 +186,10 @@ class UpdateCenter(QMainWindow):
         current = values.get("CURRENT_MECHOS_VERSION", current_release())
         latest = values.get("LATEST_MECHOS_VERSION", current)
         total = self.first_value(values, "TOTAL_COUNT", "UPDATE_COUNT", default="0")
-        mechos_available = values.get("MECHOS_UPDATE_AVAILABLE") == "1" or latest != current
+        feed_is_older = latest != current and not is_newer_release(current, latest)
+        mechos_available = values.get("MECHOS_UPDATE_AVAILABLE") == "1" or is_newer_release(current, latest)
+        if feed_is_older:
+            mechos_available = False
         arch = self.first_value(values, "ARCH_COUNT", "PACMAN_COUNT", "SYSTEM_COUNT")
         flatpak = self.first_value(values, "FLATPAK_COUNT", "FLATPAKS_COUNT")
         reboot = values.get("REBOOT_REQUIRED") == "1" or (STATE / "reboot-required").exists()
@@ -187,9 +206,16 @@ class UpdateCenter(QMainWindow):
             count = int(total)
         except Exception:
             count = 0
+        if feed_is_older and count > 0:
+            count -= 1
         available = mechos_available or count > 0
         self.install_button.setEnabled(available and self.proc is None)
-        if reboot and not available:
+        if feed_is_older:
+            self.status_label.setText("Stable feed older than installed system")
+            self.details_label.setText(
+                f"Installed {current} is newer than feed {latest}. Downgrade is blocked."
+            )
+        elif reboot and not available:
             self.status_label.setText("Restart required")
             self.details_label.setText("Updates are installed. Restart MechOS to finish applying them.")
         elif available:

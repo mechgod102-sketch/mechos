@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-mechos-0.3.1
+  group: mechos-stable-publish
   cancel-in-progress: false
 
 jobs:

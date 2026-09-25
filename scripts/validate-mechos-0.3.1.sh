@@ -68,3 +68,23 @@ echo 'MechOS 0.3.1 full roadmap source contracts validated.'
 ! grep -Fq 'local dir="$1" manifest="$dir/stable.json"' "$ROOT/scripts/mechos-update-helper-v37.sh"
 grep -Fq 'dir="$1"' "$ROOT/scripts/mechos-update-helper-v37.sh"
 grep -Fq 'manifest="$dir/stable.json"' "$ROOT/scripts/mechos-update-helper-v37.sh"
+
+
+# Regression: Stable must never be treated as an upgrade when it is older than
+# the installed release.
+grep -Fq 'is_newer_version' "$ROOT/scripts/mechos-update-helper-v37.sh"
+grep -Fq 'Refusing MechOS downgrade' "$ROOT/scripts/mechos-update-helper-v37.sh"
+grep -Fq 'is_newer_release' "$ROOT/scripts/mechos-update-center-reference-v8.py"
+grep -Fq 'Downgrade is blocked.' "$ROOT/scripts/mechos-update-center-reference-v8.py"
+python3 - <<'PY'
+import re
+def key(v):
+    m=re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-hotfix\.([0-9]+(?:\.[0-9]+)*))?',v)
+    assert m, v
+    base=tuple(int(x) for x in m.group(1,2,3))
+    suffix=m.group(4)
+    return base + (((1,) + tuple(int(x) for x in suffix.split('.'))) if suffix else (0,))
+assert key('0.3.1') > key('0.3.0-hotfix.999')
+assert key('0.3.0-hotfix.36') > key('0.3.0-hotfix.23')
+assert key('0.3.1-hotfix.1') > key('0.3.1')
+PY

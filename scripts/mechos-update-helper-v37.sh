@@ -79,6 +79,21 @@ current_release(){
   if [ -r "$RELEASE" ]; then tr -d '\r\n[:space:]' <"$RELEASE"; else printf '0.0.0'; fi
 }
 
+is_newer_version(){
+  python3 - "$1" "$2" <<'PY'
+import re,sys
+def key(v):
+    m=re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-hotfix\.([0-9]+(?:\.[0-9]+)*))?',v)
+    if not m:
+        raise SystemExit(2)
+    base=tuple(int(x) for x in m.group(1,2,3))
+    suffix=m.group(4)
+    return base + ((1,)+tuple(int(x) for x in suffix.split('.')) if suffix else (0,))
+current=key(sys.argv[1]); candidate=key(sys.argv[2])
+raise SystemExit(0 if candidate > current else 1)
+PY
+}
+
 commit_release_version(){
   local version="$1" tmp actual
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-hotfix\.[0-9]+(\.[0-9]+)*)?$ ]] || die "Refusing invalid MechOS release version: $version"
@@ -111,8 +126,12 @@ status_signed(){
   reboot="$(printf '%s\n' "$values" | sed -n 's/^REBOOT_REQUIRED=//p')"
   name="$(printf '%s\n' "$values" | sed -n 's/^RELEASE_NAME=//p')"
   current="$(current_release)"
+  local available=0
+  if is_newer_version "$current" "$latest"; then available=1; fi
   printf 'CURRENT_MECHOS_VERSION=%s\n' "$current"
   printf 'LATEST_MECHOS_VERSION=%s\n' "$latest"
+  printf 'MECHOS_UPDATE_AVAILABLE=%s\n' "$available"
+  printf 'MECHOS_COUNT=%s\n' "$available"
   printf 'BUNDLE_URL=%s\n' "$url"
   printf 'BUNDLE_SHA256=%s\n' "$sha"
   printf 'REBOOT_REQUIRED=%s\n' "$([ -e "$STATE/reboot-required" ] && echo 1 || echo "$reboot")"
@@ -143,6 +162,7 @@ apply_signed(){
   reboot="$(printf '%s\n' "$values" | sed -n 's/^REBOOT_REQUIRED=//p')"
   current="$(current_release)"
   [ "$latest" != "$current" ] || return 0
+  is_newer_version "$current" "$latest" || die "Refusing MechOS downgrade: installed $current is newer than Stable feed $latest"
   bundle="$work/update.tar.zst"; stage="$work/stage"; mkdir -p "$stage"
   echo "Downloading signed MechOS $latest..."
   curl -fL --retry 3 --connect-timeout 10 -H 'Cache-Control: no-cache' "$url" -o "$bundle"
