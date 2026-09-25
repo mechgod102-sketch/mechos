@@ -2,14 +2,6 @@ name: Publish MechOS 0.3.1
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/publish-mechos-0.3.1.yml'
-      - 'scripts/build-mechos-0.3.1.sh'
-      - 'scripts/validate-mechos-0.3.1.sh'
-      - 'scripts/mechos-update-helper-v37.sh'
-      - 'scripts/mechos-update-transaction-v14.sh'
 
 permissions:
   contents: write
@@ -31,6 +23,15 @@ jobs:
           set -euo pipefail
           git fetch origin main
           git reset --hard origin/main
+      - name: Refuse hotfix downgrade
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          version=json.loads(Path('updates/stable.json').read_text()).get('version','0.0.0')
+          if version.startswith('0.3.1-hotfix.'):
+              raise SystemExit(f'Refusing to downgrade Stable from {version} to base 0.3.1')
+          PY
       - name: Install validation tools
         run: |
           sudo apt-get update
