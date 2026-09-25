@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 
 HELPER = "/usr/local/bin/mechos-update-helper"
 REBOOT = "/usr/local/bin/mechos-reboot"
-REPAIR = "/usr/local/libexec/mechos-update-self-repair-v0312"
+REPAIR = "/usr/local/libexec/mechos-update-self-repair-v0313"
 FIRSTBOOT_APPLY = "/usr/local/libexec/mechos-firstboot-update-apply"
 STATE = Path("/var/lib/mechos")
 RELEASE = Path("/etc/mechos/release")
