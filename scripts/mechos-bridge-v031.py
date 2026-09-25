@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # MECHOS_BRIDGE_V031
 from __future__ import annotations
-import json, os, secrets, ssl, subprocess, time
+import json, os, secrets, shutil, ssl, subprocess, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -76,7 +76,8 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             self.sendj(400,{"error":"invalid json"}); return
         action=str(body.get("action",""))
-        self.sendj(200 if launch(action) else 400,{"ok":bool(launch(action)),"action":action})
+        ok=launch(action)
+        self.sendj(200 if ok else 400,{"ok":ok,"action":action})
     def log_message(self,fmt,*args): pass
 
 def ensure_tls():
@@ -95,7 +96,6 @@ def main():
     host="0.0.0.0" if lan else "127.0.0.1"
     httpd=ThreadingHTTPServer((host,37831),H)
     if lan:
-        import shutil
         if not shutil.which("openssl"): raise SystemExit("openssl required for encrypted LAN bridge")
         if not (CERT.exists() and KEY.exists()):
             p=subprocess.run(["openssl","req","-x509","-newkey","rsa:2048","-nodes","-keyout",str(KEY),
