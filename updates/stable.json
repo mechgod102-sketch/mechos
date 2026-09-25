@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.23",
-  "release_name": "MechOS v0.3.0 Hotfix 23",
+  "version": "0.3.1",
+  "release_name": "MechOS v0.3.1",
   "published_at": "2026-09-25",
   "notes": "Cumulative MechOS 0.3.1 roadmap release built on Hotfix 36. Includes the 0.3.1 Update Center install-repair revision: offline-safe transaction postflight, current source-owned MechScope runtime validation, non-fatal optional Performance Center detection, and update helper v37 with local self-test and release-version commit. Also includes the official wallpaper collection, Downloads hub, Network Setup, MechBrowser, GPU diagnostics, power/crash wrapper, Companion Bridge, Creator Store catalog, Windows-game compatibility profiles, and USB4/HOTAS/controller diagnostics.",
   "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst",
-  "bundle_sha256": "ad747d12efeb8c89fd015251aeaa10adc444ef83574d58a0cd2d9279d745b398",
+  "bundle_sha256": "0acaa9e756348062a21ce6749b9a0b4b8e95aa3bb41f7449b99d6250949212e0",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
