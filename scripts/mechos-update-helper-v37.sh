@@ -39,7 +39,10 @@ PY
 }
 
 signed_manifest(){
-  local dir="$1" manifest="$dir/stable.json" sig="$dir/stable.json.sig" sig_url
+  local dir manifest sig sig_url
+  dir="$1"
+  manifest="$dir/stable.json"
+  sig="$dir/stable.json.sig"
   [ -s "$PUB" ] || die "MechOS update signing public key is missing: $PUB"
   command -v openssl >/dev/null 2>&1 || die 'openssl is required for signed MechOS updates'
   curl -fL --retry 3 --connect-timeout 10 -H 'Cache-Control: no-cache' "$STABLE_URL" -o "$manifest"
