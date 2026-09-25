@@ -2,16 +2,6 @@ name: Publish MechOS v0.3.0 Hotfix 17
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-update-transaction-v14.sh'
-      - 'scripts/mechos-hotfix17-updater-patch.py'
-      - 'scripts/mechos-clear-reboot-required-v17.sh'
-      - 'scripts/mechos-hotfix-0.3.0-17-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-17.sh'
-      - 'scripts/validate-hotfix-0.3.0-17.sh'
-      - '.github/workflows/publish-hotfix-0.3.0-17.yml'
 
 permissions:
   contents: write
@@ -32,6 +22,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
+      - name: Refuse Stable downgrade
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('updates/stable.json')
+          if p.exists():
+              v=json.loads(p.read_text()).get('version','0.0.0')
+              if v == '0.3.1' or v.startswith('0.3.1-hotfix.'):
+                  raise SystemExit(f'Refusing to downgrade Stable from {v} to 0.3.0-hotfix.17')
+          PY
       - name: Build and validate Hotfix 17
         run: |
           set -euo pipefail
