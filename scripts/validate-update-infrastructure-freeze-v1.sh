@@ -6,6 +6,37 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 bash -n   "$ROOT/scripts/mechos-strip-updater-from-stage-v1.sh"   "$ROOT/scripts/validate-payload-only-hotfix-v1.sh"
 
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+safe_stage="$tmp/safe-stage"
+mkdir -p \
+  "$safe_stage/usr/local/bin" \
+  "$safe_stage/usr/local/share/mechos/update-engine/slots/test" \
+  "$safe_stage/usr/local/share/mechos/features"
+printf '#!/bin/sh\n' >"$safe_stage/usr/local/bin/mechos-update-helper"
+printf 'engine\n' >"$safe_stage/usr/local/share/mechos/update-engine/slots/test/core"
+printf 'payload\n' >"$safe_stage/usr/local/share/mechos/features/example"
+
+bash "$ROOT/scripts/mechos-strip-updater-from-stage-v1.sh" "$safe_stage" >/dev/null
+test ! -e "$safe_stage/usr/local/bin/mechos-update-helper"
+test ! -e "$safe_stage/usr/local/share/mechos/update-engine"
+test -f "$safe_stage/usr/local/share/mechos/features/example"
+
+safe_bundle="$tmp/safe.tar.zst"
+tar --zstd -cpf "$safe_bundle" -C "$safe_stage" .
+bash "$ROOT/scripts/validate-payload-only-hotfix-v1.sh" "$safe_bundle" >/dev/null
+
+bad_stage="$tmp/bad-stage"
+mkdir -p "$bad_stage/usr/local/bin"
+printf '#!/bin/sh\n' >"$bad_stage/usr/local/bin/mechos-update-helper"
+bad_bundle="$tmp/bad.tar.zst"
+tar --zstd -cpf "$bad_bundle" -C "$bad_stage" .
+if bash "$ROOT/scripts/validate-payload-only-hotfix-v1.sh" "$bad_bundle" >/dev/null 2>&1; then
+  echo 'payload-only validator accepted a protected updater file' >&2
+  exit 1
+fi
+
 python3 - "$ROOT" <<'PY'
 from pathlib import Path
 import re,sys
