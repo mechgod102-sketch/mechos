@@ -24,14 +24,15 @@
     {
       "id": "ota",
       "name": "MechOS OTA update system",
-      "status": "implemented-signed-ab-self-repair-package-status",
+      "status": "implemented-signed-ab-health-first",
       "components": [
         "mechos-update-helper",
         "mechos-update-transaction-v25",
         "stable.json",
         "mechos-update-self-repair",
         "mechos-update-engine-v38",
-        "mechos-package-refresh-v39"
+        "mechos-package-refresh-v39",
+        "mechos-update-health-first-v5"
       ]
     },
     {
