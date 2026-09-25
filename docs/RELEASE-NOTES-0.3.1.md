@@ -22,10 +22,12 @@ MechOS 0.3.1 is a cumulative Update Center release based on the complete 0.3.0 H
 
 0.3.1 does not turn untested hardware or games into fake “Verified” entries. GPU, USB4, HOTAS, controller, Windows-creator-app, GAMMA and Star Citizen support remains conservatively labeled where physical-device or end-to-end game testing is still required.
 
-## Release integrity gate
+## Release integrity
 
-The existing Update Center verifies the cumulative bundle SHA-256 and applies it transactionally with rollback protection. The 0.3.1 roadmap also calls for signed manifests. A real update signing public key/private-key workflow has not yet been provisioned in the repository, so the full Stable release must not be certified as satisfying that signing requirement until the signing key is configured. A private key must never be committed to the repository.
+The Stable update channel now uses a provisioned public/private signing workflow. The private signing key remains stored outside the repository, the committed public key verifies signed manifests, and Update Center applies the cumulative bundle transactionally with SHA-256 verification and rollback protection.
+
+Post-release hotfixes add downgrade protection and Update Center self-repair. Hotfix 2 keeps trusted local rescue copies of critical updater components and the pinned signing public key, restores missing updater files before transaction postflight, and refuses silent replacement of a mismatched signing key.
 
 ## Update Center
 
-Once the release integrity gate and validation workflow pass, the publisher builds `MechOS-0.3.1-update.tar.zst`, verifies its checksum, and moves the Stable channel from `0.3.0-hotfix.35` to `0.3.1`.
+The base 0.3.1 publisher is retained for deliberate manual recovery only. Stable normally advances through signed `0.3.1-hotfix.x` releases so the base publisher cannot automatically overwrite a newer hotfix.
