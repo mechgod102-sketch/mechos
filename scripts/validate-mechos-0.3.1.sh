@@ -61,3 +61,10 @@ if [ ! -s "$ROOT/updates/mechos-update-signing-public.pem" ]; then
 fi
 
 echo 'MechOS 0.3.1 full roadmap source contracts validated.'
+
+
+# Regression: nounset-safe signed manifest locals. Do not reference $dir in
+# the same local declaration that first assigns it.
+! grep -Fq 'local dir="$1" manifest="$dir/stable.json"' "$ROOT/scripts/mechos-update-helper-v37.sh"
+grep -Fq 'dir="$1"' "$ROOT/scripts/mechos-update-helper-v37.sh"
+grep -Fq 'manifest="$dir/stable.json"' "$ROOT/scripts/mechos-update-helper-v37.sh"
