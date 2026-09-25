@@ -19,12 +19,31 @@ fail(){ log "ERROR: $*"; exit 1; }
 for f in \
   /usr/local/bin/mechos-update-helper \
   /usr/local/bin/mechscope-session \
-  /usr/local/bin/mechos-legacy-gpu-setup; do
+  /usr/local/bin/mechos-legacy-gpu-setup \
+  /usr/local/libexec/mechos-gpu-setup-integration-v0311 \
+  /usr/local/libexec/mechos-legacy-gpu-session-patch-v0311 \
+  /usr/local/libexec/mechos-legacy-gpu-control-patch-v0311; do
   [ -e "$f" ] || fail "required hotfix component missing: $f"
 done
 
-bash -n /usr/local/bin/mechos-update-helper
+# Add legacy support into the already-installed GPU/session/UI components.
+# Do not replace their modern implementations.
+if [ -f /usr/local/bin/mechos-gpu-setup ]; then
+  python3 /usr/local/libexec/mechos-gpu-setup-integration-v0311 /usr/local/bin/mechos-gpu-setup
+  bash -n /usr/local/bin/mechos-gpu-setup
+else
+  log 'WARNING: existing mechos-gpu-setup was not found; legacy report remains available independently'
+fi
+
+python3 /usr/local/libexec/mechos-legacy-gpu-session-patch-v0311 /usr/local/bin/mechscope-session
 bash -n /usr/local/bin/mechscope-session
+
+if [ -f /usr/local/libexec/mechos-031-control-suite ]; then
+  python3 /usr/local/libexec/mechos-legacy-gpu-control-patch-v0311 /usr/local/libexec/mechos-031-control-suite
+  python3 -m py_compile /usr/local/libexec/mechos-031-control-suite
+fi
+
+bash -n /usr/local/bin/mechos-update-helper
 bash -n /usr/local/bin/mechos-legacy-gpu-setup
 
 /usr/local/bin/mechos-update-helper selftest >/dev/null
