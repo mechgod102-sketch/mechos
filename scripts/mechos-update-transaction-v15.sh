@@ -21,6 +21,11 @@ WORK="$(mktemp -d /var/cache/mechos/update-center/tx.XXXXXX)"
 BACKUP="$BACKUPS/${VERSION}-${STAMP}.tar"
 EXISTING="$WORK/existing.txt"
 ADDED="$WORK/added.txt"
+ENGINE_CURRENT=/usr/local/share/mechos/update-engine/current
+ENGINE_CURRENT_BEFORE=""
+if [ -L "$ENGINE_CURRENT" ]; then
+  ENGINE_CURRENT_BEFORE="$(readlink -f "$ENGINE_CURRENT" 2>/dev/null || true)"
+fi
 
 cleanup(){ rm -rf "$WORK"; }
 trap cleanup EXIT
@@ -90,6 +95,16 @@ chmod 0600 "$BACKUP"
 
 rollback(){
   log 'postflight failed; restoring pre-update files'
+  if [ -n "$ENGINE_CURRENT_BEFORE" ] && [ -d "$ENGINE_CURRENT_BEFORE" ]; then
+    tmp="$ENGINE_CURRENT.rollback.$"
+    rm -f "$tmp"
+    ln -s "$ENGINE_CURRENT_BEFORE" "$tmp" 2>/dev/null || true
+    mv -Tf "$tmp" "$ENGINE_CURRENT" 2>/dev/null || true
+    log "restored previous A/B Update Engine slot: $ENGINE_CURRENT_BEFORE"
+  elif [ -L "$ENGINE_CURRENT" ]; then
+    rm -f "$ENGINE_CURRENT" 2>/dev/null || true
+    log 'removed newly-created A/B Update Engine current link'
+  fi
   if [ -s "$ADDED" ]; then
     while IFS= read -r rel; do rm -f "/$rel" 2>/dev/null || true; done < <(sort -r "$ADDED")
   fi
