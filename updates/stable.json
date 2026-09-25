@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1",
-  "release_name": "MechOS v0.3.1",
+  "version": "0.3.1-hotfix.2",
+  "release_name": "MechOS v0.3.1 Hotfix 2",
   "published_at": "2026-09-25",
-  "notes": "Cumulative MechOS 0.3.1 roadmap release built on Hotfix 36. Includes the 0.3.1 Update Center install-repair revision: offline-safe transaction postflight, current source-owned MechScope runtime validation, non-fatal optional Performance Center detection, and update helper v37 with local self-test and release-version commit. Also includes the official wallpaper collection, Downloads hub, Network Setup, MechBrowser, GPU diagnostics, power/crash wrapper, Companion Bridge, Creator Store catalog, Windows-game compatibility profiles, and USB4/HOTAS/controller diagnostics.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst",
-  "bundle_sha256": "0a2a063186d04f052541ad685ccedde909a9a1676a83493df9e84e1137f1f88f",
+  "notes": "Update Center self-repair hotfix. Adds a trusted local recovery payload for the signed update helper, Update Center launcher/backend, reboot helper and signing public key; verifies and repairs missing or non-executable updater components at boot and from the Update Center GUI; restores a missing pinned signing key while refusing silent replacement of a mismatched key; and runs recovery before transaction postflight so damaged updater files can no longer make an otherwise valid cumulative update roll back.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.2-update.tar.zst",
+  "bundle_sha256": "0fee01f087ca826c04fbe055fe26095e1e9fc4e9e6f6f8a5f509c8af513a287c",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
