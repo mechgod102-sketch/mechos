@@ -35,7 +35,9 @@ atomic_link(){
 }
 
 activate(){
-  local name="$1" slot="$SLOTS/$name" old=""
+  local name slot old=""
+  name="$1"
+  slot="$SLOTS/$name"
   [[ "$(id -u)" -eq 0 || -n "${MECHOS_UPDATE_ENGINE_TEST_MODE:-}" ]] || {
     echo 'Administrator privileges required.' >&2
     exit 77
