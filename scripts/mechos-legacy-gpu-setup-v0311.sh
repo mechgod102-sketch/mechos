@@ -3,10 +3,12 @@ set -Eeuo pipefail
 # MECHOS_LEGACY_GPU_SETUP_V0311
 
 APPLY=0
-case "${1:-}" in
+MODE="${1:-}"
+case "$MODE" in
   --apply|--apply-open-source) APPLY=1 ;;
   --report|"") ;;
-  *) echo "Usage: mechos-legacy-gpu-setup [--report|--apply-open-source]" >&2; exit 2 ;;
+  --branch) ;;
+  *) echo "Usage: mechos-legacy-gpu-setup [--report|--branch|--apply-open-source]" >&2; exit 2 ;;
 esac
 
 GPU_LINES="$(lspci -nnk 2>/dev/null | grep -A4 -Ei 'VGA|3D|Display' || true)"
@@ -36,12 +38,21 @@ nvidia_branch(){
   printf 'manual-generation-check'
 }
 
+BRANCH="none"
+if [[ "$NVIDIA" -eq 1 ]]; then
+  BRANCH="$(nvidia_branch "$GPU_LINES")"
+fi
+
+if [[ "$MODE" == "--branch" ]]; then
+  printf '%s\n' "$BRANCH"
+  exit 0
+fi
+
 echo 'MechOS legacy GPU compatibility report'
 echo "Kernel graphics drivers: ${DRIVERS:-none detected}"
 printf '%s\n' "${GPU_LINES:-No display adapter detected}"
 
 if [[ "$NVIDIA" -eq 1 ]]; then
-  BRANCH="$(nvidia_branch "$GPU_LINES")"
   echo
   echo "NVIDIA compatibility branch: $BRANCH"
   case "$BRANCH" in
