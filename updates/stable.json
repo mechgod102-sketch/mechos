@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1-hotfix.3",
-  "release_name": "MechOS v0.3.1 Hotfix 3",
+  "version": "0.3.1-hotfix.4",
+  "release_name": "MechOS v0.3.1 Hotfix 4",
   "published_at": "2026-09-25",
-  "notes": "A/B Update Engine isolation hotfix. Migrates Update Center to stable public launchers plus versioned engine slots. Ordinary cumulative hotfixes can no longer overwrite a healthy active update helper or Update Center launcher. Engine changes are validated in a new slot and activated atomically; the previous slot is retained for recovery and transaction rollback restores the prior engine link if postflight fails. Includes A/B-aware self-repair and keeps Hotfix 1 legacy GPU and Hotfix 2 updater recovery features.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.3-update.tar.zst",
-  "bundle_sha256": "838bb063bf35cbe82798c1a5cad1dfccf59654e224464f5c71a9fb77d300ee36",
+  "notes": "Package refresh reliability and result-reporting update. Installs a new A/B Update Engine slot without replacing the protected public launchers. MechOS core OTA success is now reported separately from Arch and Flatpak refresh results. A pacman sync download-* Permission denied failure is repaired conservatively by clearing stale sync download directories and restoring database/sync directory permissions, then retrying once. Unrelated pacman failures are never hidden or auto-repaired. Update Center reports partial success clearly instead of saying all updates installed.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.4-update.tar.zst",
+  "bundle_sha256": "bf11aa1445e9db142f51369f6f2d5b54311a14b3d2dc9a662e4b12d4d993316d",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
