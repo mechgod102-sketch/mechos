@@ -3,12 +3,15 @@ set -Eeuo pipefail
 # MECHOS_VALIDATE_031_FULL_V1
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-bash -n   "$ROOT/scripts/mechos-0.3.1-phase1-apply.sh"   "$ROOT/scripts/build-mechos-0.3.1.sh"
+bash -n   "$ROOT/scripts/mechos-0.3.1-phase1-apply.sh"   "$ROOT/scripts/build-mechos-0.3.1.sh"   "$ROOT/scripts/mechos-update-helper-v36.sh"
 python3 -m py_compile   "$ROOT/scripts/mechos-031-control-suite.py"   "$ROOT/scripts/mechos-bridge-v031.py"   "$ROOT/scripts/mechos-game-run-v031.py"
 
 grep -Fq 'MECHOS_031_CONTROL_SUITE_V1' "$ROOT/scripts/mechos-031-control-suite.py"
 grep -Fq 'MECHOS_BRIDGE_V031' "$ROOT/scripts/mechos-bridge-v031.py"
 grep -Fq 'MECHOS_GAME_RUN_V031' "$ROOT/scripts/mechos-game-run-v031.py"
+grep -Fq 'MECHOS_UPDATE_HELPER_V36_SIGNED_MANIFEST_V1' "$ROOT/scripts/mechos-update-helper-v36.sh"
+grep -Fq "signature_url" "$ROOT/scripts/build-mechos-0.3.1.sh"
+grep -Fq "signing_key_id" "$ROOT/scripts/build-mechos-0.3.1.sh"
 grep -Fq 'MechOS-0.3.0-hotfix.35-update.tar.zst' "$ROOT/scripts/build-mechos-0.3.1.sh"
 grep -Fq "'version':'0.3.1'" "$ROOT/scripts/build-mechos-0.3.1.sh"
 grep -Fq "release_name':'MechOS v0.3.1'" "$ROOT/scripts/build-mechos-0.3.1.sh"
