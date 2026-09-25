@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # MECHOS_HOTFIX17_FAILURE_STATE_FIX
+# MECHOS_HOTFIX4_PACKAGE_REFRESH_RESULT_UI
 """MechOS Update Center v8.
 
 Keeps the proven Hotfix 7 update backend while rendering the canonical
@@ -363,9 +364,41 @@ class UpdateCenter(QMainWindow):
             self.status_label.setText("Update check complete")
             self.load_status()
         elif mode == "install":
-            self.status_label.setText("Updates installed")
+            core_ok = values.get("MECHOS_CORE_UPDATE_STAGED") == "1"
+            pacman_result = values.get("PACMAN_UPDATE_RESULT", "not-reported")
+            flatpak_result = values.get("FLATPAK_UPDATE_RESULT", "not-reported")
+            pacman_repaired = values.get("PACMAN_UPDATE_REPAIRED") == "1"
+
             self.load_status()
             self.load_history()
+
+            failed_sources = []
+            if pacman_result == "failed":
+                failed_sources.append("Arch packages")
+            if flatpak_result == "failed":
+                failed_sources.append("Flatpak")
+
+            if core_ok and failed_sources:
+                joined = " and ".join(failed_sources)
+                self.status_label.setText("MechOS updated; package refresh incomplete")
+                self.details_label.setText(
+                    f"The signed MechOS core update installed successfully. {joined} refresh failed. "
+                    "You do not need to reinstall the MechOS hotfix; retry the package refresh separately."
+                )
+                QMessageBox.warning(
+                    self,
+                    "MechOS Update Center",
+                    f"MechOS updated successfully, but {joined} refresh needs attention. "
+                    "See Update History for the package-manager error.",
+                )
+            elif core_ok and pacman_repaired and pacman_result == "success":
+                self.status_label.setText("Updates installed; Arch permissions repaired")
+                self.details_label.setText(
+                    "The MechOS update installed successfully. Update Center repaired the pacman "
+                    "sync temporary-directory permissions and the Arch package refresh then completed."
+                )
+            elif core_ok:
+                self.status_label.setText("Updates installed")
 
     def check_updates(self) -> None:
         if not self.helper_ok():
