@@ -56,10 +56,14 @@ if grep -qi intel <<<"$GPU_BLOCK" && ! grep -Eqi 'NVIDIA|AMD|ATI|Advanced Micro 
 fi'''
 text = text.replace(anchor, integration, 1)
 
-args_anchor = 'ARGS=(-e -f); [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync); [[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)'
-if args_anchor not in text:
+args_anchors = [
+    'ARGS=(-e -f); [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync); [[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)',
+    'ARGS=(-e -f)\n[[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync)\n[[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)',
+]
+args_anchor = next((a for a in args_anchors if a in text), None)
+if args_anchor is None:
     raise SystemExit("MechScope Gamescope argument anchor missing")
-args_new = r'''ARGS=(-e -f); [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync); [[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)
+args_new = args_anchor + r'''
 if [[ "$MECHOS_INTEL_UMA" == 1 ]]; then
   ARGS=(-f)
   log 'Intel UMA integration: conservative fullscreen Gamescope arguments enabled'
