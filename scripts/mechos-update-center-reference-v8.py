@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # MECHOS_HOTFIX17_FAILURE_STATE_FIX
 # MECHOS_HOTFIX4_PACKAGE_REFRESH_RESULT_UI
+# MECHOS_HOTFIX5_HELPER_HEALTH_FIRST_V1
 """MechOS Update Center v8.
 
 Keeps the proven Hotfix 7 update backend while rendering the canonical
@@ -166,10 +167,33 @@ class UpdateCenter(QMainWindow):
             self.progress.setValue(1)
             self.progress.setFormat("Ready")
 
+    def helper_selftest(self) -> tuple[bool, str]:
+        helper = Path(HELPER)
+        if not helper.is_file():
+            return False, f"Update helper missing: {HELPER}"
+        if not os.access(helper, os.X_OK):
+            return False, f"Update helper is not executable: {HELPER}"
+        try:
+            result = subprocess.run(
+                [HELPER, "selftest"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=15,
+            )
+        except Exception as exc:
+            return False, f"Update helper self-test could not run: {exc}"
+        output = (result.stdout or "").strip()
+        if result.returncode == 0 and "MECHOS_UPDATE_HELPER_SELFTEST=1" in output:
+            return True, output
+        return False, output or f"Update helper self-test returned {result.returncode}"
+
     def attempt_self_repair(self) -> bool:
         repair = Path(REPAIR)
         if not repair.is_file() or not os.access(repair, os.X_OK):
+            self.append(f"self-repair tool unavailable: {REPAIR}")
             return False
+
         try:
             check = subprocess.run(
                 [REPAIR, "--check"],
@@ -178,14 +202,12 @@ class UpdateCenter(QMainWindow):
                 stderr=subprocess.STDOUT,
                 timeout=10,
             )
+            check_output = (check.stdout or "").strip()
+            if check_output:
+                self.append(check_output)
         except Exception as exc:
             self.append(f"self-repair check error: {exc}")
-            return False
 
-        if check.returncode == 0:
-            return Path(HELPER).is_file() and os.access(HELPER, os.X_OK)
-
-        self.append((check.stdout or "").strip())
         try:
             fixed = subprocess.run(
                 ["pkexec", REPAIR, "--repair"],
@@ -198,26 +220,36 @@ class UpdateCenter(QMainWindow):
             self.append(f"self-repair error: {exc}")
             return False
 
-        self.append((fixed.stdout or "").strip())
-        return (
-            fixed.returncode == 0
-            and Path(HELPER).is_file()
-            and os.access(HELPER, os.X_OK)
-        )
+        output = (fixed.stdout or "").strip()
+        if output:
+            self.append(output)
+        if fixed.returncode != 0:
+            return False
+
+        healthy, detail = self.helper_selftest()
+        if detail:
+            self.append(detail)
+        return healthy
 
     def helper_ok(self) -> bool:
-        if Path(REPAIR).is_file() and os.access(REPAIR, os.X_OK):
-            if self.attempt_self_repair():
-                return True
-        elif Path(HELPER).is_file() and os.access(HELPER, os.X_OK):
+        # Health-first policy: a healthy signed A/B helper is usable even when
+        # some unrelated recovery component needs attention. Only invoke the
+        # privileged self-repair path when the helper itself actually fails.
+        healthy, detail = self.helper_selftest()
+        if healthy:
+            return True
+        if detail:
+            self.append(detail)
+
+        if self.attempt_self_repair():
             return True
 
         QMessageBox.critical(
             self,
             "MechOS Update Center",
-            "The update service could not repair itself.\n\n"
+            "The update helper failed its health check and automatic repair did not recover it.\n\n"
             f"Helper: {HELPER}\nRepair tool: {REPAIR}\n\n"
-            "Open Update History for the repair details.",
+            "Open Update History for the exact health-check and repair output.",
         )
         return False
 
@@ -274,17 +306,29 @@ class UpdateCenter(QMainWindow):
 
     def load_status(self) -> None:
         if not self.helper_ok():
-            self.status_label.setText("Update helper missing")
-            return
-        try:
-            out = subprocess.check_output(
-                [HELPER, "status"], text=True, stderr=subprocess.STDOUT, timeout=30
+            self.status_label.setText("Update helper unavailable")
+            self.details_label.setText(
+                "The helper failed its own self-test and automatic repair could not recover it."
             )
-            self.apply_status_values(parse_values(out))
-        except Exception as exc:
-            self.status_label.setText("Update status unavailable")
-            self.details_label.setText("The update service is installed, but its current state could not be read.")
-            self.append(f"status error: {exc}")
+            return
+
+        for attempt in (1, 2):
+            try:
+                out = subprocess.check_output(
+                    [HELPER, "status"], text=True, stderr=subprocess.STDOUT, timeout=30
+                )
+                self.apply_status_values(parse_values(out))
+                return
+            except Exception as exc:
+                self.append(f"status attempt {attempt} error: {exc}")
+                if attempt == 1 and self.attempt_self_repair():
+                    continue
+                self.status_label.setText("Update status unavailable")
+                self.details_label.setText(
+                    "The helper passed its local health check, but the current update status could not "
+                    "be read. This is usually a feed/network/signature error rather than a missing helper."
+                )
+                return
 
     def load_history(self) -> None:
         candidates = [

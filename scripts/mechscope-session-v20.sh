@@ -4,6 +4,9 @@ set -Eeuo pipefail
 # MECHOS_MECHSCOPE_SESSION_V21
 # MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER
 # MECHOS_MECHSCOPE_SESSION_V23_SOURCE_RUNTIME
+# MECHOS_MECHSCOPE_SESSION_V24_GPU_CAPABILITY
+# MECHOS_INTEL_UMA_INTEGRATION_V36
+# MECHOS_LEGACY_GPU_SESSION_V0311
 
 MODE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
@@ -119,12 +122,20 @@ start_plasma_mechscope(){
   exec /usr/bin/startplasma-wayland
 }
 
+GPU_BLOCK="$(lspci -nnk 2>/dev/null | grep -A4 -Ei 'VGA|3D|Display' || true)"
+GPU_DRIVERS="$(printf '%s\n' "$GPU_BLOCK" | sed -n 's/^[[:space:]]*Kernel driver in use: //p' | sort -u | xargs || true)"
+GPU_NAME="$(printf '%s\n' "$GPU_BLOCK" | sed -n '/VGA\|3D\|Display/{s/^[^:]*: //;p;q}' || true)"
+log "GPU preflight name=${GPU_NAME:-unknown} drivers=${GPU_DRIVERS:-unknown}"
+
 VIRT="$(systemd-detect-virt 2>/dev/null || true)"
 if [[ -n "$VIRT" && "$VIRT" != none ]]; then
   export MECHOS_VM_MODE=1 QT_OPENGL=software LIBGL_ALWAYS_SOFTWARE=1 QT_QUICK_BACKEND=software QSG_RHI_BACKEND=software
   log "virtualization=$VIRT; bypassing Gamescope"; start_plasma_mechscope
 fi
-if [[ ! -x /usr/bin/gamescope ]]; then log 'Gamescope missing on hardware; using Plasma fallback'; start_plasma_mechscope; fi
+if [[ ! -x /usr/bin/gamescope ]]; then
+  log 'Gamescope missing on hardware; using Plasma fallback'
+  start_plasma_mechscope
+fi
 
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=gamescope XDG_SESSION_DESKTOP=MechScope DESKTOP_SESSION=mechscope MECHOS_SESSION_SUPERVISED=1
 export STEAM_ALLOW_DRIVE_UNMOUNT=1 STEAM_GAMESCOPE_TEARING_SUPPORTED=1 STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
@@ -132,7 +143,61 @@ export STEAM_GAMESCOPE_COLOR_MANAGED=1 STEAM_MULTIPLE_XWAYLANDS=1 STEAM_DISABLE_
 export STEAM_UPDATEUI_PNG_BACKGROUND=/usr/share/backgrounds/mechos/mechscope-loading.png
 [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && export STEAM_GAMESCOPE_VRR_SUPPORTED=1
 if [[ "${MECHOS_HDR:-0}" == 1 ]]; then export STEAM_GAMESCOPE_HDR_SUPPORTED=1 STEAM_GAMESCOPE_VIRTUAL_WHITE=1; fi
-if lspci 2>/dev/null | grep -qi nvidia; then export GBM_BACKEND=nvidia-drm __GLX_VENDOR_LIBRARY_NAME=nvidia; fi
+
+if grep -Fq 'Kernel driver in use: nvidia' <<<"$GPU_BLOCK"; then
+  export GBM_BACKEND=nvidia-drm __GLX_VENDOR_LIBRARY_NAME=nvidia
+  log 'NVIDIA proprietary kernel driver detected; enabling NVIDIA GBM environment'
+elif grep -Fq 'Kernel driver in use: nouveau' <<<"$GPU_BLOCK"; then
+  unset GBM_BACKEND __GLX_VENDOR_LIBRARY_NAME 2>/dev/null || true
+  log 'Nouveau kernel driver detected; proprietary NVIDIA environment disabled'
+fi
+
+# Intel-only UMA integration. Preserve AMD/NVIDIA/hybrid behavior.
+MECHOS_INTEL_UMA=0
+MECHOS_INTEL_RENDER_NODE=''
+if grep -qi intel <<<"$GPU_BLOCK" && ! grep -Eqi 'NVIDIA|AMD|ATI|Advanced Micro Devices' <<<"$GPU_BLOCK"; then
+  MECHOS_INTEL_UMA=1
+  export MECHOS_INTEL_UMA
+  for vendor in /sys/class/drm/renderD*/device/vendor; do
+    [[ -r "$vendor" ]] || continue
+    [[ "$(tr '[:upper:]' '[:lower:]' <"$vendor" 2>/dev/null)" == 0x8086 ]] || continue
+    candidate="/dev/dri/$(basename "$(dirname "$(dirname "$vendor")")")"
+    if [[ -r "$candidate" && -w "$candidate" ]]; then
+      MECHOS_INTEL_RENDER_NODE="$candidate"
+      break
+    fi
+  done
+  log "Intel UMA detected render-node=$MECHOS_INTEL_RENDER_NODE"
+
+  intel_vulkan_ok=0
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    if timeout 8s vulkaninfo --summary 2>>"$LOG_FILE" | grep -Eqi 'Intel|ANV'; then
+      intel_vulkan_ok=1
+    fi
+  fi
+
+  if [[ -z "$MECHOS_INTEL_RENDER_NODE" || "$intel_vulkan_ok" -ne 1 ]]; then
+    log 'Intel UMA Gamescope preflight unavailable; using supervised Plasma fallback'
+    start_plasma_mechscope
+  fi
+
+  unset STEAM_GAMESCOPE_VRR_SUPPORTED STEAM_GAMESCOPE_HDR_SUPPORTED STEAM_GAMESCOPE_VIRTUAL_WHITE
+  MECHOS_ENABLE_VRR=0
+  MECHOS_HDR=0
+  export MECHOS_ENABLE_VRR MECHOS_HDR
+fi
+
+# Capability gate for legacy/non-Vulkan GPUs such as mixed-generation GT 730
+# cards. A failed Gamescope prerequisite must not prevent MechScope itself from
+# opening; run it inside supervised Plasma instead.
+if ! command -v vulkaninfo >/dev/null 2>&1; then
+  log "vulkaninfo missing for GPU=${GPU_NAME:-unknown} drivers=${GPU_DRIVERS:-unknown}; using supervised Plasma fallback"
+  start_plasma_mechscope
+fi
+if ! timeout 8s vulkaninfo --summary >>"$LOG_FILE" 2>&1; then
+  log "Vulkan preflight failed GPU=${GPU_NAME:-unknown} drivers=${GPU_DRIVERS:-unknown}; using supervised Plasma fallback"
+  start_plasma_mechscope
+fi
 
 run_gamescope(){
   local label="$1"; shift
@@ -150,6 +215,10 @@ run_gamescope(){
 ARGS=(-e -f)
 [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && ARGS+=(--adaptive-sync)
 [[ "${MECHOS_HDR:-0}" == 1 ]] && ARGS+=(--hdr-enabled)
+if [[ "$MECHOS_INTEL_UMA" == 1 ]]; then
+  ARGS=(-f)
+  log 'Intel UMA integration: conservative fullscreen Gamescope arguments enabled'
+fi
 if run_gamescope primary "${ARGS[@]}"; then exit 0; fi
 if gaming_requested && run_gamescope conservative -f; then exit 0; fi
 if gaming_requested; then log 'Gamescope ended; switching to supervised Plasma fallback'; start_plasma_mechscope; fi
