@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 # MECHOS_UPDATE_TRANSACTION_V14
 # MECHOS_UPDATE_TRANSACTION_V14_031_REPAIR_V1
+# MECHOS_UPDATE_TRANSACTION_V14_0312_SELF_REPAIR_V1
 # Hotfix 17: self-contained transaction engine. It deliberately does not depend
 # on rsync so a minimal installed MechOS system cannot fail with exit 127 while
 # applying an OS bundle.
@@ -114,7 +115,17 @@ for rel in \
   install -D -m "$( [ -x "$STAGE/$rel" ] && echo 0755 || echo 0644 )" "$STAGE/$rel" "/$rel"
 done
 
-# Postflight contracts.
+# Postflight contracts. Hotfix 2 carries a trusted local recovery copy of
+# the updater surfaces. Repair missing/invalid public components before the
+# normal postflight checks, while refusing any signing-key mismatch.
+if [ -x /usr/local/libexec/mechos-update-self-repair-v0312 ]; then
+  REPAIR_OUT="$(/usr/local/libexec/mechos-update-self-repair-v0312 --repair 2>&1)" || {
+    fail "update self-repair failed: $REPAIR_OUT"
+    exit 49
+  }
+  log "$REPAIR_OUT"
+fi
+
 for f in /usr/local/bin/mechos-update-helper /usr/local/bin/mechos-reboot /usr/local/bin/mechos-update-center; do
   [ -x "$f" ] || { fail "critical updater component missing: $f"; exit 50; }
 done
