@@ -2,19 +2,19 @@
 set -Eeuo pipefail
 # MECHOS_UPDATE_SELF_REPAIR_V0312
 
-RECOVERY=/usr/local/share/mechos/update-recovery
+RECOVERY="${MECHOS_REPAIR_RECOVERY:-/usr/local/share/mechos/update-recovery}"
 HELPER_SRC="$RECOVERY/mechos-update-helper-v37.sh"
 CENTER_SRC="$RECOVERY/mechos-update-center"
 BACKEND_SRC="$RECOVERY/mechos-update-center-v8.py"
 REBOOT_SRC="$RECOVERY/mechos-reboot"
 KEY_SRC="$RECOVERY/mechos-update-signing-public.pem"
 
-HELPER=/usr/local/bin/mechos-update-helper
-CENTER=/usr/local/bin/mechos-update-center
-BACKEND=/usr/local/libexec/mechos-update-center-v8.py
-REBOOT=/usr/local/bin/mechos-reboot
-KEY=/etc/mechos/update-signing-public.pem
-LOG=/var/log/mechos-update-self-repair.log
+HELPER="${MECHOS_REPAIR_HELPER:-/usr/local/bin/mechos-update-helper}"
+CENTER="${MECHOS_REPAIR_CENTER:-/usr/local/bin/mechos-update-center}"
+BACKEND="${MECHOS_REPAIR_BACKEND:-/usr/local/libexec/mechos-update-center-v8.py}"
+REBOOT="${MECHOS_REPAIR_REBOOT:-/usr/local/bin/mechos-reboot}"
+KEY="${MECHOS_REPAIR_KEY:-/etc/mechos/update-signing-public.pem}"
+LOG="${MECHOS_REPAIR_LOG:-/var/log/mechos-update-self-repair.log}"
 
 mode="${1:---check}"
 case "$mode" in
@@ -23,8 +23,8 @@ case "$mode" in
 esac
 
 log(){
-  if [[ "$(id -u)" -eq 0 ]]; then
-    mkdir -p /var/log
+  if [[ "$(id -u)" -eq 0 || -n "${MECHOS_REPAIR_TEST_MODE:-}" ]]; then
+    mkdir -p "$(dirname "$LOG")"
     printf '[%s] [update-self-repair] %s\n' "$(date -Is 2>/dev/null || date)" "$*" >>"$LOG"
   fi
 }
@@ -61,12 +61,15 @@ key_valid(){
 }
 
 same_key(){
-  local a="$1" b="$2" da db
+  local a="$1" b="$2" da db rc=0
   da="$(mktemp)"; db="$(mktemp)"
-  trap 'rm -f "$da" "$db"' RETURN
-  openssl pkey -pubin -in "$a" -outform DER -out "$da" >/dev/null 2>&1 || return 1
-  openssl pkey -pubin -in "$b" -outform DER -out "$db" >/dev/null 2>&1 || return 1
-  cmp -s "$da" "$db"
+  openssl pkey -pubin -in "$a" -outform DER -out "$da" >/dev/null 2>&1 || rc=1
+  if [[ "$rc" -eq 0 ]]; then
+    openssl pkey -pubin -in "$b" -outform DER -out "$db" >/dev/null 2>&1 || rc=1
+  fi
+  if [[ "$rc" -eq 0 ]]; then cmp -s "$da" "$db" || rc=1; fi
+  rm -f "$da" "$db"
+  return "$rc"
 }
 
 state=0
@@ -114,7 +117,7 @@ if [[ "$mode" == --check ]]; then
   exit "$state"
 fi
 
-[[ "$(id -u)" -eq 0 ]] || { echo 'Administrator privileges required.' >&2; exit 77; }
+[[ "$(id -u)" -eq 0 || -n "${MECHOS_REPAIR_TEST_MODE:-}" ]] || { echo 'Administrator privileges required.' >&2; exit 77; }
 command -v openssl >/dev/null 2>&1 || { echo 'openssl is required for updater repair.' >&2; exit 70; }
 
 helper_valid "$HELPER_SRC" || { echo 'Trusted rescue update helper is invalid.' >&2; exit 71; }
