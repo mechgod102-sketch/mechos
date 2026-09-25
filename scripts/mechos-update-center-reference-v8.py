@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 
 HELPER = "/usr/local/bin/mechos-update-helper"
 REBOOT = "/usr/local/bin/mechos-reboot"
+REPAIR = "/usr/local/libexec/mechos-update-self-repair-v0312"
 FIRSTBOOT_APPLY = "/usr/local/libexec/mechos-firstboot-update-apply"
 STATE = Path("/var/lib/mechos")
 RELEASE = Path("/etc/mechos/release")
@@ -164,13 +165,58 @@ class UpdateCenter(QMainWindow):
             self.progress.setValue(1)
             self.progress.setFormat("Ready")
 
+    def attempt_self_repair(self) -> bool:
+        repair = Path(REPAIR)
+        if not repair.is_file() or not os.access(repair, os.X_OK):
+            return False
+        try:
+            check = subprocess.run(
+                [REPAIR, "--check"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=10,
+            )
+        except Exception as exc:
+            self.append(f"self-repair check error: {exc}")
+            return False
+
+        if check.returncode == 0:
+            return Path(HELPER).is_file() and os.access(HELPER, os.X_OK)
+
+        self.append((check.stdout or "").strip())
+        try:
+            fixed = subprocess.run(
+                ["pkexec", REPAIR, "--repair"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=60,
+            )
+        except Exception as exc:
+            self.append(f"self-repair error: {exc}")
+            return False
+
+        self.append((fixed.stdout or "").strip())
+        return (
+            fixed.returncode == 0
+            and Path(HELPER).is_file()
+            and os.access(HELPER, os.X_OK)
+        )
+
     def helper_ok(self) -> bool:
-        if Path(HELPER).is_file() and os.access(HELPER, os.X_OK):
+        if Path(REPAIR).is_file() and os.access(REPAIR, os.X_OK):
+            if self.attempt_self_repair():
+                return True
+        elif Path(HELPER).is_file() and os.access(HELPER, os.X_OK):
             return True
+
         QMessageBox.critical(
             self,
             "MechOS Update Center",
-            "The MechOS update helper is missing.\n\n" f"Expected: {HELPER}",
+            "The update service could not repair itself.\n\n"
+            f"Helper: {HELPER}\nRepair tool: {REPAIR}\n\n"
+            "Open Update History for the repair details.",
         )
         return False
 
