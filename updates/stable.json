@@ -1,13 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1",
-  "release_name": "MechOS v0.3.1",
+  "version": "0.3.0-hotfix.23",
+  "release_name": "MechOS v0.3.0 Hotfix 23",
   "published_at": "2026-09-25",
-  "notes": "Cumulative MechOS 0.3.1 roadmap release built on Hotfix 36. Includes the 0.3.1 Update Center install-repair revision: offline-safe transaction postflight, current source-owned MechScope runtime validation, non-fatal optional Performance Center detection, and update helper v37 with local self-test and release-version commit. Also includes the official wallpaper collection, Downloads hub, Network Setup, MechBrowser, GPU diagnostics, power/crash wrapper, Companion Bridge, Creator Store catalog, Windows-game compatibility profiles, and USB4/HOTAS/controller diagnostics.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst",
-  "bundle_sha256": "475dbafdba7806f32cdf2685e11b8becca74b8a9c5d93105f0e0ead6153f777e",
-  "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
-  "signing_key_id": "mechos-stable-2026-01",
+  "notes": "Cumulative post-install account-creation recovery update. Repairs systems that can reach the temporary mechos-setup session but do not complete the permanent-user handoff. The OOBE is forced fullscreen, the temporary account remains non-admin, completion creates or renames the permanent user and sets its password/admin groups, SDDM is cleared of stale mechos-setup autologin fragments, reboot is scheduled by the privileged OOBE helper, and the temporary setup account is removed before the final sign-in. Update Center also retains the restricted firstboot apply bridge so incomplete-OOBE systems can install manifest-pinned MechOS updates without giving mechos-setup general administrator access. Includes the complete Hotfix 22.6 cumulative runtime and transactional updater protections.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.23-update.tar.zst",
+  "bundle_sha256": "9edeb741c3bacf9b9d5f871f9b0a75bbf891b9453ce31284c0412bf648c0bb35",
   "requires_reboot": true
 }
