@@ -6,6 +6,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/publish-mechos-0.3.1.yml'
+      - 'scripts/build-mechos-0.3.1.sh'
+      - 'scripts/validate-mechos-0.3.1.sh'
+      - 'scripts/mechos-update-helper-v37.sh'
+      - 'scripts/mechos-update-transaction-v14.sh'
 
 permissions:
   contents: write
@@ -74,7 +78,7 @@ jobs:
           B=updates/bundles/MechOS-0.3.1-update.tar.zst
           test -s "$B"; test -s "$B.sha256"
           (cd updates/bundles && sha256sum -c MechOS-0.3.1-update.tar.zst.sha256)
-          for member in             './usr/local/bin/mechos-downloads'             './usr/local/bin/mechos-network'             './usr/local/bin/mechos-browser'             './usr/local/bin/mechos-gpu'             './usr/local/bin/mechos-inputs'             './usr/local/bin/mechos-game-run'             './usr/local/libexec/mechos-bridge-v031'             './usr/share/mechos/0.3.1/feature-registry.json'             './usr/share/mechos/wallpapers/0.3.1/mechos-wallpaper-16.jpg'; do
+          for member in             './usr/local/bin/mechos-downloads'             './usr/local/bin/mechos-network'             './usr/local/bin/mechos-browser'             './usr/local/bin/mechos-gpu'             './usr/local/bin/mechos-inputs'             './usr/local/bin/mechos-game-run'             './usr/local/libexec/mechos-bridge-v031'             './usr/local/libexec/mechos-update-transaction-v14'             './usr/share/mechos/0.3.1/feature-registry.json'             './usr/share/mechos/wallpapers/0.3.1/mechos-wallpaper-16.jpg'; do
             tar --zstd -tf "$B" | grep -Fx "$member"
           done
           python3 - <<'PY'

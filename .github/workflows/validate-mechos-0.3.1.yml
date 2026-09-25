@@ -8,6 +8,8 @@ on:
       - 'scripts/mechos-bridge-v031.py'
       - 'scripts/mechos-game-run-v031.py'
       - 'scripts/build-mechos-0.3.1.sh'
+      - 'scripts/mechos-update-helper-v37.sh'
+      - 'scripts/mechos-update-transaction-v14.sh'
       - 'scripts/validate-mechos-0.3.1.sh'
       - 'data/mechos-0.3.1-*.json'
       - 'docs/RELEASE-NOTES-0.3.1.md'
@@ -45,6 +47,8 @@ jobs:
           B=updates/bundles/MechOS-0.3.1-update.tar.zst
           test -s "$B"; test -s "$B.sha256"
           (cd updates/bundles && sha256sum -c MechOS-0.3.1-update.tar.zst.sha256)
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-update-transaction-v14'
+          tar --zstd -tf "$B" | grep -F './usr/local/bin/mechos-update-helper'
           python3 - <<'PY'
           import json,tarfile
           from pathlib import Path
