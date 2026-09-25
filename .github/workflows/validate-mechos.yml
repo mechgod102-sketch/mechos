@@ -62,6 +62,7 @@ jobs:
           bash scripts/validate-new-build-final-gate.sh
           bash scripts/validate-build122-vm-recovery.sh
           bash scripts/validate-build125-final-surface-scope.sh
+          bash scripts/validate-update-infrastructure-freeze-v1.sh
 
       - name: Build and validate Hotfix 7 recovery bundle
         run: |
