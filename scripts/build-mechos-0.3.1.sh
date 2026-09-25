@@ -148,7 +148,7 @@ grep -Fq 'MECHOS_GAME_RUN_V031' "$STAGE/usr/local/bin/mechos-game-run"
 grep -Fq '/usr/local/bin/mechos-network' "$RUNTIME"
 
 # Proven cumulative update/runtime components must remain present.
-for required in   "$STAGE/usr/local/bin/mechos-update-helper"   "$STAGE/usr/local/bin/mechos-update-center"   "$STAGE/usr/local/bin/mechscope"   "$STAGE/usr/local/bin/mechos-unified-store"   "$STAGE/usr/local/libexec/mechos-update-transaction-v25"   "$STAGE/usr/local/libexec/mechos-mechscope-source-runtime-v33"; do
+for required in   "$STAGE/usr/local/bin/mechos-update-helper"   "$STAGE/usr/local/bin/mechos-update-center"   "$STAGE/usr/local/bin/mechscope-session"   "$STAGE/usr/local/bin/mechos-unified-store"   "$STAGE/usr/local/libexec/mechos-update-transaction-v25"   "$STAGE/usr/local/libexec/mechos-mechscope-source-runtime-v33"; do
   [ -e "$required" ] || { echo "Cumulative component missing: $required" >&2; exit 1; }
 done
 
