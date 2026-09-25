@@ -9,11 +9,11 @@ trap 'rm -rf "$STAGE"' EXIT
 BUNDLE="$ROOT/updates/bundles/MechOS-0.3.1-update.tar.zst"
 SUM="$BUNDLE.sha256"
 MANIFEST="$ROOT/updates/stable.json"
-BASE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.35-update.tar.zst"
+BASE="$ROOT/updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst"
 
 mkdir -p "$(dirname "$BUNDLE")"
-[ -s "$BASE" ] || bash "$ROOT/scripts/build-hotfix-0.3.0-35.sh"
-[ -s "$BASE" ] || { echo 'Hotfix 35 cumulative base bundle missing' >&2; exit 1; }
+[ -s "$BASE" ] || bash "$ROOT/scripts/build-hotfix-0.3.0-36.sh"
+[ -s "$BASE" ] || { echo 'Hotfix 36 cumulative base bundle missing' >&2; exit 1; }
 tar --warning=no-timestamp --zstd -xpf "$BASE" -C "$STAGE"
 
 mkdir -p   "$STAGE/usr/share/mechos/wallpapers/0.3.1"   "$STAGE/usr/share/mechos/0.3.1"   "$STAGE/usr/local/bin"   "$STAGE/usr/local/libexec"   "$STAGE/usr/share/applications"   "$STAGE/usr/lib/systemd/system"   "$STAGE/usr/lib/systemd/user"   "$STAGE/etc/systemd/system/multi-user.target.wants"
@@ -177,7 +177,7 @@ data={
   'version':'0.3.1',
   'release_name':'MechOS v0.3.1',
   'published_at':datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-  'notes':'Cumulative MechOS 0.3.1 roadmap release built on Hotfix 35. Adds the official wallpaper collection, MechOS Downloads hub, dedicated Network Setup, MechBrowser launcher, GPU compatibility diagnostics, per-game power/crash wrapper, Companion Bridge service/settings, Creator Store catalog, Windows-game compatibility profiles including S.T.A.L.K.E.R. G.A.M.M.A. and Star Citizen as Needs Setup/Testing, plus USB4/HOTAS/controller diagnostics. Hardware- and game-specific compatibility remains conservatively labeled until real-device validation. Update Center retains SHA-256 verification and transactional rollback; signed-manifest publication remains a release certification gate.',
+  'notes':'Cumulative MechOS 0.3.1 roadmap release built on Hotfix 36. Adds the official wallpaper collection, MechOS Downloads hub, dedicated Network Setup, MechBrowser launcher, GPU compatibility diagnostics, per-game power/crash wrapper, Companion Bridge service/settings, Creator Store catalog, Windows-game compatibility profiles including S.T.A.L.K.E.R. G.A.M.M.A. and Star Citizen as Needs Setup/Testing, plus USB4/HOTAS/controller diagnostics. Hardware- and game-specific compatibility remains conservatively labeled until real-device validation. Update Center retains SHA-256 verification and transactional rollback; signed-manifest publication remains a release certification gate.',
   'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst',
   'bundle_sha256':sha,
   'signature_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig',
