@@ -205,7 +205,7 @@ class UpdateCenter(QMainWindow):
             return
         try:
             out = subprocess.check_output(
-                [HELPER, "status"], text=True, stderr=subprocess.STDOUT, timeout=8
+                [HELPER, "status"], text=True, stderr=subprocess.STDOUT, timeout=30
             )
             self.apply_status_values(parse_values(out))
         except Exception as exc:
