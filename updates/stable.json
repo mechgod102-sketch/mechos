@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1-hotfix.4",
-  "release_name": "MechOS v0.3.1 Hotfix 4",
+  "version": "0.3.1-hotfix.1",
+  "release_name": "MechOS v0.3.1 Hotfix 1",
   "published_at": "2026-09-25",
-  "notes": "Package refresh reliability and result-reporting update. Installs a new A/B Update Engine slot without replacing the protected public launchers. MechOS core OTA success is now reported separately from Arch and Flatpak refresh results. A pacman sync download-* Permission denied failure is repaired conservatively by clearing stale sync download directories and restoring database/sync directory permissions, then retrying once. Unrelated pacman failures are never hidden or auto-repaired. Update Center reports partial success clearly instead of saying all updates installed.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.4-update.tar.zst",
-  "bundle_sha256": "bf11aa1445e9db142f51369f6f2d5b54311a14b3d2dc9a662e4b12d4d993316d",
+  "notes": "Additive legacy GPU compatibility and Update Center reliability hotfix. Preserves the existing 0.3.1 modern AMD/NVIDIA/Intel GPU paths while adding legacy NVIDIA branch detection, safe Nouveau/Mesa fallback, legacy Radeon handling, driver-aware NVIDIA environment selection, Vulkan-gated Gamescope fallback, and integrated legacy GPU diagnostics. Also ships the repaired v37 signed updater, 30-second Update Center status timeout, and downgrade protection so an older 0.3.0 hotfix can never be offered as an upgrade over 0.3.1.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.1-update.tar.zst",
+  "bundle_sha256": "c64da15243ee703c202d787b9cbf2aada35efcfeb66a84ae49cf6987ab2853e7",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
