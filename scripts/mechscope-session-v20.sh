@@ -122,22 +122,18 @@ start_plasma_mechscope(){
   exec /usr/bin/startplasma-wayland
 }
 
+GPU_BLOCK="$(lspci -nnk 2>/dev/null | grep -A4 -Ei 'VGA|3D|Display' || true)"
+GPU_DRIVERS="$(printf '%s\n' "$GPU_BLOCK" | sed -n 's/^[[:space:]]*Kernel driver in use: //p' | sort -u | xargs || true)"
+GPU_NAME="$(printf '%s\n' "$GPU_BLOCK" | sed -n '/VGA\|3D\|Display/{s/^[^:]*: //;p;q}' || true)"
+log "GPU preflight name=${GPU_NAME:-unknown} drivers=${GPU_DRIVERS:-unknown}"
+
 VIRT="$(systemd-detect-virt 2>/dev/null || true)"
 if [[ -n "$VIRT" && "$VIRT" != none ]]; then
   export MECHOS_VM_MODE=1 QT_OPENGL=software LIBGL_ALWAYS_SOFTWARE=1 QT_QUICK_BACKEND=software QSG_RHI_BACKEND=software
   log "virtualization=$VIRT; bypassing Gamescope"; start_plasma_mechscope
 fi
-if [[ ! -x /usr/bin/gamescope ]]; then log 'Gamescope missing on hardware; using Plasma fallback'; start_plasma_mechscope; fi
-
-# Capability gate for legacy/non-Vulkan GPUs such as some GT 730 variants.
-# MechScope still starts, but inside supervised Plasma instead of forcing a
-# Gamescope path the GPU/driver stack cannot support.
-if ! command -v vulkaninfo >/dev/null 2>&1; then
-  log 'vulkaninfo missing; GPU capability fallback to Plasma'
-  start_plasma_mechscope
-fi
-if ! timeout 8s vulkaninfo --summary >>"$LOG_FILE" 2>&1; then
-  log "Vulkan preflight failed drivers=${GPU_DRIVERS:-unknown}; using supervised Plasma fallback"
+if [[ ! -x /usr/bin/gamescope ]]; then
+  log 'Gamescope missing on hardware; using Plasma fallback'
   start_plasma_mechscope
 fi
 
@@ -147,8 +143,6 @@ export STEAM_GAMESCOPE_COLOR_MANAGED=1 STEAM_MULTIPLE_XWAYLANDS=1 STEAM_DISABLE_
 export STEAM_UPDATEUI_PNG_BACKGROUND=/usr/share/backgrounds/mechos/mechscope-loading.png
 [[ "${MECHOS_ENABLE_VRR:-0}" == 1 ]] && export STEAM_GAMESCOPE_VRR_SUPPORTED=1
 if [[ "${MECHOS_HDR:-0}" == 1 ]]; then export STEAM_GAMESCOPE_HDR_SUPPORTED=1 STEAM_GAMESCOPE_VIRTUAL_WHITE=1; fi
-GPU_BLOCK="$(lspci -nnk 2>/dev/null | grep -A4 -Ei 'VGA|3D|Display' || true)"
-GPU_DRIVERS="$(printf '%s\n' "$GPU_BLOCK" | sed -n 's/^[[:space:]]*Kernel driver in use: //p' | sort -u | xargs || true)"
 
 if grep -Fq 'Kernel driver in use: nvidia' <<<"$GPU_BLOCK"; then
   export GBM_BACKEND=nvidia-drm __GLX_VENDOR_LIBRARY_NAME=nvidia
@@ -191,6 +185,18 @@ if grep -qi intel <<<"$GPU_BLOCK" && ! grep -Eqi 'NVIDIA|AMD|ATI|Advanced Micro 
   MECHOS_ENABLE_VRR=0
   MECHOS_HDR=0
   export MECHOS_ENABLE_VRR MECHOS_HDR
+fi
+
+# Capability gate for legacy/non-Vulkan GPUs such as mixed-generation GT 730
+# cards. A failed Gamescope prerequisite must not prevent MechScope itself from
+# opening; run it inside supervised Plasma instead.
+if ! command -v vulkaninfo >/dev/null 2>&1; then
+  log "vulkaninfo missing for GPU=${GPU_NAME:-unknown} drivers=${GPU_DRIVERS:-unknown}; using supervised Plasma fallback"
+  start_plasma_mechscope
+fi
+if ! timeout 8s vulkaninfo --summary >>"$LOG_FILE" 2>&1; then
+  log "Vulkan preflight failed GPU=${GPU_NAME:-unknown} drivers=${GPU_DRIVERS:-unknown}; using supervised Plasma fallback"
+  start_plasma_mechscope
 fi
 
 run_gamescope(){
