@@ -34,32 +34,32 @@ export MECHOS_REPAIR_KEY="$tmp/etc/update-signing-public.pem"
 export MECHOS_REPAIR_LOG="$tmp/log/self-repair.log"
 
 # Missing critical files must be detected, then restored from trusted local copies.
-if "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --check; then
+if bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --check; then
   echo 'self-repair check unexpectedly passed with missing files' >&2
   exit 1
 fi
-"$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair | grep -Fq 'UPDATE_SELF_REPAIR_OK=1'
-"$ROOT/scripts/mechos-update-self-repair-v0312.sh" --check | grep -Fq 'UPDATE_SELF_REPAIR_NEEDED=0'
+bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair | grep -Fq 'UPDATE_SELF_REPAIR_OK=1'
+bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --check | grep -Fq 'UPDATE_SELF_REPAIR_NEEDED=0'
 
 # Lost executable permission must be repaired.
 chmod 0644 "$MECHOS_REPAIR_HELPER"
-if "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --check; then
+if bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --check; then
   echo 'self-repair check unexpectedly passed with non-executable helper' >&2
   exit 1
 fi
-"$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair >/dev/null
+bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair >/dev/null
 test -x "$MECHOS_REPAIR_HELPER"
 
 # Missing pinned public key must be restored.
 rm -f "$MECHOS_REPAIR_KEY"
-"$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair >/dev/null
+bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair >/dev/null
 cmp -s "$MECHOS_REPAIR_KEY" "$recovery/mechos-update-signing-public.pem"
 
 # A different valid public key is suspicious and must never be silently replaced.
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$tmp/other-private.pem" >/dev/null 2>&1
 openssl pkey -in "$tmp/other-private.pem" -pubout -out "$MECHOS_REPAIR_KEY" >/dev/null 2>&1
 cp "$MECHOS_REPAIR_KEY" "$tmp/mismatch-before.pem"
-if "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair >/dev/null 2>&1; then
+if bash "$ROOT/scripts/mechos-update-self-repair-v0312.sh" --repair >/dev/null 2>&1; then
   echo 'self-repair incorrectly accepted a mismatched signing key' >&2
   exit 1
 fi
