@@ -2,21 +2,12 @@ name: Publish MechOS v0.3.0 Hotfix 23
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-firstboot-update-apply-v23.sh'
-      - 'scripts/mechos-hotfix-0.3.0-23-apply.sh'
-      - 'scripts/build-hotfix-0.3.0-23.sh'
-      - 'scripts/validate-hotfix-0.3.0-23.sh'
-      - 'scripts/mechos-update-center-reference-v8.py'
-      - '.github/workflows/publish-hotfix-0.3.0-23.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: mechos-hotfix-23-publish
+  group: mechos-stable-publish
   cancel-in-progress: false
 
 jobs:
@@ -33,6 +24,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
+      - name: Refuse Stable downgrade
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          v=json.loads(Path('updates/stable.json').read_text()).get('version','0.0.0')
+          if v == '0.3.1' or v.startswith('0.3.1-hotfix.'):
+              raise SystemExit(f'Refusing to downgrade Stable from {v} to 0.3.0-hotfix.23')
+          PY
       - name: Validate Hotfix 23 source
         run: |
           set -euo pipefail
