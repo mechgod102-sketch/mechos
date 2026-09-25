@@ -1,0 +1,36 @@
+name: Validate MechOS Hotfix 36
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-intel-uma-session-patch-v36.py'
+      - 'scripts/mechos-intel-uma-preflight-v36.sh'
+      - 'scripts/mechos-hotfix-0.3.0-36-apply.sh'
+      - 'scripts/build-hotfix-0.3.0-36.sh'
+      - 'scripts/validate-hotfix-0.3.0-36.sh'
+      - 'scripts/build-mechos-0.3.1.sh'
+      - 'scripts/validate-mechos-0.3.1.sh'
+      - '.github/workflows/publish-hotfix-36.yml'
+      - '.github/workflows/validate-hotfix-36.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hotfix-36:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - run: bash scripts/validate-hotfix-0.3.0-36.sh
+      - run: bash scripts/build-hotfix-0.3.0-36.sh
+      - run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst
+          test -s "$B"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.36-update.tar.zst.sha256)
+          tar --zstd -tf "$B" | grep -F './usr/local/bin/mechscope-session'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-intel-uma-preflight-v36'
