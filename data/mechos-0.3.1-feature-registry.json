@@ -24,11 +24,12 @@
     {
       "id": "ota",
       "name": "MechOS OTA update system",
-      "status": "implemented-with-signing-gate",
+      "status": "implemented-signed-self-repair",
       "components": [
         "mechos-update-helper",
         "mechos-update-transaction-v25",
-        "stable.json"
+        "stable.json",
+        "mechos-update-self-repair"
       ]
     },
     {
