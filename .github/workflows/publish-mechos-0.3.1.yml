@@ -1,0 +1,104 @@
+name: Publish MechOS 0.3.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-mechos-0.3.1.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-mechos-0.3.1
+  cancel-in-progress: false
+
+jobs:
+  publish-mechos-0-3-1:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd imagemagick
+      - name: Validate full 0.3.1 sources
+        run: bash scripts/validate-mechos-0.3.1.sh
+      - name: Enforce signed-manifest release gate
+        run: |
+          set -euo pipefail
+          test -s updates/mechos-update-signing-public.pem || {
+            echo 'Full 0.3.1 Stable publication is blocked until the update signing public key is provisioned.' >&2
+            exit 42
+          }
+      - name: Verify wallpaper dimensions
+        run: |
+          set -euo pipefail
+          for i in $(seq -w 1 16); do
+            img="overlay/rootfs/usr/share/backgrounds/mechos/mechos-wallpaper-$i.jpg"
+            dims="$(identify -format '%wx%h' "$img")"
+            test "$dims" = "1920x1080" || { echo "Wallpaper $i is $dims; expected 1920x1080" >&2; exit 1; }
+          done
+      - name: Build cumulative 0.3.1 bundle
+        run: bash scripts/build-mechos-0.3.1.sh
+      - name: Sign Stable manifest
+        env:
+          SIGNING_KEY: ${{ secrets.MECHOS_UPDATE_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEY" || {
+            echo 'MECHOS_UPDATE_SIGNING_PRIVATE_KEY is not configured.' >&2
+            exit 43
+          }
+          key="$RUNNER_TEMP/mechos-update-signing-private.pem"
+          derived="$RUNNER_TEMP/mechos-update-signing-public.pem"
+          expected="$RUNNER_TEMP/mechos-update-signing-public-expected.pem"
+          printf '%s\n' "$SIGNING_KEY" >"$key"
+          chmod 0600 "$key"
+          openssl pkey -in "$key" -pubout -out "$derived"
+          openssl pkey -pubin -in updates/mechos-update-signing-public.pem -pubout -out "$expected"
+          cmp -s "$derived" "$expected" || {
+            echo 'Signing private key does not match updates/mechos-update-signing-public.pem' >&2
+            exit 44
+          }
+          openssl dgst -sha256 -sign "$key" -out updates/stable.json.sig updates/stable.json
+          openssl dgst -sha256 -verify updates/mechos-update-signing-public.pem \
+            -signature updates/stable.json.sig updates/stable.json
+      - name: Verify publication files
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.1-update.tar.zst
+          test -s "$B"; test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.1-update.tar.zst.sha256)
+          for member in             './usr/local/bin/mechos-downloads'             './usr/local/bin/mechos-network'             './usr/local/bin/mechos-browser'             './usr/local/bin/mechos-gpu'             './usr/local/bin/mechos-inputs'             './usr/local/bin/mechos-game-run'             './usr/local/libexec/mechos-bridge-v031'             './usr/share/mechos/0.3.1/feature-registry.json'             './usr/share/mechos/wallpapers/0.3.1/mechos-wallpaper-16.jpg'; do
+            tar --zstd -tf "$B" | grep -Fx "$member"
+          done
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text())
+          assert data['channel']=='stable'
+          assert data['version']=='0.3.1'
+          assert data['release_name']=='MechOS v0.3.1'
+          assert data['requires_reboot'] is True
+          assert data['signature_url'].endswith('/updates/stable.json.sig')
+          assert data['signing_key_id']=='mechos-stable-2026-01'
+          b=Path('updates/bundles/MechOS-0.3.1-update.tar.zst')
+          assert hashlib.sha256(b.read_bytes()).hexdigest()==data['bundle_sha256']
+          PY
+      - name: Commit stable 0.3.1
+        run: |
+          set -euo pipefail
+          git config user.name 'MechOS Release Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add updates/stable.json             updates/stable.json.sig             updates/bundles/MechOS-0.3.1-update.tar.zst             updates/bundles/MechOS-0.3.1-update.tar.zst.sha256
+          if git diff --cached --quiet; then
+            echo '0.3.1 publication files are already committed.'
+            exit 0
+          fi
+          git commit -m 'release: publish MechOS 0.3.1'
+          git push origin HEAD:main

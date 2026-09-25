@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "version": "0.3.1",
+  "channel": "stable",
+  "features": [
+    {
+      "id": "boot",
+      "name": "MechScope boot experience",
+      "status": "implemented",
+      "components": [
+        "mechscope-session-v23",
+        "mechscope-loading.png"
+      ]
+    },
+    {
+      "id": "downloads",
+      "name": "MechScope downloads and updates",
+      "status": "implemented",
+      "components": [
+        "mechos-downloads",
+        "mechos-update-center"
+      ]
+    },
+    {
+      "id": "ota",
+      "name": "MechOS OTA update system",
+      "status": "implemented-with-signing-gate",
+      "components": [
+        "mechos-update-helper",
+        "mechos-update-transaction-v25",
+        "stable.json"
+      ]
+    },
+    {
+      "id": "bridge",
+      "name": "MechOS Bridge for Companion app",
+      "status": "implemented",
+      "components": [
+        "mechos-bridge",
+        "mechos-bridge-settings"
+      ]
+    },
+    {
+      "id": "network",
+      "name": "Post-install network connection setup",
+      "status": "implemented",
+      "components": [
+        "mechos-network"
+      ]
+    },
+    {
+      "id": "browser",
+      "name": "MechBrowser",
+      "status": "implemented",
+      "components": [
+        "mechos-browser",
+        "firefox"
+      ]
+    },
+    {
+      "id": "gpu",
+      "name": "GPU compatibility database",
+      "status": "implemented-needs-hardware-validation",
+      "components": [
+        "mechos-gpu"
+      ]
+    },
+    {
+      "id": "power",
+      "name": "Per-game power profiles",
+      "status": "implemented-needs-hardware-validation",
+      "components": [
+        "mechos-power",
+        "mechos-game-run"
+      ]
+    },
+    {
+      "id": "crash",
+      "name": "Game crash protection and recovery",
+      "status": "implemented",
+      "components": [
+        "mechos-game-run",
+        "mechos-crashes"
+      ]
+    },
+    {
+      "id": "creator",
+      "name": "Creator Mode and Windows creator tools",
+      "status": "implemented-needs-app-validation",
+      "components": [
+        "mechos-creator",
+        "mechos-creator-mode"
+      ]
+    },
+    {
+      "id": "compat",
+      "name": "Windows game compatibility and MechScope Unified Store verification",
+      "status": "implemented-needs-game-validation",
+      "components": [
+        "mechos-compat",
+        "mechos-unified-store"
+      ]
+    },
+    {
+      "id": "input",
+      "name": "USB4, HOTAS/joystick and advanced controller support",
+      "status": "implemented-needs-hardware-validation",
+      "components": [
+        "mechos-inputs"
+      ]
+    }
+  ]
+}
