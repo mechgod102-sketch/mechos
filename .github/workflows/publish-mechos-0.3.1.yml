@@ -1,0 +1,84 @@
+name: Publish MechOS 0.3.1 Phase 1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-mechos-0.3.1.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-mechos-0.3.1-phase1
+  cancel-in-progress: false
+
+jobs:
+  publish-mechos-0-3-1:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install bundle and image validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd imagemagick
+
+      - name: Validate 0.3.1 Phase 1 sources
+        run: bash scripts/validate-mechos-0.3.1.sh
+
+      - name: Verify wallpaper dimensions
+        run: |
+          set -euo pipefail
+          for i in $(seq -w 1 16); do
+            img="overlay/rootfs/usr/share/backgrounds/mechos/mechos-wallpaper-$i.jpg"
+            dims="$(identify -format '%wx%h' "$img")"
+            test "$dims" = "1920x1080" || {
+              echo "Wallpaper $i is $dims; expected 1920x1080" >&2
+              exit 1
+            }
+          done
+
+      - name: Build cumulative 0.3.1 Phase 1 bundle
+        run: bash scripts/build-mechos-0.3.1.sh
+
+      - name: Verify publication files
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.1-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.1-update.tar.zst.sha256)
+          tar --zstd -tf "$B" | grep -F './usr/share/mechos/wallpapers/0.3.1/mechos-wallpaper-01.jpg'
+          tar --zstd -tf "$B" | grep -F './usr/share/mechos/wallpapers/0.3.1/mechos-wallpaper-16.jpg'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-0.3.1-phase1-apply'
+          tar --zstd -tf "$B" | grep -F './usr/lib/systemd/system/mechos-0.3.1-phase1.service'
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          data=json.loads(Path('updates/stable.json').read_text())
+          assert data['channel']=='stable'
+          assert data['version']=='0.3.1'
+          assert data['requires_reboot'] is True
+          b=Path('updates/bundles/MechOS-0.3.1-update.tar.zst')
+          assert hashlib.sha256(b.read_bytes()).hexdigest()==data['bundle_sha256']
+          PY
+
+      - name: Commit stable 0.3.1 Phase 1
+        run: |
+          set -euo pipefail
+          git config user.name 'MechOS Release Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add updates/stable.json \
+            updates/bundles/MechOS-0.3.1-update.tar.zst \
+            updates/bundles/MechOS-0.3.1-update.tar.zst.sha256
+          if git diff --cached --quiet; then
+            echo '0.3.1 Phase 1 publication files are already committed.'
+            exit 0
+          fi
+          git commit -m 'release: publish MechOS 0.3.1 Phase 1'
+          git push origin HEAD:main
