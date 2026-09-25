@@ -30,6 +30,12 @@ install -m0755 "$ROOT/scripts/mechos-0.3.1-phase1-apply.sh"   "$STAGE/usr/local/
 install -m0755 "$ROOT/scripts/mechos-031-control-suite.py"   "$STAGE/usr/local/libexec/mechos-031-control-suite"
 install -m0755 "$ROOT/scripts/mechos-bridge-v031.py"   "$STAGE/usr/local/libexec/mechos-bridge-v031"
 install -m0755 "$ROOT/scripts/mechos-game-run-v031.py"   "$STAGE/usr/local/bin/mechos-game-run"
+install -m0755 "$ROOT/scripts/mechos-update-helper-v36.sh"   "$STAGE/usr/local/bin/mechos-update-helper"
+
+if [ -s "$ROOT/updates/mechos-update-signing-public.pem" ]; then
+  mkdir -p "$STAGE/etc/mechos"
+  install -m0644 "$ROOT/updates/mechos-update-signing-public.pem" "$STAGE/etc/mechos/update-signing-public.pem"
+fi
 
 install -m0644 "$ROOT/data/mechos-0.3.1-feature-registry.json"   "$STAGE/usr/share/mechos/0.3.1/feature-registry.json"
 install -m0644 "$ROOT/data/mechos-0.3.1-game-compatibility.json"   "$STAGE/usr/share/mechos/0.3.1/game-compatibility.json"
@@ -138,6 +144,7 @@ PY
 # Static source checks before creating the update.
 python3 -m py_compile   "$STAGE/usr/local/libexec/mechos-031-control-suite"   "$STAGE/usr/local/libexec/mechos-bridge-v031"   "$STAGE/usr/local/bin/mechos-game-run"   "$RUNTIME"
 bash -n "$STAGE/usr/local/libexec/mechos-0.3.1-phase1-apply"
+bash -n "$STAGE/usr/local/bin/mechos-update-helper"
 for f in "$STAGE"/usr/local/bin/mechos-{downloads,network,browser,gpu,inputs,compat,creator,power,crashes,bridge-settings}; do
   bash -n "$f"
 done
@@ -145,6 +152,7 @@ done
 grep -Fq 'MECHOS_031_CONTROL_SUITE_V1' "$STAGE/usr/local/libexec/mechos-031-control-suite"
 grep -Fq 'MECHOS_BRIDGE_V031' "$STAGE/usr/local/libexec/mechos-bridge-v031"
 grep -Fq 'MECHOS_GAME_RUN_V031' "$STAGE/usr/local/bin/mechos-game-run"
+grep -Fq 'MECHOS_UPDATE_HELPER_V36_SIGNED_MANIFEST_V1' "$STAGE/usr/local/bin/mechos-update-helper"
 grep -Fq '/usr/local/bin/mechos-network' "$RUNTIME"
 
 # Proven cumulative update/runtime components must remain present.
@@ -172,6 +180,8 @@ data={
   'notes':'Cumulative MechOS 0.3.1 roadmap release built on Hotfix 35. Adds the official wallpaper collection, MechOS Downloads hub, dedicated Network Setup, MechBrowser launcher, GPU compatibility diagnostics, per-game power/crash wrapper, Companion Bridge service/settings, Creator Store catalog, Windows-game compatibility profiles including S.T.A.L.K.E.R. G.A.M.M.A. and Star Citizen as Needs Setup/Testing, plus USB4/HOTAS/controller diagnostics. Hardware- and game-specific compatibility remains conservatively labeled until real-device validation. Update Center retains SHA-256 verification and transactional rollback; signed-manifest publication remains a release certification gate.',
   'bundle_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst',
   'bundle_sha256':sha,
+  'signature_url':'https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig',
+  'signing_key_id':'mechos-stable-2026-01',
   'requires_reboot':True,
 }
 p.write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
