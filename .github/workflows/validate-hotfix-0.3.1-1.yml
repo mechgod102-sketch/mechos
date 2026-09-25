@@ -39,9 +39,13 @@ jobs:
           test -s "$B.sha256"
           (cd updates/bundles && sha256sum -c MechOS-0.3.1-hotfix.1-update.tar.zst.sha256)
           CONTENTS="$(tar --zstd -tf "$B")"
-          for member in             './usr/local/bin/mechos-gpu-setup'             './usr/local/bin/mechos-legacy-gpu-setup'             './usr/local/bin/mechscope-session'             './usr/local/bin/mechos-update-helper'             './usr/local/libexec/mechos-update-center-v8.py'             './usr/local/libexec/mechos-031-control-suite'             './usr/local/libexec/mechos-hotfix-0.3.1-1-apply'             './usr/lib/systemd/system/mechos-hotfix-0.3.1-1.service'; do
+          for member in             './usr/local/bin/mechos-legacy-gpu-setup'             './usr/local/bin/mechscope-session'             './usr/local/bin/mechos-update-helper'             './usr/local/libexec/mechos-update-center-v8.py'             './usr/local/libexec/mechos-031-control-suite'             './usr/local/libexec/mechos-gpu-setup-integration-v0311'             './usr/local/libexec/mechos-legacy-gpu-session-patch-v0311'             './usr/local/libexec/mechos-legacy-gpu-control-patch-v0311'             './usr/local/libexec/mechos-hotfix-0.3.1-1-apply'             './usr/lib/systemd/system/mechos-hotfix-0.3.1-1.service'; do
             grep -Fxq "$member" <<<"$CONTENTS"
           done
+          if grep -Fxq './usr/local/bin/mechos-gpu-setup' <<<"$CONTENTS"; then
+            echo 'Hotfix must integrate with installed mechos-gpu-setup, not replace it.' >&2
+            exit 1
+          fi
           python3 - <<'PY'
           import json
           from pathlib import Path
