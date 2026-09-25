@@ -2,19 +2,6 @@ name: Publish MechOS 0.3.1 Hotfix 1
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/mechos-legacy-gpu-setup-v0311.sh'
-      - 'scripts/mechos-legacy-gpu-session-patch-v0311.py'
-      - 'scripts/mechos-legacy-gpu-control-patch-v0311.py'
-      - 'scripts/mechos-gpu-setup-integration-v0311.py'
-      - 'scripts/mechos-hotfix-0.3.1-1-apply.sh'
-      - 'scripts/build-hotfix-0.3.1-1.sh'
-      - 'scripts/validate-hotfix-0.3.1-1.sh'
-      - 'docs/RELEASE-NOTES-0.3.1-hotfix.1.md'
-      - '.github/workflows/publish-hotfix-0.3.1-1.yml'
-
 permissions:
   contents: write
 
@@ -35,6 +22,17 @@ jobs:
           set -euo pipefail
           git fetch origin main
           git reset --hard origin/main
+      - name: Refuse newer Stable release
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          v=json.loads(Path('updates/stable.json').read_text()).get('version','0.0.0')
+          m=re.fullmatch(r'0\.3\.1-hotfix\.(\d+)',v)
+          if v=='0.3.1' or (m and int(m.group(1)) <= 1):
+              raise SystemExit(0)
+          raise SystemExit(f'Refusing to overwrite newer Stable release {v} with 0.3.1-hotfix.1')
+          PY
       - name: Install validation tools
         run: |
           sudo apt-get update
