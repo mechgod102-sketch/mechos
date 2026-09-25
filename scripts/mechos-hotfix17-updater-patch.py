@@ -10,9 +10,15 @@ def patch_helper(path: Path) -> None:
     if marker not in text:
         old = '  if ! tar --zstd -xpf "$bundle" -C "$stage"; then rm -rf "$work"; return 16; fi\n'
         new = marker + '\n  if ! tar --warning=no-timestamp --zstd -xpf "$bundle" -C "$stage"; then rm -rf "$work"; return 16; fi\n'
-        if old not in text:
-            raise SystemExit('update helper extraction anchor missing')
-        text = text.replace(old, new, 1)
+        if old in text:
+            text = text.replace(old, new, 1)
+        else:
+            # Newer checked-in helper sources may already contain the
+            # no-timestamp extraction fix without the historical marker.
+            existing = '  if ! tar --warning=no-timestamp --zstd -xpf "$bundle" -C "$stage"; then rm -rf "$work"; return 16; fi\n'
+            if existing not in text:
+                raise SystemExit('update helper extraction anchor missing')
+            text = text.replace(existing, marker + '\n' + existing, 1)
     path.write_text(text, encoding='utf-8')
 
 
