@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "version": "0.3.1",
+  "tools": [
+    {
+      "name": "Unity Hub",
+      "type": "vendor/compatibility",
+      "status": "Available through Creator Mode workflow"
+    },
+    {
+      "name": "Unreal Engine",
+      "type": "vendor/native Linux workflow",
+      "status": "Available through Creator Mode workflow"
+    },
+    {
+      "name": "VRChat Creator Companion",
+      "type": "Windows compatibility",
+      "status": "Needs app validation"
+    },
+    {
+      "name": "Bottles",
+      "type": "Flatpak",
+      "status": "Supported helper"
+    },
+    {
+      "name": "Lutris",
+      "type": "native package",
+      "status": "Supported helper"
+    },
+    {
+      "name": "Heroic Games Launcher",
+      "type": "Flatpak",
+      "status": "Supported helper"
+    },
+    {
+      "name": "VS Code",
+      "type": "native/Flatpak",
+      "status": "Creator Store candidate"
+    },
+    {
+      "name": "Blender",
+      "type": "native/Flatpak",
+      "status": "Creator Store candidate"
+    },
+    {
+      "name": "OBS Studio",
+      "type": "native/Flatpak",
+      "status": "Creator Store candidate"
+    },
+    {
+      "name": "Krita",
+      "type": "native/Flatpak",
+      "status": "Creator Store candidate"
+    },
+    {
+      "name": "Kdenlive",
+      "type": "native/Flatpak",
+      "status": "Creator Store candidate"
+    }
+  ]
+}
