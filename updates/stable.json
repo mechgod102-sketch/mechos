@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1-hotfix.1",
-  "release_name": "MechOS v0.3.1 Hotfix 1",
+  "version": "0.3.1-hotfix.5",
+  "release_name": "MechOS v0.3.1 Hotfix 5",
   "published_at": "2026-09-25",
-  "notes": "Additive legacy GPU compatibility and Update Center reliability hotfix. Preserves the existing 0.3.1 modern AMD/NVIDIA/Intel GPU paths while adding legacy NVIDIA branch detection, safe Nouveau/Mesa fallback, legacy Radeon handling, driver-aware NVIDIA environment selection, Vulkan-gated Gamescope fallback, and integrated legacy GPU diagnostics. Also ships the repaired v37 signed updater, 30-second Update Center status timeout, and downgrade protection so an older 0.3.0 hotfix can never be offered as an upgrade over 0.3.1.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.1-update.tar.zst",
-  "bundle_sha256": "c64da15243ee703c202d787b9cbf2aada35efcfeb66a84ae49cf6987ab2853e7",
+  "notes": "GT 730 MechScope and Update Center health-check reliability hotfix. Permanently integrates driver-aware NVIDIA handling, Intel UMA handling and Vulkan capability fallback into the source-owned MechScope session so cumulative updates cannot undo legacy GPU support. Treats GeForce GT 730 as a mixed-generation family and chooses the session path from the loaded kernel driver and Vulkan capability instead of the marketing name alone. Update Center now tests the helper itself first, invokes privileged self-repair only when helper health actually fails, and distinguishes helper failure from feed/network/signature status failures. Delivered through a new A/B updater slot without replacing protected public launchers.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.5-update.tar.zst",
+  "bundle_sha256": "edc625230c41b2df3f9c154da9d5a8e3adb72c536b4301e3a8ce30a7c248a70a",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
