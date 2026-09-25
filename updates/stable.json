@@ -1,11 +1,13 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.36",
-  "release_name": "MechOS v0.3.0 Hotfix 36",
+  "version": "0.3.1",
+  "release_name": "MechOS v0.3.1",
   "published_at": "2026-09-25",
-  "notes": "Cumulative Intel UMA MechScope integration. Preserves the existing MechScope runtime, AMD/NVIDIA behavior and hybrid-GPU paths. Adds Intel-only UMA detection, Intel DRM/Vulkan preflight, conservative Gamescope arguments, and automatic use of the existing supervised Plasma fallback when Intel Gamescope prerequisites are unavailable. Includes all Hotfix 35 fixes.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst",
-  "bundle_sha256": "3505def0e49031ef17180f1c75a652192039dd106fe18193009046d3a4006b02",
+  "notes": "Cumulative MechOS 0.3.1 roadmap release built on Hotfix 36. Adds the official wallpaper collection, MechOS Downloads hub, dedicated Network Setup, MechBrowser launcher, GPU compatibility diagnostics, per-game power/crash wrapper, Companion Bridge service/settings, Creator Store catalog, Windows-game compatibility profiles including S.T.A.L.K.E.R. G.A.M.M.A. and Star Citizen as Needs Setup/Testing, plus USB4/HOTAS/controller diagnostics. Hardware- and game-specific compatibility remains conservatively labeled until real-device validation. Update Center retains SHA-256 verification and transactional rollback; signed-manifest publication remains a release certification gate.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst",
+  "bundle_sha256": "2320c477b9d86e9bb3ed9589cb0f4a3c6ba997a7aa0a50ea40b9546063c34bbe",
+  "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
+  "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
 }
