@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1",
-  "release_name": "MechOS v0.3.1",
+  "version": "0.3.1-hotfix.1",
+  "release_name": "MechOS v0.3.1 Hotfix 1",
   "published_at": "2026-09-25",
-  "notes": "Cumulative MechOS 0.3.1 roadmap release built on Hotfix 36. Includes the 0.3.1 Update Center install-repair revision: offline-safe transaction postflight, current source-owned MechScope runtime validation, non-fatal optional Performance Center detection, and update helper v37 with local self-test and release-version commit. Also includes the official wallpaper collection, Downloads hub, Network Setup, MechBrowser, GPU diagnostics, power/crash wrapper, Companion Bridge, Creator Store catalog, Windows-game compatibility profiles, and USB4/HOTAS/controller diagnostics.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-update.tar.zst",
-  "bundle_sha256": "0acaa9e756348062a21ce6749b9a0b4b8e95aa3bb41f7449b99d6250949212e0",
+  "notes": "Additive legacy GPU compatibility and Update Center reliability hotfix. Preserves the existing 0.3.1 modern AMD/NVIDIA/Intel GPU paths while adding legacy NVIDIA branch detection, safe Nouveau/Mesa fallback, legacy Radeon handling, driver-aware NVIDIA environment selection, Vulkan-gated Gamescope fallback, and integrated legacy GPU diagnostics. Also ships the repaired v37 signed updater, 30-second Update Center status timeout, and downgrade protection so an older 0.3.0 hotfix can never be offered as an upgrade over 0.3.1.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.1-update.tar.zst",
+  "bundle_sha256": "1824ee26f50f8dcd7452538b97b3fa756caa04f14b8d4b6f905ed9c184f13a1e",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
