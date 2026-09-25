@@ -1,0 +1,53 @@
+name: Validate MechOS 0.3.1 Hotfix 1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechos-legacy-gpu-setup-v0311.sh'
+      - 'scripts/mechos-legacy-gpu-session-patch-v0311.py'
+      - 'scripts/mechos-legacy-gpu-control-patch-v0311.py'
+      - 'scripts/mechos-gpu-setup-integration-v0311.py'
+      - 'scripts/mechos-hotfix-0.3.1-1-apply.sh'
+      - 'scripts/build-hotfix-0.3.1-1.sh'
+      - 'scripts/validate-hotfix-0.3.1-1.sh'
+      - 'docs/RELEASE-NOTES-0.3.1-hotfix.1.md'
+      - '.github/workflows/validate-hotfix-0.3.1-1.yml'
+      - '.github/workflows/publish-hotfix-0.3.1-1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hotfix-0-3-1-1:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Validate Hotfix 1 sources
+        run: bash scripts/validate-hotfix-0.3.1-1.sh
+      - name: Build cumulative Hotfix 1 bundle
+        run: bash scripts/build-hotfix-0.3.1-1.sh
+      - name: Verify built bundle
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.1-hotfix.1-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.1-hotfix.1-update.tar.zst.sha256)
+          CONTENTS="$(tar --zstd -tf "$B")"
+          for member in             './usr/local/bin/mechos-gpu-setup'             './usr/local/bin/mechos-legacy-gpu-setup'             './usr/local/bin/mechscope-session'             './usr/local/bin/mechos-update-helper'             './usr/local/libexec/mechos-update-center-v8.py'             './usr/local/libexec/mechos-031-control-suite'             './usr/local/libexec/mechos-hotfix-0.3.1-1-apply'             './usr/lib/systemd/system/mechos-hotfix-0.3.1-1.service'; do
+            grep -Fxq "$member" <<<"$CONTENTS"
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('updates/stable.json').read_text())
+          assert d['version']=='0.3.1-hotfix.1'
+          assert d['release_name']=='MechOS v0.3.1 Hotfix 1'
+          assert d['signature_url'].endswith('/updates/stable.json.sig')
+          assert d['requires_reboot'] is True
+          PY
