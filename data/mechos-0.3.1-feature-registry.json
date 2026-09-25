@@ -24,7 +24,7 @@
     {
       "id": "ota",
       "name": "MechOS OTA update system",
-      "status": "implemented-signed-ab-health-first",
+      "status": "implemented-signed-frozen-infrastructure",
       "components": [
         "mechos-update-helper",
         "mechos-update-transaction-v25",
@@ -32,7 +32,9 @@
         "mechos-update-self-repair",
         "mechos-update-engine-v38",
         "mechos-package-refresh-v39",
-        "mechos-update-health-first-v5"
+        "mechos-update-health-first-v5",
+        "mechos-payload-only-hotfix-policy",
+        "mechos-update-infrastructure-freeze"
       ]
     },
     {
