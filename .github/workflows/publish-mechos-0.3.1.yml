@@ -45,6 +45,29 @@ jobs:
           done
       - name: Build cumulative 0.3.1 bundle
         run: bash scripts/build-mechos-0.3.1.sh
+      - name: Sign Stable manifest
+        env:
+          SIGNING_KEY: ${{ secrets.MECHOS_UPDATE_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEY" || {
+            echo 'MECHOS_UPDATE_SIGNING_PRIVATE_KEY is not configured.' >&2
+            exit 43
+          }
+          key="$RUNNER_TEMP/mechos-update-signing-private.pem"
+          derived="$RUNNER_TEMP/mechos-update-signing-public.pem"
+          expected="$RUNNER_TEMP/mechos-update-signing-public-expected.pem"
+          printf '%s\n' "$SIGNING_KEY" >"$key"
+          chmod 0600 "$key"
+          openssl pkey -in "$key" -pubout -out "$derived"
+          openssl pkey -pubin -in updates/mechos-update-signing-public.pem -pubout -out "$expected"
+          cmp -s "$derived" "$expected" || {
+            echo 'Signing private key does not match updates/mechos-update-signing-public.pem' >&2
+            exit 44
+          }
+          openssl dgst -sha256 -sign "$key" -out updates/stable.json.sig updates/stable.json
+          openssl dgst -sha256 -verify updates/mechos-update-signing-public.pem \
+            -signature updates/stable.json.sig updates/stable.json
       - name: Verify publication files
         run: |
           set -euo pipefail
@@ -62,6 +85,8 @@ jobs:
           assert data['version']=='0.3.1'
           assert data['release_name']=='MechOS v0.3.1'
           assert data['requires_reboot'] is True
+          assert data['signature_url'].endswith('/updates/stable.json.sig')
+          assert data['signing_key_id']=='mechos-stable-2026-01'
           b=Path('updates/bundles/MechOS-0.3.1-update.tar.zst')
           assert hashlib.sha256(b.read_bytes()).hexdigest()==data['bundle_sha256']
           PY
@@ -70,7 +95,7 @@ jobs:
           set -euo pipefail
           git config user.name 'MechOS Release Publisher'
           git config user.email 'actions@users.noreply.github.com'
-          git add updates/stable.json             updates/bundles/MechOS-0.3.1-update.tar.zst             updates/bundles/MechOS-0.3.1-update.tar.zst.sha256
+          git add updates/stable.json             updates/stable.json.sig             updates/bundles/MechOS-0.3.1-update.tar.zst             updates/bundles/MechOS-0.3.1-update.tar.zst.sha256
           if git diff --cached --quiet; then
             echo '0.3.1 publication files are already committed.'
             exit 0
