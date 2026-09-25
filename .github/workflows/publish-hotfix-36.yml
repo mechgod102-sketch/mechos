@@ -1,0 +1,44 @@
+name: Publish MechOS Hotfix 36
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-hotfix-36.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-mechos-hotfix-36
+  cancel-in-progress: false
+
+jobs:
+  publish-hotfix-36:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - run: bash scripts/validate-hotfix-0.3.0-36.sh
+      - run: bash scripts/build-hotfix-0.3.0-36.sh
+      - run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.0-hotfix.36-update.tar.zst.sha256)
+          tar --zstd -tf "$B" | grep -F './usr/local/bin/mechscope-session'
+          tar --zstd -tf "$B" | grep -F './usr/local/libexec/mechos-intel-uma-preflight-v36'
+      - run: |
+          set -euo pipefail
+          git config user.name 'MechOS Hotfix Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add updates/stable.json updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst.sha256
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'release: publish MechOS Hotfix 36'
+          git push origin HEAD:main
