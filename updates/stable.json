@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0-hotfix.35",
-  "release_name": "MechOS v0.3.0 Hotfix 35",
-  "published_at": "2026-09-09",
-  "notes": "Cumulative source-owned Unified Store release. Replaces the Store redirect behavior with a dedicated MechOS Unified Store page that displays Steam, Epic Games, GOG.com and Amazon Games sources in-app, keeps supported game search results inside MechOS, and adds installed/not-installed status plus Install/Launch controls for Steam, Heroic Games Launcher and Lutris. Launcher installation uses fixed MechOS launcher IDs only; Steam and Lutris use the system package path with PolicyKit approval and Heroic uses the existing user-scoped Flatpak bootstrap. Both the MechScope dashboard Store action and the legacy mechscope --store compatibility entry now prefer /usr/local/bin/mechos-unified-store before Discovery fallbacks. Includes all Hotfix 34 fixes.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.35-update.tar.zst",
-  "bundle_sha256": "461a43894dc4b074db5499bb90ae96e1bc55bd55497f317d32bff541f0f0e6e8",
+  "version": "0.3.0-hotfix.36",
+  "release_name": "MechOS v0.3.0 Hotfix 36",
+  "published_at": "2026-09-25",
+  "notes": "Cumulative Intel UMA MechScope integration. Preserves the existing MechScope runtime, AMD/NVIDIA behavior and hybrid-GPU paths. Adds Intel-only UMA detection, Intel DRM/Vulkan preflight, conservative Gamescope arguments, and automatic use of the existing supervised Plasma fallback when Intel Gamescope prerequisites are unavailable. Includes all Hotfix 35 fixes.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.0-hotfix.36-update.tar.zst",
+  "bundle_sha256": "3505def0e49031ef17180f1c75a652192039dd106fe18193009046d3a4006b02",
   "requires_reboot": true
 }
