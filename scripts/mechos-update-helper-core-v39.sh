@@ -289,7 +289,9 @@ case "${1:-status}" in
   apply) apply_signed ;;
   selftest) selftest_local ;;
   package-refresh)
-    [ "$(id -u)" -eq 0 ] || die 'Administrator privileges required. Run through pkexec.'
+    if [ "$(id -u)" -ne 0 ] && [ -z "${MECHOS_PACKAGE_REFRESH_TEST_MODE:-}" ]; then
+      die 'Administrator privileges required. Run through pkexec.'
+    fi
     run_post_update_package_refresh
     ;;
   *) echo 'Usage: mechos-update-helper {status|check|apply|selftest|package-refresh}' >&2; exit 2 ;;
