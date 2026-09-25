@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # MECHOS_UPDATE_TRANSACTION_V14
+# MECHOS_UPDATE_TRANSACTION_V14_031_REPAIR_V1
 # Hotfix 17: self-contained transaction engine. It deliberately does not depend
 # on rsync so a minimal installed MechOS system cannot fail with exit 127 while
 # applying an OS bundle.
@@ -126,13 +127,32 @@ for name in ['/usr/local/libexec/mechos-update-center-v8.py','/usr/local/bin/mec
     if p.is_file() and p.read_bytes().splitlines()[0].find(b'python')>=0:
         compile(p.read_text(encoding='utf-8'),str(p),'exec')
 PY
-STATUS="$(timeout 8 /usr/local/bin/mechos-update-helper status 2>&1)" || { fail 'update helper status self-test failed'; exit 51; }
-printf '%s\n' "$STATUS" | grep '^CURRENT_MECHOS_VERSION=' >/dev/null || { fail 'update helper status contract missing CURRENT_MECHOS_VERSION'; exit 52; }
-printf '%s\n' "$STATUS" | grep '^REBOOT_REQUIRED=' >/dev/null || { fail 'update helper status contract missing REBOOT_REQUIRED'; exit 53; }
-[ -x /usr/local/bin/mechos-performance-center ] || { fail 'Performance Center missing after update'; exit 54; }
-[ -x /usr/local/bin/mechscope ] || [ -x /usr/local/bin/mechscope.real ] || { fail 'MechScope missing after update'; exit 55; }
+# Postflight must be local-only. The bundle and signed manifest were already
+# verified before this transaction began; requiring another network round trip
+# here made successful installs roll back on slow/offline GitHub access.
+SELFTEST="$(/usr/local/bin/mechos-update-helper selftest 2>&1)" || { fail "local update helper self-test failed: $SELFTEST"; exit 51; }
+printf '%s\n' "$SELFTEST" | grep '^MECHOS_UPDATE_HELPER_SELFTEST=1' >/dev/null || { fail 'update helper local self-test contract missing'; exit 52; }
 
-log "transaction committed for $VERSION; rsync-free updater verified; backup=$BACKUP"
+# Current source-owned MechScope installations are valid with the supervised
+# session + source runtime. Older public mechscope/mechscope.real entry points
+# remain accepted for backwards compatibility.
+if [ -x /usr/local/bin/mechscope ] || [ -x /usr/local/bin/mechscope.real ]; then
+  log 'legacy/public MechScope entry point present'
+elif [ -x /usr/local/bin/mechscope-session ] && [ -f /usr/local/libexec/mechos-mechscope-source-runtime-v33 ]; then
+  log 'source-owned MechScope session/runtime present'
+else
+  fail 'no supported MechScope runtime entry point found after update'
+  exit 55
+fi
+
+# Performance Center is useful but is not part of the minimum cumulative OTA
+# contract. Do not roll back a valid OS update solely because an older hardware
+# image lacks this optional launcher.
+if [ ! -x /usr/local/bin/mechos-performance-center ]; then
+  log 'WARNING: Performance Center is absent; update remains valid'
+fi
+
+log "transaction committed for $VERSION; offline-safe updater postflight verified; backup=$BACKUP"
 trap - EXIT
 cleanup
 exit 0
