@@ -20,6 +20,12 @@ grep -Eqi 'AMD|ATI|Advanced Micro Devices' <<<"$GPU_LINES" && AMD=1
 
 nvidia_branch(){
   local text="$1"
+  # GT 730 shipped in multiple GPU generations. Do not infer a proprietary
+  # branch from the marketing name alone; use the loaded driver/capability
+  # checks for session behavior and report that a PCI-ID check is needed.
+  if grep -Eqi 'GeForce GT 730([^0-9]|$)' <<<"$text"; then
+    printf 'gt730-mixed-generation'; return
+  fi
   if grep -Eqi 'GeForce (RTX|GTX 16)|Quadro RTX|TITAN RTX|Tesla T4' <<<"$text"; then
     printf 'current-nvidia-open'; return
   fi
@@ -70,6 +76,9 @@ if [[ "$NVIDIA" -eq 1 ]]; then
       ;;
     nvidia-340xx-dkms)
       echo 'Legacy NVIDIA branch detected: common Tesla-era class. Proprietary legacy package is AUR-managed and is not auto-installed by MechOS.'
+      ;;
+    gt730-mixed-generation)
+      echo 'GeForce GT 730 mixed-generation model detected. MechOS will use the loaded kernel driver and Vulkan capability instead of assuming a proprietary legacy branch.'
       ;;
     *)
       echo 'NVIDIA generation could not be mapped safely from the PCI model string. MechOS will preserve the current driver and use the desktop fallback if Vulkan is unavailable.'
