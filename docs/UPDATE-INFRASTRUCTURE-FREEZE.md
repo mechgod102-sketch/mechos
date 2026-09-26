@@ -30,3 +30,8 @@ Repo-wide CI rejects future 0.3.1 hotfix builders that do not contain both enfor
 Updater changes are no longer bundled with normal OS hotfixes. They require a deliberately separate updater-maintenance release/process with its own validation and hardware test gate. A normal hotfix publisher must not watch updater source files.
 
 This freeze exists specifically to prevent a MechOS feature hotfix from breaking the mechanism needed to install the next fix.
+
+
+## Restart infrastructure
+
+Restart/shutdown authority is also frozen platform infrastructure. Normal hotfixes must not contain `/usr/local/bin/mechos-reboot` or `/usr/local/libexec/mechos-powerctl-v1`. Existing affected systems use the separate restart-maintenance repair path; normal OS payloads cannot replace it.
