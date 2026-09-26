@@ -24,7 +24,8 @@ FILES = {
     "transaction": "scripts/mechos-update-transaction-v15.sh",
     "switcher": "scripts/mechos-update-engine-switch-v38.sh",
     "self-repair": "scripts/mechos-update-self-repair-v0313.sh",
-    "reboot": "scripts/mechos-reboot-v14.sh",
+    "reboot": "scripts/mechos-reboot-frozen-v1.sh",
+    "powerctl": "scripts/mechos-powerctl-v1.sh",
     "legacy-helper": "scripts/mechos-update-helper-v37.sh",
     "public-key": "updates/mechos-update-signing-public.pem",
 }
@@ -113,6 +114,7 @@ def backup_existing() -> Path:
         Path("/usr/local/bin/mechos-update-helper"),
         Path("/usr/local/bin/mechos-update-center"),
         Path("/usr/local/bin/mechos-reboot"),
+        Path("/usr/local/libexec/mechos-powerctl-v1"),
         Path("/usr/local/libexec/mechos-update-engine-switch-v38"),
         Path("/usr/local/libexec/mechos-update-self-repair-v0313"),
         Path("/etc/mechos/update-signing-public.pem"),
@@ -177,7 +179,8 @@ def main() -> int:
         validate_shell(fetched["transaction"], MARKERS["transaction"])
         validate_shell(fetched["switcher"], MARKERS["switcher"])
         validate_shell(fetched["self-repair"], MARKERS["self-repair"])
-        validate_shell(fetched["reboot"])
+        validate_shell(fetched["reboot"], "MECHOS_REBOOT_FROZEN_V1")
+        validate_shell(fetched["powerctl"], "MECHOS_POWERCTL_V1_FROZEN")
         validate_shell(fetched["legacy-helper"], "MECHOS_UPDATE_HELPER_V37_SIGNED_MANIFEST_V1")
 
         downloaded_fp = key_fingerprint(fetched["public-key"])
@@ -237,6 +240,7 @@ def main() -> int:
 
         install_file(fetched["switcher"], Path("/usr/local/libexec/mechos-update-engine-switch-v38"), 0o755)
         install_file(fetched["self-repair"], Path("/usr/local/libexec/mechos-update-self-repair-v0313"), 0o755)
+        install_file(fetched["powerctl"], Path("/usr/local/libexec/mechos-powerctl-v1"), 0o755)
         install_file(fetched["reboot"], Path("/usr/local/bin/mechos-reboot"), 0o755)
         install_file(fetched["public-key"], installed_key, 0o644)
 
@@ -260,6 +264,11 @@ def main() -> int:
         if repair.returncode != 0:
             raise RuntimeError(f"Post-activation self-repair failed: {repair.stdout.strip()}")
         log(repair.stdout.strip())
+
+        power_selftest = run(["/usr/local/libexec/mechos-powerctl-v1", "selftest"], check=False)
+        if power_selftest.returncode != 0 or "MECHOS_POWERCTL_SELFTEST=1" not in power_selftest.stdout:
+            raise RuntimeError(f"Frozen restart authority self-test failed: {power_selftest.stdout.strip()}")
+        log(power_selftest.stdout.strip())
 
         selftest = run(["/usr/local/bin/mechos-update-helper", "selftest"], check=False)
         if selftest.returncode != 0 or "MECHOS_UPDATE_HELPER_SELFTEST=1" not in selftest.stdout:
