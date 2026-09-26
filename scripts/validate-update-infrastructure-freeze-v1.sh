@@ -12,14 +12,19 @@ trap 'rm -rf "$tmp"' EXIT
 safe_stage="$tmp/safe-stage"
 mkdir -p \
   "$safe_stage/usr/local/bin" \
+  "$safe_stage/usr/local/libexec" \
   "$safe_stage/usr/local/share/mechos/update-engine/slots/test" \
   "$safe_stage/usr/local/share/mechos/features"
 printf '#!/bin/sh\n' >"$safe_stage/usr/local/bin/mechos-update-helper"
+printf '#!/bin/sh\n' >"$safe_stage/usr/local/bin/mechos-reboot"
+printf '#!/bin/sh\n' >"$safe_stage/usr/local/libexec/mechos-powerctl-v1"
 printf 'engine\n' >"$safe_stage/usr/local/share/mechos/update-engine/slots/test/core"
 printf 'payload\n' >"$safe_stage/usr/local/share/mechos/features/example"
 
 bash "$ROOT/scripts/mechos-strip-updater-from-stage-v1.sh" "$safe_stage" >/dev/null
 test ! -e "$safe_stage/usr/local/bin/mechos-update-helper"
+test ! -e "$safe_stage/usr/local/bin/mechos-reboot"
+test ! -e "$safe_stage/usr/local/libexec/mechos-powerctl-v1"
 test ! -e "$safe_stage/usr/local/share/mechos/update-engine"
 test -f "$safe_stage/usr/local/share/mechos/features/example"
 
@@ -34,6 +39,16 @@ bad_bundle="$tmp/bad.tar.zst"
 tar --zstd -cpf "$bad_bundle" -C "$bad_stage" .
 if bash "$ROOT/scripts/validate-payload-only-hotfix-v1.sh" "$bad_bundle" >/dev/null 2>&1; then
   echo 'payload-only validator accepted a protected updater file' >&2
+  exit 1
+fi
+
+power_bad="$tmp/power-bad-stage"
+mkdir -p "$power_bad/usr/local/libexec"
+printf '#!/bin/sh\n' >"$power_bad/usr/local/libexec/mechos-powerctl-v1"
+power_bad_bundle="$tmp/power-bad.tar.zst"
+tar --zstd -cpf "$power_bad_bundle" -C "$power_bad" .
+if bash "$ROOT/scripts/validate-payload-only-hotfix-v1.sh" "$power_bad_bundle" >/dev/null 2>&1; then
+  echo 'payload-only validator accepted frozen power infrastructure' >&2
   exit 1
 fi
 
