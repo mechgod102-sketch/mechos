@@ -2,13 +2,13 @@
 set -Eeuo pipefail
 # MECHOS_MECHSCOPE_PLASMA_FALLBACK_V25
 
-MODE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mechos"
-REQUEST="$STATE_DIR/plasma-fallback-request-v25"
-LOG_FILE="$STATE_DIR/mechscope-session-v23.log"
-CRASH_MARKER="$STATE_DIR/mechscope-crash-loop-v33"
-LOCK_FILE="$STATE_DIR/mechscope-owner-v32.lock"
-RUNTIME=/usr/local/libexec/mechos-mechscope-source-runtime-v33
+MODE_FILE="${MECHOS_FALLBACK_MODE_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mechos/session-mode}"
+STATE_DIR="${MECHOS_FALLBACK_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/mechos}"
+REQUEST="${MECHOS_FALLBACK_REQUEST:-$STATE_DIR/plasma-fallback-request-v25}"
+LOG_FILE="${MECHOS_FALLBACK_LOG_FILE:-$STATE_DIR/mechscope-session-v23.log}"
+CRASH_MARKER="${MECHOS_FALLBACK_CRASH_MARKER:-$STATE_DIR/mechscope-crash-loop-v33}"
+LOCK_FILE="${MECHOS_FALLBACK_LOCK_FILE:-$STATE_DIR/mechscope-owner-v32.lock}"
+RUNTIME="${MECHOS_FALLBACK_RUNTIME:-/usr/local/libexec/mechos-mechscope-source-runtime-v33}"
 
 mkdir -p "$STATE_DIR" "$(dirname "$MODE_FILE")"
 
@@ -61,17 +61,21 @@ fi
 # imported. Still wait for the Wayland socket to exist so legacy/slow GPUs do
 # not race KWin startup.
 ready=0
-for _ in $(seq 1 60); do
-  if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" &&         -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ]]; then
-    ready=1
-    break
-  fi
-  if [[ -n "${DISPLAY:-}" ]]; then
-    ready=1
-    break
-  fi
-  sleep 1
-done
+if [[ -n "${MECHOS_FALLBACK_TEST_MODE:-}" ]]; then
+  ready=1
+else
+  for _ in $(seq 1 60); do
+    if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" &&         -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ]]; then
+      ready=1
+      break
+    fi
+    if [[ -n "${DISPLAY:-}" ]]; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+fi
 
 if [[ "$ready" -ne 1 ]]; then
   safe_desktop 'Plasma display environment did not become ready within 60 seconds'
@@ -79,7 +83,7 @@ if [[ "$ready" -ne 1 ]]; then
 fi
 
 log "Plasma display ready WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-none} DISPLAY=${DISPLAY:-none} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-none}"
-sleep 2
+if [[ -z "${MECHOS_FALLBACK_TEST_MODE:-}" ]]; then sleep 2; fi
 
 # If another valid MechScope owner already holds the lock, do not start a
 # duplicate or incorrectly count that as a crash.
