@@ -37,7 +37,8 @@
         "mechos-package-refresh-v39",
         "mechos-update-health-first-v5",
         "mechos-payload-only-hotfix-policy",
-        "mechos-update-infrastructure-freeze"
+        "mechos-update-infrastructure-freeze",
+        "mechos-frozen-restart-infrastructure"
       ]
     },
     {
@@ -80,7 +81,9 @@
       "status": "implemented-needs-hardware-validation",
       "components": [
         "mechos-power",
-        "mechos-game-run"
+        "mechos-game-run",
+        "mechos-powerctl-v1",
+        "mechos-reboot-frozen-v1"
       ]
     },
     {

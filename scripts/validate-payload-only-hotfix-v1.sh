@@ -11,6 +11,7 @@ blocked_exact=(
   './usr/local/bin/mechos-update-helper'
   './usr/local/bin/mechos-update-center'
   './usr/local/bin/mechos-reboot'
+  './usr/local/libexec/mechos-powerctl-v1'
   './etc/mechos/update-signing-public.pem'
   './usr/lib/systemd/system/mechos-update-self-repair.service'
   './etc/systemd/system/multi-user.target.wants/mechos-update-self-repair.service'

@@ -10,7 +10,7 @@ STAGE="${1:?usage: mechos-strip-updater-from-stage-v1.sh STAGE_DIR}"
 # a side effect of a cumulative OS bundle.
 rm -rf   "$STAGE/usr/local/share/mechos/update-engine"   "$STAGE/usr/local/share/mechos/update-recovery"
 
-rm -f   "$STAGE/usr/local/bin/mechos-update-helper"   "$STAGE/usr/local/bin/mechos-update-center"   "$STAGE/usr/local/bin/mechos-reboot"   "$STAGE/etc/mechos/update-signing-public.pem"
+rm -f   "$STAGE/usr/local/bin/mechos-update-helper"   "$STAGE/usr/local/bin/mechos-update-center"   "$STAGE/usr/local/bin/mechos-reboot"   "$STAGE/usr/local/libexec/mechos-powerctl-v1"   "$STAGE/etc/mechos/update-signing-public.pem"
 
 if [[ -d "$STAGE/usr/local/libexec" ]]; then
   find "$STAGE/usr/local/libexec" -maxdepth 1 -type f -name 'mechos-update-*' -delete

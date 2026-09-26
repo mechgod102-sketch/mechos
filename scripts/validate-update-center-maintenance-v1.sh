@@ -10,6 +10,10 @@ grep -Fq 'MECHOS_RELEASE_VERSION_UNCHANGED=1' "$ROOT/scripts/mechos-update-cente
 grep -Fq 'EXPECTED_KEY_FP = "03ae056eb65a505b8239b8b123b6437eec3afc906b517ff2a3d8e08607fe4391"' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
 grep -Fq 'Existing signing key does not match the pinned MechOS key; refusing silent replacement.' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
 grep -Fq 'MECHOS_UPDATE_HELPER_SELFTEST=1' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
+grep -Fq 'MECHOS_POWERCTL_V1_FROZEN' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
+grep -Fq 'MECHOS_POWERCTL_SELFTEST=1' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
+grep -Fq 'mechos-reboot-frozen-v1.sh' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
+! grep -Fq 'mechos-reboot-v14.sh' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
 grep -Fq 'pkexec' "$ROOT/scripts/mechos-update-center-maintenance-v1.py"
 
 # This maintenance tool is separate from normal hotfix builders. The normal
