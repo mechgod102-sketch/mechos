@@ -71,6 +71,8 @@ for p in publishers:
         'mechos-update-transaction',
         'mechos-update-engine-switch',
         'mechos-update-self-repair',
+        'mechos-powerctl-v1',
+        'mechos-reboot-frozen-v1',
     ]
     for token in watched:
         if token in text:
