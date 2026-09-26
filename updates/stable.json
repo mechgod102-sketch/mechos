@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1-hotfix.5",
-  "release_name": "MechOS v0.3.1 Hotfix 5",
-  "published_at": "2026-09-25",
-  "notes": "GT 730 MechScope and Update Center health-check reliability hotfix. Permanently integrates driver-aware NVIDIA handling, Intel UMA handling and Vulkan capability fallback into the source-owned MechScope session so cumulative updates cannot undo legacy GPU support. Treats GeForce GT 730 as a mixed-generation family and chooses the session path from the loaded kernel driver and Vulkan capability instead of the marketing name alone. Update Center now tests the helper itself first, invokes privileged self-repair only when helper health actually fails, and distinguishes helper failure from feed/network/signature status failures. Delivered through a new A/B updater slot without replacing protected public launchers.",
-  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.5-update.tar.zst",
-  "bundle_sha256": "edc625230c41b2df3f9c154da9d5a8e3adb72c536b4301e3a8ce30a7c248a70a",
+  "version": "0.3.1-hotfix.6",
+  "release_name": "MechOS v0.3.1 Hotfix 6",
+  "published_at": "2026-09-26",
+  "notes": "MechScope Plasma-fallback visibility fix. On legacy/non-Vulkan GPU paths, MechOS now starts Plasma first and launches MechScope from Plasma autostart after the real Wayland display is ready, instead of starting MechScope from a pre-Plasma background supervisor. The source-owned runtime reasserts fullscreen/activation during the startup window so KWin cannot leave MechScope behind the desktop. This is the first payload-only hotfix: it contains no Update Center, helper, transaction, engine-slot, recovery, reboot-helper or signing-key infrastructure.",
+  "bundle_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst",
+  "bundle_sha256": "7d8c171a7708d11788efc5afc3fda846fa25d02c182e19354742acaec1ab1ebe",
   "signature_url": "https://raw.githubusercontent.com/mechgod102-sketch/mechos/main/updates/stable.json.sig",
   "signing_key_id": "mechos-stable-2026-01",
   "requires_reboot": true
