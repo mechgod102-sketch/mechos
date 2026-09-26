@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # MECHOS_MECHSCOPE_SOURCE_RUNTIME_V33
 # MECHOS_MECHSCOPE_FOREGROUND_PRESENT_V34
+# MECHOS_MECHSCOPE_FROZEN_POWER_AUTHORITY_V35
 """Source-owned MechScope runtime.
 
 This is the stable installed-system owner for MechScope.  It deliberately does
@@ -186,6 +187,10 @@ class MechScope(QMainWindow):
             self._launch_first((("steam", []),))
 
     def power_menu(self) -> None:
+        # Frozen power infrastructure owns restart/shutdown behavior. The UI
+        # only asks it to open the session power menu.
+        if detached("/usr/local/libexec/mechos-powerctl-v1", ["menu"]):
+            return
         if detached("qdbus6", ["org.kde.LogoutPrompt", "/LogoutPrompt", "promptAll"]):
             return
         detached("qdbus", ["org.kde.LogoutPrompt", "/LogoutPrompt", "promptAll"])
