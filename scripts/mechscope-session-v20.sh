@@ -5,6 +5,7 @@ set -Eeuo pipefail
 # MECHOS_MECHSCOPE_SESSION_V22_SINGLE_OWNER
 # MECHOS_MECHSCOPE_SESSION_V23_SOURCE_RUNTIME
 # MECHOS_MECHSCOPE_SESSION_V24_GPU_CAPABILITY
+# MECHOS_MECHSCOPE_SESSION_V25_PLASMA_READY_HANDOFF
 # MECHOS_INTEL_UMA_INTEGRATION_V36
 # MECHOS_LEGACY_GPU_SESSION_V0311
 
@@ -15,6 +16,7 @@ CRASH_MARKER="$STATE_DIR/mechscope-crash-loop-v33"
 LOCK_FILE="$STATE_DIR/mechscope-owner-v32.lock"
 SOURCE_RUNTIME=/usr/local/libexec/mechos-mechscope-source-runtime-v33
 PUBLIC_MECHSCOPE=/usr/local/bin/mechscope
+FALLBACK_REQUEST="$STATE_DIR/plasma-fallback-request-v25"
 MECHSCOPE_TARGET=''
 declare -a MECHSCOPE_COMMAND=()
 mkdir -p "$(dirname "$MODE_FILE")" "$STATE_DIR"
@@ -80,45 +82,23 @@ safe_desktop_fallback(){
 }
 
 MODE="$(mode)"
-if [[ "$MODE" == desktop ]]; then log 'desktop mode requested; starting Plasma'; exec /usr/bin/startplasma-wayland; fi
+if [[ "$MODE" == desktop ]]; then
+  rm -f "$FALLBACK_REQUEST"
+  log 'desktop mode requested; starting Plasma'
+  exec /usr/bin/startplasma-wayland
+fi
 if ! resolve_mechscope_command; then
-  log 'source-owned MechScope could not be resolved; falling back to Plasma'
+  log 'source-owned MechScope could not be resolved; falling back to Plasma desktop'
+  rm -f "$FALLBACK_REQUEST"
   printf 'desktop\n' >"$MODE_FILE"
   exec /usr/bin/startplasma-wayland
 fi
 
-import_user_environment(){
-  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS \
-    XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION MECHOS_SESSION_SUPERVISED \
-    >/dev/null 2>&1 || true
-}
-
-run_locked_mechscope(){ /usr/bin/flock -n "$LOCK_FILE" "${MECHSCOPE_COMMAND[@]}"; }
-
-plasma_mechscope_supervisor(){
-  local crashes=0 rc=0 started=0 elapsed=0
-  sleep 2
-  while gaming_requested; do
-    import_user_environment
-    log "Plasma fallback: starting source-owned MechScope attempt=$((crashes+1)) target=$MECHSCOPE_TARGET"
-    started=$(date +%s)
-    set +e; run_locked_mechscope >>"$LOG_FILE" 2>&1; rc=$?; set -e
-    elapsed=$(( $(date +%s) - started ))
-    if ! gaming_requested; then log "MechScope exited rc=$rc after intentional mode transition"; return 0; fi
-    if (( elapsed >= 30 )); then crashes=0; else crashes=$((crashes+1)); fi
-    log "MechScope exited rc=$rc elapsed=${elapsed}s while Gaming Mode active; crash-count=$crashes"
-    if (( crashes >= 3 )); then
-      safe_desktop_fallback "source-owned MechScope exited three times in under 30 seconds (last rc=$rc)"; return 0
-    fi
-    sleep $((crashes+1))
-  done
-}
-
 start_plasma_mechscope(){
   export MECHOS_DISABLE_GAMESCOPE=1 MECHOS_SESSION_SUPERVISED=1
   export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE DESKTOP_SESSION=plasma
-  log 'starting source-owned MechScope inside supervised Plasma fallback'
-  plasma_mechscope_supervisor &
+  printf 'requested=%s\n' "$(date -Is 2>/dev/null || date)" >"$FALLBACK_REQUEST"
+  log 'requesting Plasma-ready MechScope fallback; Plasma autostart will own the visible launch'
   exec /usr/bin/startplasma-wayland
 }
 
@@ -219,6 +199,7 @@ if [[ "$MECHOS_INTEL_UMA" == 1 ]]; then
   ARGS=(-f)
   log 'Intel UMA integration: conservative fullscreen Gamescope arguments enabled'
 fi
+rm -f "$FALLBACK_REQUEST"
 if run_gamescope primary "${ARGS[@]}"; then exit 0; fi
 if gaming_requested && run_gamescope conservative -f; then exit 0; fi
 if gaming_requested; then log 'Gamescope ended; switching to supervised Plasma fallback'; start_plasma_mechscope; fi

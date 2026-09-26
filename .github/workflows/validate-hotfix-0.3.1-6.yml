@@ -1,0 +1,51 @@
+name: Validate MechOS 0.3.1 Hotfix 6
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mechscope-session-v20.sh'
+      - 'scripts/mechos-mechscope-source-runtime-v33.py'
+      - 'scripts/mechos-mechscope-plasma-fallback-v25.sh'
+      - 'scripts/build-hotfix-0.3.1-6.sh'
+      - 'scripts/validate-hotfix-0.3.1-6.sh'
+      - 'docs/RELEASE-NOTES-0.3.1-hotfix.6.md'
+      - '.github/workflows/validate-hotfix-0.3.1-6.yml'
+      - '.github/workflows/publish-hotfix-0.3.1-6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hotfix-0-3-1-6:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd openssl
+      - name: Validate Plasma-ready MechScope fallback
+        run: bash scripts/validate-hotfix-0.3.1-6.sh
+      - name: Build payload-only Hotfix 6 bundle
+        run: bash scripts/build-hotfix-0.3.1-6.sh
+      - name: Verify payload-only Hotfix 6 bundle
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.1-hotfix.6-update.tar.zst.sha256)
+          bash scripts/validate-payload-only-hotfix-v1.sh "$B"
+          CONTENTS="$(tar --zstd -tf "$B")"
+          for member in             './usr/local/bin/mechscope-session'             './usr/local/bin/mechos-mechscope-plasma-fallback-v25'             './usr/local/libexec/mechos-mechscope-source-runtime-v33'             './etc/xdg/autostart/mechos-mechscope-plasma-fallback.desktop'; do
+            grep -Fxq "$member" <<<"$CONTENTS"
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('updates/stable.json').read_text())
+          assert d['version']=='0.3.1-hotfix.6'
+          assert d['release_name']=='MechOS v0.3.1 Hotfix 6'
+          assert d['requires_reboot'] is True
+          PY

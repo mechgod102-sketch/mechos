@@ -6,10 +6,13 @@
     {
       "id": "boot",
       "name": "MechScope boot experience",
-      "status": "implemented",
+      "status": "implemented-plasma-fallback-needs-hardware-validation",
       "components": [
         "mechscope-session-v23",
-        "mechscope-loading.png"
+        "mechscope-loading.png",
+        "mechscope-session-v25",
+        "mechos-mechscope-plasma-fallback-v25",
+        "mechscope-foreground-present-v34"
       ]
     },
     {

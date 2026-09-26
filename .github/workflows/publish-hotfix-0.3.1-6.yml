@@ -1,0 +1,106 @@
+name: Publish MechOS 0.3.1 Hotfix 6
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build-hotfix-0.3.1-6.sh'
+      - 'scripts/validate-hotfix-0.3.1-6.sh'
+      - 'docs/RELEASE-NOTES-0.3.1-hotfix.6.md'
+      - '.github/workflows/publish-hotfix-0.3.1-6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mechos-stable-publish
+  cancel-in-progress: false
+
+jobs:
+  publish-hotfix-0-3-1-6:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout MechOS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Synchronize latest main
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+      - name: Refuse newer Stable release
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          v=json.loads(Path('updates/stable.json').read_text()).get('version','0.0.0')
+          m=re.fullmatch(r'0\.3\.1-hotfix\.(\d+)',v)
+          if v=='0.3.1' or (m and int(m.group(1)) <= 6):
+              raise SystemExit(0)
+          raise SystemExit(f'Refusing to overwrite newer Stable release {v} with 0.3.1-hotfix.6')
+          PY
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd openssl
+      - name: Validate Hotfix 6
+        run: bash scripts/validate-hotfix-0.3.1-6.sh
+      - name: Build payload-only Hotfix 6
+        run: bash scripts/build-hotfix-0.3.1-6.sh
+      - name: Verify payload-only archive
+        run: |
+          B=updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst
+          bash scripts/validate-payload-only-hotfix-v1.sh "$B"
+      - name: Sign Stable manifest
+        env:
+          SIGNING_KEY: ${{ secrets.MECHOS_UPDATE_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEY" || { echo 'MECHOS_UPDATE_SIGNING_PRIVATE_KEY is not configured.' >&2; exit 43; }
+          key="$RUNNER_TEMP/mechos-update-signing-private.pem"
+          derived="$RUNNER_TEMP/mechos-update-signing-public.pem"
+          expected="$RUNNER_TEMP/mechos-update-signing-public-expected.pem"
+          printf '%s\n' "$SIGNING_KEY" >"$key"
+          chmod 0600 "$key"
+          openssl pkey -in "$key" -pubout -out "$derived"
+          openssl pkey -pubin -in updates/mechos-update-signing-public.pem -pubout -out "$expected"
+          cmp -s "$derived" "$expected" || { echo 'Signing key mismatch.' >&2; exit 44; }
+          openssl dgst -sha256 -sign "$key" -out updates/stable.json.sig updates/stable.json
+          openssl dgst -sha256 -verify updates/mechos-update-signing-public.pem             -signature updates/stable.json.sig updates/stable.json
+      - name: Verify publication files
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst
+          (cd updates/bundles && sha256sum -c MechOS-0.3.1-hotfix.6-update.tar.zst.sha256)
+          bash scripts/validate-payload-only-hotfix-v1.sh "$B"
+          test -s updates/stable.json.sig
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          d=json.loads(Path('updates/stable.json').read_text())
+          assert d['version']=='0.3.1-hotfix.6'
+          b=Path('updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst')
+          assert hashlib.sha256(b.read_bytes()).hexdigest()==d['bundle_sha256']
+          PY
+      - name: Commit Stable Hotfix 6
+        run: |
+          set -euo pipefail
+          git config user.name 'MechOS Release Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add             updates/stable.json             updates/stable.json.sig             updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst             updates/bundles/MechOS-0.3.1-hotfix.6-update.tar.zst.sha256
+          if git diff --cached --quiet; then
+            echo '0.3.1-hotfix.6 publication files are already committed.'
+            exit 0
+          fi
+          git commit -m 'release: publish MechOS 0.3.1 Hotfix 6'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git fetch origin main
+            git rebase -X theirs origin/main || {
+              git rebase --abort >/dev/null 2>&1 || true
+              exit 1
+            }
+          done
+          exit 1

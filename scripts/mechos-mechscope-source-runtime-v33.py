@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # MECHOS_MECHSCOPE_SOURCE_RUNTIME_V33
+# MECHOS_MECHSCOPE_FOREGROUND_PRESENT_V34
 """Source-owned MechScope runtime.
 
 This is the stable installed-system owner for MechScope.  It deliberately does
@@ -251,14 +252,35 @@ def main() -> int:
         setattr(app, "_mechos_primary_window_v33", window)
         if not store_only:
             app.setQuitOnLastWindowClosed(False)
-            window.showFullScreen()
+
+            def present_window(reason: str) -> None:
+                try:
+                    window.showFullScreen()
+                    window.raise_()
+                    window.activateWindow()
+                    handle = window.windowHandle()
+                    if handle is not None:
+                        handle.requestActivate()
+                    log(
+                        "foreground present "
+                        f"reason={reason} platform={app.platformName()} "
+                        f"visible={window.isVisible()} active={window.isActiveWindow()} "
+                        f"fullscreen={bool(window.windowState() & Qt.WindowState.WindowFullScreen)}"
+                    )
+                except Exception:
+                    log("foreground presentation failed:\n" + traceback.format_exc())
+
+            present_window("initial")
+            for delay in (250, 750, 1500, 3000, 5000):
+                QTimer.singleShot(delay, lambda d=delay: present_window(f"startup-{d}ms"))
+
             keep = QTimer(app)
-            keep.setInterval(750)
+            keep.setInterval(1000)
             def ensure_visible():
                 try:
                     mode = MODE_FILE.read_text(encoding="utf-8", errors="ignore").strip() if MODE_FILE.exists() else "gaming"
                     if mode == "gaming" and not window.isVisible():
-                        window.showFullScreen(); window.raise_(); window.activateWindow()
+                        present_window("visibility-guard")
                 except Exception:
                     log("visibility guard failed:\n" + traceback.format_exc())
             keep.timeout.connect(ensure_visible)
