@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# MECHOS_CREATOR_QT_CALLBACK_GUARD_V27
 """Live Creator Mode shell.
 
 Creator Mode is rendered from native Qt widgets and live system/project data.
@@ -12,6 +13,8 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -24,6 +27,16 @@ from PyQt6.QtWidgets import QLabel, QStackedWidget, QWidget
 
 RELEASE_FILE = Path("/etc/mechos/release")
 UPDATE_HELPER = Path("/usr/local/bin/mechos-update-helper")
+CREATOR_RUNTIME_LOG = Path.home() / ".local/state/mechos/creator-mode-v27.log"
+
+
+def _creator_log(message: str) -> None:
+    try:
+        CREATOR_RUNTIME_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with CREATOR_RUNTIME_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S%z')}] {message.rstrip()}\n")
+    except Exception:
+        pass
 
 
 def _output(args, timeout=2):
@@ -303,26 +316,74 @@ class LiveCreatorHome(FixedCanvas):
         self._build()
 
         self.metric_timer = QTimer(self)
-        self.metric_timer.timeout.connect(self.refresh_metrics)
+        self.metric_timer.timeout.connect(self._timer_refresh_metrics)
         self.metric_timer.start(2000)
 
         self.app_timer = QTimer(self)
-        self.app_timer.timeout.connect(self.refresh_apps)
+        self.app_timer.timeout.connect(self._timer_refresh_apps)
         self.app_timer.start(15000)
 
         self.project_timer = QTimer(self)
-        self.project_timer.timeout.connect(self.refresh_projects)
+        self.project_timer.timeout.connect(self._timer_refresh_projects)
         self.project_timer.start(15000)
 
         self.update_timer = QTimer(self)
-        self.update_timer.timeout.connect(self.refresh_updates)
+        self.update_timer.timeout.connect(self._timer_refresh_updates)
         self.update_timer.start(300000)
 
         self.refresh_system_info()
-        self.refresh_metrics()
-        self.refresh_apps()
-        self.refresh_projects()
-        QTimer.singleShot(600, self.refresh_updates)
+        self._run_guarded("startup-metrics", self.refresh_metrics)
+        self._run_guarded("startup-apps", self.refresh_apps)
+        self._run_guarded("startup-projects", self.refresh_projects)
+
+        # Parent the startup timer to the page instead of using the static
+        # singleShot overload. This guarantees its lifetime follows the
+        # Creator page and gives the callback the same exception guard as all
+        # repeating background tasks.
+        self.startup_update_timer = QTimer(self)
+        self.startup_update_timer.setSingleShot(True)
+        self.startup_update_timer.timeout.connect(self._timer_refresh_updates)
+        self.startup_update_timer.start(600)
+
+    def _run_guarded(self, label, fn, *args):
+        try:
+            return fn(*args)
+        except Exception:
+            _creator_log(
+                f"background callback failed label={label}\n"
+                + traceback.format_exc()
+            )
+            try:
+                if label.startswith("update"):
+                    self.update_status.setText("UPDATE STATUS UNAVAILABLE")
+                    self.update_notes.setText(
+                        "Creator Mode caught an update-status error without closing the UI. "
+                        f"See {CREATOR_RUNTIME_LOG}."
+                    )
+            except Exception:
+                pass
+            return None
+
+    def _timer_refresh_metrics(self):
+        self._run_guarded("metrics", self.refresh_metrics)
+
+    def _timer_refresh_apps(self):
+        self._run_guarded("apps", self.refresh_apps)
+
+    def _timer_refresh_projects(self):
+        self._run_guarded("projects", self.refresh_projects)
+
+    def _timer_refresh_updates(self):
+        self._run_guarded("update-refresh", self.refresh_updates)
+
+    def _safe_read_update_output(self):
+        self._run_guarded("update-output", self._read_update_output)
+
+    def _safe_update_finished(self, code, status):
+        self._run_guarded("update-finished", self._update_finished, code, status)
+
+    def _safe_update_error(self, error):
+        self._run_guarded("update-process-error", self._update_process_error, error)
 
     def _build(self):
         self.label("◈  MECHOS", QRect(28, 18, 260, 50), 21, True)
@@ -616,18 +677,50 @@ class LiveCreatorHome(FixedCanvas):
         self._update_proc.setProgram(str(UPDATE_HELPER))
         self._update_proc.setArguments(["check"])
         self._update_proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self._update_proc.readyReadStandardOutput.connect(self._read_update_output)
-        self._update_proc.finished.connect(self._update_finished)
+        self._update_proc.readyReadStandardOutput.connect(self._safe_read_update_output)
+        self._update_proc.finished.connect(self._safe_update_finished)
+        self._update_proc.errorOccurred.connect(self._safe_update_error)
         self._update_proc.start()
 
     def _read_update_output(self):
-        if getattr(self, "_update_proc", None) is None:
+        proc = getattr(self, "_update_proc", None)
+        if proc is None:
             return
-        data = bytes(self._update_proc.readAllStandardOutput()).decode(errors="replace")
+        data = bytes(proc.readAllStandardOutput()).decode(errors="replace")
         self._update_buffer += data
 
+    def _update_process_error(self, error):
+        proc = getattr(self, "_update_proc", None)
+        detail = proc.errorString() if proc is not None else str(error)
+        _creator_log(f"update QProcess error={error!r} detail={detail}")
+        try:
+            failed_to_start = (
+                error == QProcess.ProcessError.FailedToStart
+                or (proc is not None and proc.state() == QProcess.ProcessState.NotRunning)
+            )
+        except Exception:
+            failed_to_start = False
+        if failed_to_start and proc is not None:
+            self._update_proc = None
+            proc.deleteLater()
+        try:
+            self.update_status.setText("UPDATE CHECK FAILED")
+            self.update_notes.setText(
+                "Creator Mode could not start the update status check. "
+                f"See {CREATOR_RUNTIME_LOG}."
+            )
+        except Exception:
+            pass
+
     def _update_finished(self, code, _status):
-        self._read_update_output()
+        proc = getattr(self, "_update_proc", None)
+        if proc is not None:
+            data = bytes(proc.readAllStandardOutput()).decode(errors="replace")
+            if data:
+                self._update_buffer += data
+            self._update_proc = None
+            proc.deleteLater()
+
         values = {}
         for line in self._update_buffer.splitlines():
             if "=" in line:
