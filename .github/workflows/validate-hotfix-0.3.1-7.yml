@@ -1,0 +1,48 @@
+name: Validate MechOS 0.3.1 Hotfix 7
+
+on:
+  pull_request:
+    paths:
+      - 'src/mechos_ui/creator_shell.py'
+      - 'scripts/build-hotfix-0.3.1-7.sh'
+      - 'scripts/validate-hotfix-0.3.1-7.sh'
+      - 'docs/RELEASE-NOTES-0.3.1-hotfix.7.md'
+      - '.github/workflows/validate-hotfix-0.3.1-7.yml'
+      - '.github/workflows/publish-hotfix-0.3.1-7.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hotfix-0-3-1-7:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd openssl
+      - name: Validate Creator Qt callback guards
+        run: bash scripts/validate-hotfix-0.3.1-7.sh
+      - name: Build payload-only Hotfix 7
+        run: bash scripts/build-hotfix-0.3.1-7.sh
+      - name: Verify payload-only Hotfix 7
+        run: |
+          set -euo pipefail
+          B=updates/bundles/MechOS-0.3.1-hotfix.7-update.tar.zst
+          test -s "$B"
+          test -s "$B.sha256"
+          (cd updates/bundles && sha256sum -c MechOS-0.3.1-hotfix.7-update.tar.zst.sha256)
+          bash scripts/validate-payload-only-hotfix-v1.sh "$B"
+          CONTENTS="$(tar --zstd -tf "$B")"
+          grep -Fxq './usr/local/share/mechos/ui/creator_shell.py' <<<"$CONTENTS"
+          grep -Fxq './usr/lib/systemd/user/mechos-creator-mode.service' <<<"$CONTENTS"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('updates/stable.json').read_text())
+          assert d['version']=='0.3.1-hotfix.7'
+          assert d['release_name']=='MechOS v0.3.1 Hotfix 7'
+          assert d['requires_reboot'] is True
+          PY
