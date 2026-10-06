@@ -694,6 +694,16 @@ class LiveCreatorHome(FixedCanvas):
         detail = proc.errorString() if proc is not None else str(error)
         _creator_log(f"update QProcess error={error!r} detail={detail}")
         try:
+            failed_to_start = (
+                error == QProcess.ProcessError.FailedToStart
+                or (proc is not None and proc.state() == QProcess.ProcessState.NotRunning)
+            )
+        except Exception:
+            failed_to_start = False
+        if failed_to_start and proc is not None:
+            self._update_proc = None
+            proc.deleteLater()
+        try:
             self.update_status.setText("UPDATE CHECK FAILED")
             self.update_notes.setText(
                 "Creator Mode could not start the update status check. "
