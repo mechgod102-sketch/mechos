@@ -98,10 +98,12 @@
     {
       "id": "creator",
       "name": "Creator Mode and Windows creator tools",
-      "status": "implemented-needs-app-validation",
+      "status": "implemented-needs-app-and-hardware-validation",
       "components": [
         "mechos-creator",
-        "mechos-creator-mode"
+        "mechos-creator-mode",
+        "creator-qt-callback-guard-v27",
+        "creator-bounded-restart"
       ]
     },
     {
